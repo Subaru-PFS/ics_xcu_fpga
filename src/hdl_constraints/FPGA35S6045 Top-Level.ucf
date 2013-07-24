@@ -243,7 +243,7 @@ NET "pgood_3v3"                         IOSTANDARD = LVCMOS33 | LOC = "W17";    
 NET "port_output_en_n"                  IOSTANDARD = LVCMOS33 | LOC = "W15";        #I/O
 
 ## 
-NET "port0_*" 		IOSTANDARD = LVCMOS33;
+NET "port0_*" 		IOSTANDARD = LVDS_33;
 NET "port0_p[0]"                    LOC = "AA18";       # CN4.01
 NET "port0_n[0]"                    LOC = "AB18";       # CN4.03
 NET "port0_p[1]"                    LOC = "W12";        # CN4.05
@@ -269,7 +269,7 @@ NET "port0_n[10]"                   LOC = "AB4";        # CN4.43
 NET "port0_p[11]"                   LOC = "W6";         # CN4.45
 NET "port0_n[11]"                   LOC = "Y6";         # CN4.47
 
-NET "port1_*" 		IOSTANDARD = LVCMOS33;
+NET "port1_*" 		IOSTANDARD = LVDS_33;
 NET "port1_p[0]"                    LOC = "B20";        # CN9.01
 NET "port1_n[0]"                    LOC = "A20";        # CN9.03
 NET "port1_p[1]"                    LOC = "E16";        # CN9.05
@@ -295,7 +295,7 @@ NET "port1_n[10]"                   LOC = "A3";         # CN9.43
 NET "port1_p[11]"                   LOC = "C3";         # CN9.45
 NET "port1_n[11]"                   LOC = "D3";         # CN9.47
 
-NET "port2_*" 		IOSTANDARD = LVCMOS33;
+NET "port2_*" 		IOSTANDARD = LVDS_33;
 NET "port2_p[0]"                    LOC = "B21";        # CN8.01
 NET "port2_n[0]"                    LOC = "B22";        # CN8.02
 NET "port2_p[1]"                    LOC = "F18";        # CN8.03

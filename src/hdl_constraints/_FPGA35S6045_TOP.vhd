@@ -3,6 +3,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+Library UNISIM;
+use UNISIM.vcomponents.all;
+
 entity FPGA35S6045_TOP is
 	generic
 		(
@@ -55,12 +58,12 @@ entity FPGA35S6045_TOP is
 			eeprom_si	: out std_logic;       
 			eeprom_so	: in std_logic;  
 
-			port0_p		: inout std_logic_vector (11 downto 0);	
-			port0_n		: inout std_logic_vector (11 downto 0);	
-			port1_p		: inout std_logic_vector (11 downto 0);	
-			port1_n		: inout std_logic_vector (11 downto 0);	
-			port2_p		: inout std_logic_vector (19 downto 0);	
-			port2_n		: inout std_logic_vector (19 downto 0)	
+			port0_p		: out std_logic_vector (11 downto 0);	
+			port0_n		: out std_logic_vector (11 downto 0);	
+			port1_p		: out std_logic_vector (11 downto 0);	
+			port1_n		: out std_logic_vector (11 downto 0);	
+			port2_p		: in std_logic_vector (19 downto 0);	
+			port2_n		: in std_logic_vector (19 downto 0)	
 		);
 end FPGA35S6045_TOP;
 
@@ -351,46 +354,49 @@ begin
 	register_file(R_PORT0_IN).readonly 	<= true;
 	
 	G_PORT0: for i in 0 to 11 generate
-		register_file(R_PORT0_IN).default(2*i+0) 	<= port0_p(i);
-		register_file(R_PORT0_IN).default(2*i+1) 	<= port0_n(i);
-		
-		port0_p(i) <= register_file(R_PORT0_OUT).data(2*i+0) when (register_file(R_PORT0_DIR).data(2*i+0)='1') else 'Z';
-		port0_n(i) <= register_file(R_PORT0_OUT).data(2*i+1) when (register_file(R_PORT0_DIR).data(2*i+1)='1') else 'Z';
+		OBUFDS0_inst : OBUFDS
+		generic map (
+			IOSTANDARD => "default"
+		)
+		port map (
+			O => port0_p(i),
+			OB => port0_n(i),
+			I => register_file(R_PORT0_OUT).data(i)
+		);
 	end generate;
 	
 	-- Port 1
 	register_file(R_PORT1_IN).readonly 	<= true;
 	
 	G_PORT1: for i in 0 to 11 generate
-		register_file(R_PORT1_IN).default(2*i+0) 	<= port1_p(i);
-		register_file(R_PORT1_IN).default(2*i+1) 	<= port1_n(i);
-		
-		port1_p(i) <= register_file(R_PORT1_OUT).data(2*i+0) when (register_file(R_PORT1_DIR).data(2*i+0)='1') else 'Z';
-		port1_n(i) <= register_file(R_PORT1_OUT).data(2*i+1) when (register_file(R_PORT1_DIR).data(2*i+1)='1') else 'Z';
+		OBUFDS1_inst : OBUFDS
+		generic map (
+			IOSTANDARD => "default"
+		)
+		port map (
+			O => port1_p(i),
+			OB => port1_n(i),
+			I => register_file(R_PORT1_OUT).data(i)
+		);
 	end generate;
 	
-	-- Port 2 low
+	-- Port 2
 	register_file(R_PORT2L_IN).readonly 	<= true;
-	
-	G_PORT2L: for i in 0 to 15 generate
-		register_file(R_PORT2L_IN).default(2*i+0) 	<= port2_p(i);
-		register_file(R_PORT2L_IN).default(2*i+1) 	<= port2_n(i);
-		
-		port2_p(i) <= register_file(R_PORT2L_OUT).data(2*i+0) when (register_file(R_PORT2L_DIR).data(2*i+0)='1') else 'Z';
-		port2_n(i) <= register_file(R_PORT2L_OUT).data(2*i+1) when (register_file(R_PORT2L_DIR).data(2*i+1)='1') else 'Z';
-	end generate;
-
-	-- Port 2 high
 	register_file(R_PORT2H_IN).readonly 	<= true;
 	
-	G_PORT2H: for i in 16 to 19 generate
-		register_file(R_PORT2H_IN).default(2*i+0-32) 	<= port2_p(i);
-		register_file(R_PORT2H_IN).default(2*i+1-32) 	<= port2_n(i);
-		
-		port2_p(i) <= register_file(R_PORT2H_OUT).data(2*i+0-32) when (register_file(R_PORT2H_DIR).data(2*i+0-32)='1') else 'Z';
-		port2_n(i) <= register_file(R_PORT2H_OUT).data(2*i+1-32) when (register_file(R_PORT2H_DIR).data(2*i+1-32)='1') else 'Z';
+	G_PORT2L: for i in 0 to 19 generate
+		IBUFDS_inst : IBUFDS
+		generic map (
+			DIFF_TERM => TRUE, -- Differential Termination
+			IBUF_LOW_PWR => FALSE, -- (high performance)
+			IOSTANDARD => "default")
+		port map (
+			O => register_file(R_PORT2L_IN).default(i),
+			I => port2_p(i),
+			IB => port2_n(i)
+		);
 	end generate;
-	
+
 	---------------------------------------------------------------------------
 	-- Memory Interface
 	---------------------------------------------------------------------------
