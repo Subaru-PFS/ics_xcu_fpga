@@ -21,46 +21,46 @@ entity FPGA35S6045_TOP is
 			sys_reset_n : in  std_logic;
 
 			-- Memory Controller Block Interface
-			mcb3_dram_dq                            : inout  std_logic_vector(15 downto 0);
-			mcb3_dram_a                             : out std_logic_vector(14 downto 0) := (others => '0');
-			mcb3_dram_ba                            : out std_logic_vector(2 downto 0);
-			mcb3_dram_ras_n                         : out std_logic;
-			mcb3_dram_cas_n                         : out std_logic;
-			mcb3_dram_we_n                          : out std_logic;
-			mcb3_dram_odt                           : out std_logic;
-			mcb3_dram_cke                           : out std_logic;
-			mcb3_dram_dm                            : out std_logic;
-			mcb3_dram_udqs                          : inout  std_logic;
-			mcb3_dram_udqs_n                        : inout  std_logic;
-			mcb3_rzq                                : inout  std_logic;
-			mcb3_zio                                : inout  std_logic;
-			mcb3_dram_udm                           : out std_logic;
-			mcb3_dram_dqs                           : inout  std_logic;
-			mcb3_dram_dqs_n                         : inout  std_logic;
-			mcb3_dram_ck                            : out std_logic;
-			mcb3_dram_ck_n                          : out std_logic;
-			mcb3_odt											 : out std_logic;
+			mcb3_dram_dq     : inout  std_logic_vector(15 downto 0);
+			mcb3_dram_a      : out std_logic_vector(14 downto 0) := (others => '0');
+			mcb3_dram_ba     : out std_logic_vector(2 downto 0);
+			mcb3_dram_ras_n  : out std_logic;
+			mcb3_dram_cas_n  : out std_logic;
+			mcb3_dram_we_n   : out std_logic;
+			mcb3_dram_odt    : out std_logic;
+			mcb3_dram_cke    : out std_logic;
+			mcb3_dram_dm     : out std_logic;
+			mcb3_dram_udqs   : inout  std_logic;
+			mcb3_dram_udqs_n : inout  std_logic;
+			mcb3_rzq         : inout  std_logic;
+			mcb3_zio         : inout  std_logic;
+			mcb3_dram_udm    : out std_logic;
+			mcb3_dram_dqs    : inout  std_logic;
+			mcb3_dram_dqs_n  : inout  std_logic;
+			mcb3_dram_ck     : out std_logic;
+			mcb3_dram_ck_n   : out std_logic;
+			mcb3_odt	 : out std_logic;
 
 			-- Clocks and misc
-			clk_27mhz_1										: in std_logic;     
-			clk_27mhz_2										: in std_logic;     
-			pgood_1v2										: in std_logic;      
-			pgood_1v8										: in std_logic;      
-			pgood_3v3										: in std_logic;      
-			port_output_en_n								: out std_logic; -- 0 to connect CN4 and CN9
+			clk_27mhz_1		: in std_logic;     
+			clk_27mhz_2		: in std_logic;     
+			pgood_1v2		: in std_logic;      
+			pgood_1v8		: in std_logic;      
+			pgood_3v3		: in std_logic;      
+			port_output_en_n	: out std_logic; -- 0 to connect CN4 and CN9
 
 			-- AT93C66 SPI EEPROM
-			eeprom_cs										: out std_logic;       
-			eeprom_sck										: out std_logic;      
-			eeprom_si										: out std_logic;       
-			eeprom_so										: in std_logic;  
+			eeprom_cs	: out std_logic;       
+			eeprom_sck	: out std_logic;      
+			eeprom_si	: out std_logic;       
+			eeprom_so	: in std_logic;  
 
-			port0_p											: inout std_logic_vector (11 downto 0);	
-			port0_n											: inout std_logic_vector (11 downto 0);	
-			port1_p											: inout std_logic_vector (11 downto 0);	
-			port1_n											: inout std_logic_vector (11 downto 0);	
-			port2_p											: inout std_logic_vector (19 downto 0);	
-			port2_n											: inout std_logic_vector (19 downto 0)	
+			port0_p		: inout std_logic_vector (11 downto 0);	
+			port0_n		: inout std_logic_vector (11 downto 0);	
+			port1_p		: inout std_logic_vector (11 downto 0);	
+			port1_n		: inout std_logic_vector (11 downto 0);	
+			port2_p		: inout std_logic_vector (19 downto 0);	
+			port2_n		: inout std_logic_vector (19 downto 0)	
 		);
 end FPGA35S6045_TOP;
 
@@ -80,9 +80,9 @@ architecture rtl of FPGA35S6045_TOP is
 			pci_exp_rxp             : in  std_logic;
 			pci_exp_rxn             : in  std_logic;
 
-			sys_clk_p   				: in  std_logic;
-			sys_clk_n   				: in  std_logic;
-			sys_reset_n 				: in  std_logic;
+			sys_clk_p   		: in  std_logic;
+			sys_clk_n   		: in  std_logic;
+			sys_reset_n 		: in  std_logic;
 			
 			-- Local Common
 			clk                    : out std_logic;
@@ -139,53 +139,53 @@ architecture rtl of FPGA35S6045_TOP is
 			C3_MEM_BANKADDR_WIDTH     : integer := 3
 		);
 		port (
-			mcb3_dram_dq                            : inout  std_logic_vector(C3_NUM_DQ_PINS-1 downto 0);
-			mcb3_dram_a                             : out std_logic_vector(C3_MEM_ADDR_WIDTH-1 downto 0);
-			mcb3_dram_ba                            : out std_logic_vector(C3_MEM_BANKADDR_WIDTH-1 downto 0);
-			mcb3_dram_ras_n                         : out std_logic;
-			mcb3_dram_cas_n                         : out std_logic;
-			mcb3_dram_we_n                          : out std_logic;
-			--mcb3_dram_odt                           : out std_logic;
-			mcb3_dram_cke                           : out std_logic;
-			mcb3_dram_dm                            : out std_logic;
-			mcb3_dram_udqs                          : inout  std_logic;
-			mcb3_dram_udqs_n                        : inout  std_logic;
-			mcb3_rzq                                : inout  std_logic;
-			mcb3_zio                                : inout  std_logic;
-			mcb3_dram_udm                           : out std_logic;
-			c3_sys_clk                              : in  std_logic;
-			c3_sys_rst_i                            : in  std_logic;
-			c3_calib_done                           : out std_logic;
-			c3_clk0                                 : out std_logic;
-			c3_rst0                                 : out std_logic;
-			mcb3_dram_dqs                           : inout  std_logic;
-			mcb3_dram_dqs_n                         : inout  std_logic;
-			mcb3_dram_ck                            : out std_logic;
-			mcb3_dram_ck_n                          : out std_logic;
-			c3_p0_cmd_clk                           : in std_logic;
-			c3_p0_cmd_en                            : in std_logic;
-			c3_p0_cmd_instr                         : in std_logic_vector(2 downto 0);
-			c3_p0_cmd_bl                            : in std_logic_vector(5 downto 0);
-			c3_p0_cmd_byte_addr                     : in std_logic_vector(29 downto 0);
-			c3_p0_cmd_empty                         : out std_logic;
-			c3_p0_cmd_full                          : out std_logic;
-			c3_p0_wr_clk                            : in std_logic;
-			c3_p0_wr_en                             : in std_logic;
-			c3_p0_wr_mask                           : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
-			c3_p0_wr_data                           : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-			c3_p0_wr_full                           : out std_logic;
-			c3_p0_wr_empty                          : out std_logic;
-			c3_p0_wr_count                          : out std_logic_vector(6 downto 0);
-			c3_p0_wr_underrun                       : out std_logic;
-			c3_p0_wr_error                          : out std_logic;
-			c3_p0_rd_clk                            : in std_logic;
-			c3_p0_rd_en                             : in std_logic;
-			c3_p0_rd_data                           : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-			c3_p0_rd_full                           : out std_logic;
-			c3_p0_rd_empty                          : out std_logic;
-			c3_p0_rd_count                          : out std_logic_vector(6 downto 0);
-			c3_p0_rd_overflow                       : out std_logic;
-			c3_p0_rd_error                          : out std_logic
+			mcb3_dram_dq         : inout  std_logic_vector(C3_NUM_DQ_PINS-1 downto 0);
+			mcb3_dram_a          : out std_logic_vector(C3_MEM_ADDR_WIDTH-1 downto 0);
+			mcb3_dram_ba         : out std_logic_vector(C3_MEM_BANKADDR_WIDTH-1 downto 0);
+			mcb3_dram_ras_n      : out std_logic;
+			mcb3_dram_cas_n      : out std_logic;
+			mcb3_dram_we_n       : out std_logic;
+			--mcb3_dram_odt        : out std_logic;
+			mcb3_dram_cke        : out std_logic;
+			mcb3_dram_dm         : out std_logic;
+			mcb3_dram_udqs       : inout  std_logic;
+			mcb3_dram_udqs_n     : inout  std_logic;
+			mcb3_rzq             : inout  std_logic;
+			mcb3_zio             : inout  std_logic;
+			mcb3_dram_udm        : out std_logic;
+			c3_sys_clk           : in  std_logic;
+			c3_sys_rst_i         : in  std_logic;
+			c3_calib_done        : out std_logic;
+			c3_clk0              : out std_logic;
+			c3_rst0              : out std_logic;
+			mcb3_dram_dqs        : inout  std_logic;
+			mcb3_dram_dqs_n      : inout  std_logic;
+			mcb3_dram_ck         : out std_logic;
+			mcb3_dram_ck_n       : out std_logic;
+			c3_p0_cmd_clk        : in std_logic;
+			c3_p0_cmd_en         : in std_logic;
+			c3_p0_cmd_instr      : in std_logic_vector(2 downto 0);
+			c3_p0_cmd_bl         : in std_logic_vector(5 downto 0);
+			c3_p0_cmd_byte_addr  : in std_logic_vector(29 downto 0);
+			c3_p0_cmd_empty      : out std_logic;
+			c3_p0_cmd_full       : out std_logic;
+			c3_p0_wr_clk         : in std_logic;
+			c3_p0_wr_en          : in std_logic;
+			c3_p0_wr_mask        : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
+			c3_p0_wr_data        : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+			c3_p0_wr_full        : out std_logic;
+			c3_p0_wr_empty       : out std_logic;
+			c3_p0_wr_count       : out std_logic_vector(6 downto 0);
+			c3_p0_wr_underrun    : out std_logic;
+			c3_p0_wr_error       : out std_logic;
+			c3_p0_rd_clk         : in std_logic;
+			c3_p0_rd_en          : in std_logic;
+			c3_p0_rd_data        : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+			c3_p0_rd_full        : out std_logic;
+			c3_p0_rd_empty       : out std_logic;
+			c3_p0_rd_count       : out std_logic_vector(6 downto 0);
+			c3_p0_rd_overflow    : out std_logic;
+			c3_p0_rd_error       : out std_logic
 		);
 	end component;
 
@@ -214,13 +214,13 @@ architecture rtl of FPGA35S6045_TOP is
 	signal c3_p0_cmd_instr	: std_logic_vector (2 downto 0);
 	signal c3_p0_cmd_en	: std_logic;
 	signal c3_p0_rd_en	: std_logic;
-	signal cmd_delay		: std_logic;	
-	signal cmd_delay2		: std_logic;	
+	signal cmd_delay	: std_logic;	
+	signal cmd_delay2	: std_logic;	
 	
 	-- Clock Counter Registers
-	signal clk_cnt			: std_logic;
-	signal clk_cnt_1		: std_logic;
-	signal clk_cnt_2		: std_logic;
+	signal clk_cnt		: std_logic;
+	signal clk_cnt_1	: std_logic;
+	signal clk_cnt_2	: std_logic;
 	signal clk_62_5MHz_cnt	: unsigned (11 downto 0);
 	signal clk_27_MHz_cnt_1	: unsigned (11 downto 0);
 	signal clk_27_MHz_cnt_2	: unsigned (11 downto 0);
@@ -229,36 +229,36 @@ architecture rtl of FPGA35S6045_TOP is
 	constant REGISTER_COUNT		: natural := 32;
 	type reg_32bit is record
 		data		: std_logic_vector (31 downto 0);
-		default	: std_logic_vector (31 downto 0);
+		default		: std_logic_vector (31 downto 0);
 		readonly	: boolean;
 	end record;
 	type reg_32bit_array	is array (natural range <>) of reg_32bit;
 	signal register_file	: reg_32bit_array (REGISTER_COUNT-1 downto 0) := (others => (x"00000000", x"00000000", false));
 	
 	-- Register Locations
-	constant	R_ID				: natural := 16#0000#/4;
-	constant	R_STATUS			: natural := 16#0004#/4;
-	constant	R_EEPROM			: natural := 16#0008#/4;
-	constant	R_PORT0_IN		: natural := 16#0010#/4;
-	constant	R_PORT0_OUT		: natural := 16#0014#/4;
-	constant	R_PORT0_DIR		: natural := 16#0018#/4;
-	constant	R_PORT1_IN		: natural := 16#0020#/4;
-	constant	R_PORT1_OUT		: natural := 16#0024#/4;
-	constant	R_PORT1_DIR		: natural := 16#0028#/4;
-	constant	R_PORT2L_IN		: natural := 16#0030#/4;
+	constant	R_ID		: natural := 16#0000#/4;
+	constant	R_STATUS	: natural := 16#0004#/4;
+	constant	R_EEPROM	: natural := 16#0008#/4;
+	constant	R_PORT0_IN	: natural := 16#0010#/4;
+	constant	R_PORT0_OUT	: natural := 16#0014#/4;
+	constant	R_PORT0_DIR	: natural := 16#0018#/4;
+	constant	R_PORT1_IN	: natural := 16#0020#/4;
+	constant	R_PORT1_OUT	: natural := 16#0024#/4;
+	constant	R_PORT1_DIR	: natural := 16#0028#/4;
+	constant	R_PORT2L_IN	: natural := 16#0030#/4;
 	constant	R_PORT2L_OUT	: natural := 16#0034#/4;
 	constant	R_PORT2L_DIR	: natural := 16#0038#/4;
-	constant	R_PORT2H_IN		: natural := 16#0040#/4;
+	constant	R_PORT2H_IN	: natural := 16#0040#/4;
 	constant	R_PORT2H_OUT	: natural := 16#0044#/4;
 	constant	R_PORT2H_DIR	: natural := 16#0048#/4;
 
 	constant	R_DDR_RD_DATA	: natural := 16#0050#/4;
 	constant	R_DDR_WR_DATA	: natural := 16#0054#/4;
-	constant	R_DDR_ADDR		: natural := 16#0058#/4;
+	constant	R_DDR_ADDR	: natural := 16#0058#/4;
 	constant	R_DDR_STATUS	: natural := 16#005C#/4;
 	
-	constant	R_CLK_27_1		: natural := 16#0060#/4;
-	constant	R_CLK_27_2		: natural := 16#0064#/4;
+	constant	R_CLK_27_1	: natural := 16#0060#/4;
+	constant	R_CLK_27_2	: natural := 16#0064#/4;
 	
 
 begin
@@ -272,21 +272,21 @@ begin
 			FAST_TRAIN 	=> FAST_TRAIN
 		)
 		port map (
-			pci_exp_txp         => pci_exp_txp,
-			pci_exp_txn         => pci_exp_txn,
-			pci_exp_rxp         => pci_exp_rxp,
-			pci_exp_rxn         => pci_exp_rxn,
-			sys_clk_p   			=> sys_clk_p,
-			sys_clk_n   			=> sys_clk_n, 
-			sys_reset_n 			=> sys_reset_n,
+			pci_exp_txp	=> pci_exp_txp,
+			pci_exp_txn	=> pci_exp_txn,
+			pci_exp_rxp	=> pci_exp_rxp,
+			pci_exp_rxn	=> pci_exp_rxn,
+			sys_clk_p	=> sys_clk_p,
+			sys_clk_n	=> sys_clk_n, 
+			sys_reset_n	=> sys_reset_n,
 
 			-- Local Common
 			clk                 => clk,   
 			rst_n               => rst_n, 	
 			--  Local Read Port
-			rd_addr      		  => rd_addr,
-			rd_be        		  => rd_be,  
-			rd_data             => rd_data,
+			rd_addr		=> rd_addr,
+			rd_be		=> rd_be,  
+			rd_data		=> rd_data,
 			--  Local Write Port
 			wr_addr             => wr_addr,
 			wr_be               => wr_be,  
@@ -397,59 +397,75 @@ begin
 	u_mig_39 : mig_39
 		port map (
 
-			c3_sys_clk  			=> clk,
-			c3_sys_rst_i   		=> rst_n,
+			c3_sys_clk		=> clk,
+			c3_sys_rst_i		=> rst_n,
 
 			-- Connections to DDR2 Chip
-			mcb3_dram_dq 			=> mcb3_dram_dq,  
-			mcb3_dram_a 			=> mcb3_dram_a(12 downto 0),  
-			mcb3_dram_ba 			=> mcb3_dram_ba,
-			mcb3_dram_ras_n 		=> mcb3_dram_ras_n,                        
-			mcb3_dram_cas_n 		=> mcb3_dram_cas_n,                        
-			mcb3_dram_we_n 		=> mcb3_dram_we_n,
-			--mcb3_dram_odt			=> mcb3_dram_odt,
-			mcb3_dram_cke 			=> mcb3_dram_cke,                          
-			mcb3_dram_ck 			=> mcb3_dram_ck,                          
-			mcb3_dram_ck_n 		=> mcb3_dram_ck_n,       
-			mcb3_dram_dqs 			=> mcb3_dram_dqs,                          
-			mcb3_dram_dqs_n 		=> mcb3_dram_dqs_n,
-			mcb3_dram_udqs 		=> mcb3_dram_udqs,          
-			mcb3_dram_udqs_n 		=> mcb3_dram_udqs_n,
-			mcb3_dram_udm 			=> mcb3_dram_udm,
-			mcb3_dram_dm 			=> mcb3_dram_dm,
-			mcb3_rzq        		=> mcb3_rzq,
-			mcb3_zio        		=> mcb3_zio,
-			
-			c3_clk0					=>	 open, -- Output
-			c3_rst0					=>  open, -- Output
+			mcb3_dram_dq		=> mcb3_dram_dq,
+			mcb3_dram_a		=> mcb3_dram_a(12 downto 0),  
+			mcb3_dram_ba		=> mcb3_dram_ba,
+			mcb3_dram_ras_n		=> mcb3_dram_ras_n,
+			mcb3_dram_cas_n		=> mcb3_dram_cas_n,
+			mcb3_dram_we_n		=> mcb3_dram_we_n,
+			--mcb3_dram_odt		=> mcb3_dram_odt,
+			mcb3_dram_cke		=> mcb3_dram_cke,
+			mcb3_dram_ck		=> mcb3_dram_ck,
+			mcb3_dram_ck_n		=> mcb3_dram_ck_n,
+			mcb3_dram_dqs		=> mcb3_dram_dqs,
+			mcb3_dram_dqs_n		=> mcb3_dram_dqs_n,
+			mcb3_dram_udqs		=> mcb3_dram_udqs,
+			mcb3_dram_udqs_n 	=> mcb3_dram_udqs_n,
+			mcb3_dram_udm 		=> mcb3_dram_udm,
+			mcb3_dram_dm 		=> mcb3_dram_dm,
+			mcb3_rzq        	=> mcb3_rzq,
+			mcb3_zio        	=> mcb3_zio,
 
-			c3_calib_done      	=>  register_file(R_DDR_STATUS).default(31),
+			c3_clk0			=> open, -- Output
+			c3_rst0			=> open, -- Output
 
-			c3_p0_cmd_clk        => clk,
-			c3_p0_cmd_en         => c3_p0_cmd_en,
-			c3_p0_cmd_instr      => c3_p0_cmd_instr, 
-			c3_p0_cmd_bl         => "000001",
-			c3_p0_cmd_byte_addr(29 downto 3)	=> register_file(R_DDR_ADDR).data(28 downto 2),
-			c3_p0_cmd_byte_addr(2 downto 0)  => "000", -- 3 lsb are unused (Xilinx says 2, but it is actually 3)
-			c3_p0_cmd_empty      => register_file(R_DDR_STATUS).default(25),
-			c3_p0_cmd_full       => register_file(R_DDR_STATUS).default(24),
-			c3_p0_wr_clk         => clk,
-			c3_p0_wr_en          => ddr_data_wr_d,
-			c3_p0_wr_mask        => "0000",
-			c3_p0_wr_data        => register_file(R_DDR_WR_DATA).data,
-			c3_p0_wr_full        => register_file(R_DDR_STATUS).default(7),
-			c3_p0_wr_empty       => register_file(R_DDR_STATUS).default(6),
-			c3_p0_wr_count       => register_file(R_DDR_STATUS).default(22 downto 16),
-			c3_p0_wr_underrun    => register_file(R_DDR_STATUS).default(5),
-			c3_p0_wr_error       => register_file(R_DDR_STATUS).default(4),
-			c3_p0_rd_clk         => clk,
-			c3_p0_rd_en          => c3_p0_rd_en,
-			c3_p0_rd_data        => register_file(R_DDR_RD_DATA).default,
-			c3_p0_rd_full        => register_file(R_DDR_STATUS).default(3),
-			c3_p0_rd_empty       => register_file(R_DDR_STATUS).default(2),
-			c3_p0_rd_count       => register_file(R_DDR_STATUS).default(14 downto 8),
-			c3_p0_rd_overflow    => register_file(R_DDR_STATUS).default(1),
-			c3_p0_rd_error       => register_file(R_DDR_STATUS).default(0)
+			c3_calib_done		=>
+				register_file(R_DDR_STATUS).default(31),
+
+			c3_p0_cmd_clk		=> clk,
+			c3_p0_cmd_en		=> c3_p0_cmd_en,
+			c3_p0_cmd_instr		=> c3_p0_cmd_instr, 
+			c3_p0_cmd_bl		=> "000001",
+			c3_p0_cmd_byte_addr(29 downto 3) =>
+				register_file(R_DDR_ADDR).data(28 downto 2),
+			c3_p0_cmd_byte_addr(2 downto 0) =>
+				"000", -- 3 lsb are unused (Xilinx says 2, but it is actually 3)
+			c3_p0_cmd_empty		=>
+				register_file(R_DDR_STATUS).default(25),
+			c3_p0_cmd_full		=>
+				register_file(R_DDR_STATUS).default(24),
+			c3_p0_wr_clk		=> clk,
+			c3_p0_wr_en		=> ddr_data_wr_d,
+			c3_p0_wr_mask		=> "0000",
+			c3_p0_wr_data		=>
+				register_file(R_DDR_WR_DATA).data,
+			c3_p0_wr_full		=>
+				register_file(R_DDR_STATUS).default(7),
+			c3_p0_wr_empty		=>
+				register_file(R_DDR_STATUS).default(6),
+			c3_p0_wr_count		=>
+				register_file(R_DDR_STATUS).default(22 downto 16),
+			c3_p0_wr_underrun	=>
+				register_file(R_DDR_STATUS).default(5),
+			c3_p0_wr_error		=> register_file(R_DDR_STATUS).default(4),
+			c3_p0_rd_clk		=> clk,
+			c3_p0_rd_en		=> c3_p0_rd_en,
+			c3_p0_rd_data		=>
+				register_file(R_DDR_RD_DATA).default,
+			c3_p0_rd_full		=>
+				register_file(R_DDR_STATUS).default(3),
+			c3_p0_rd_empty		=>
+				register_file(R_DDR_STATUS).default(2),
+			c3_p0_rd_count		=>
+				register_file(R_DDR_STATUS).default(14 downto 8),
+			c3_p0_rd_overflow	=>
+				register_file(R_DDR_STATUS).default(1),
+			c3_p0_rd_error		=>
+				register_file(R_DDR_STATUS).default(0)
 		);
 		c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
 		
