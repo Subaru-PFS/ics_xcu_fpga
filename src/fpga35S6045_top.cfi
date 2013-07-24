@@ -1,0 +1,12 @@
+# PROMGEN: Xilinx Prom Generator P.40xd
+# Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved.
+
+SOFTWARE_VERSION P.40xd
+DATE            11/21/2012 - 12:22
+SOURCE          D:\Sandbox\FPGA35S6045\FPGA\trunk_045\Project\fpga35S6045_top.mcs
+DEVICE          XCF16P
+DATA_WIDTH      8
+FILL_DATA       0xFF
+SIGNATURE       0x09901B29
+BLOCK 0 VERSION 0 0x09901B29
+BLOCK 1 VERSION 0 END 0x09901B29
