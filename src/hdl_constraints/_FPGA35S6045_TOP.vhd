@@ -192,9 +192,23 @@ architecture rtl of FPGA35S6045_TOP is
 		);
 	end component;
 
+	component pll1
+		port(
+			CLK_IN1           : in     std_logic;
+			CLK_OUT1          : out    std_logic
+        	);
+	end component;
+
 	-- Local Common
 	signal clk           : std_logic;
 	signal rst_n         : std_logic;
+	signal clk_200mhz    : std_logic; -- actually 199.8 MHz (27*37/5)
+	signal clk_100mhz    : std_logic; -- actually 99.9 MHz
+	signal synch_out     : std_logic; -- actually 99.9 MHz
+	signal en_100mhz     : std_logic;
+	signal en_100mhz_q   : std_logic;
+	-- note: synch_out is sent to all 8 units.  When it comes back in, it
+	-- is called clk_100mhz and is used to drive CCD waveform logic.
 
 	--  Local Read Port
 	signal rd_addr      : std_logic_vector(10 downto 0);
@@ -219,15 +233,37 @@ architecture rtl of FPGA35S6045_TOP is
 	signal c3_p0_rd_en	: std_logic;
 	signal cmd_delay	: std_logic;	
 	signal cmd_delay2	: std_logic;	
-	
-	-- Clock Counter Registers
-	signal clk_cnt		: std_logic;
-	signal clk_cnt_1	: std_logic;
-	signal clk_cnt_2	: std_logic;
-	signal clk_62_5MHz_cnt	: unsigned (11 downto 0);
-	signal clk_27_MHz_cnt_1	: unsigned (11 downto 0);
-	signal clk_27_MHz_cnt_2	: unsigned (11 downto 0);
-	
+
+	-- IO signals
+	-- these are single ended, connected directly to LVDS IO primitives
+	signal lvds_cn4		: std_logic_vector (11 downto 0); -- 12 outs
+	signal lvds_cn9		: std_logic_vector (11 downto 0); -- 12 outs
+	signal lvds_cn8		: std_logic_vector (19 downto 0); -- 20 ins
+
+	-- PFS FEE signals
+	signal ccd_parallel_1		: std_logic;
+	signal ccd_parallel_2		: std_logic;
+	signal ccd_parallel_3		: std_logic;
+	signal ccd_transfer_gate	: std_logic;
+	signal ccd_serial_1		: std_logic;
+	signal ccd_serial_2		: std_logic;
+	signal ccd_reset_gate		: std_logic;
+	signal ccd_summing_well		: std_logic;
+	signal ccd_dc_restore		: std_logic;
+	signal ccd_integrate_reset	: std_logic;
+	signal ccd_integrate_minus	: std_logic;
+	signal ccd_integrate_plus	: std_logic;
+	signal ccd_adc_cnv		: std_logic;
+	signal ccd_adc_sck		: std_logic;
+	signal ccd_drain_gate		: std_logic;
+	signal ccd_interrupt		: std_logic;
+
+	signal ccd_adc_sck_ret		: std_logic;
+	signal ccd_adc_miso_a		: std_logic;
+	signal ccd_adc_miso_b		: std_logic;
+
+	signal ccd_waveform		: std_logic_vector (15 downto 0);
+
 	-- Register File
 	constant REGISTER_COUNT		: natural := 32;
 	type reg_32bit is record
@@ -242,30 +278,93 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_ID		: natural := 16#0000#/4;
 	constant	R_STATUS	: natural := 16#0004#/4;
 	constant	R_EEPROM	: natural := 16#0008#/4;
-	constant	R_PORT0_IN	: natural := 16#0010#/4;
-	constant	R_PORT0_OUT	: natural := 16#0014#/4;
-	constant	R_PORT0_DIR	: natural := 16#0018#/4;
-	constant	R_PORT1_IN	: natural := 16#0020#/4;
-	constant	R_PORT1_OUT	: natural := 16#0024#/4;
-	constant	R_PORT1_DIR	: natural := 16#0028#/4;
-	constant	R_PORT2L_IN	: natural := 16#0030#/4;
-	constant	R_PORT2L_OUT	: natural := 16#0034#/4;
-	constant	R_PORT2L_DIR	: natural := 16#0038#/4;
-	constant	R_PORT2H_IN	: natural := 16#0040#/4;
-	constant	R_PORT2H_OUT	: natural := 16#0044#/4;
-	constant	R_PORT2H_DIR	: natural := 16#0048#/4;
 
 	constant	R_DDR_RD_DATA	: natural := 16#0050#/4;
 	constant	R_DDR_WR_DATA	: natural := 16#0054#/4;
 	constant	R_DDR_ADDR	: natural := 16#0058#/4;
 	constant	R_DDR_STATUS	: natural := 16#005C#/4;
-	
-	constant	R_CLK_27_1	: natural := 16#0060#/4;
-	constant	R_CLK_27_2	: natural := 16#0064#/4;
-	
+
+	-- Custom registers:
+	constant	R_BR_RD_DATA	: natural := 16#0010#/4;
+	constant	R_BR_WR_DATA	: natural := 16#0014#/4;
+	constant	R_BR_ADDR	: natural := 16#0018#/4;
+	constant	R_WPU_CTRL	: natural := 16#0020#/4;
+	constant	R_WPU_COUNT	: natural := 16#0024#/4;
+	constant	R_WPU_LEN	: natural := 16#0028#/4;
+	constant	R_WPU_STATUS	: natural := 16#002C#/4;
+	constant	R_IMAGE_ADR	: natural := 16#0030#/4;
 
 begin
+
 	port_output_en_n <= '0'; -- Enable I/O ports as soon as we are configured.
+
+	-- PFS FEE signals
+	-- This code is verbose for a reason.  It anticipates that pinouts will
+	-- be changed based on physical cabling needs or convenience.  When
+	-- pinouts change, just modify this section accordingly.
+	lvds_cn4(6) 	<= ccd_parallel_1;
+	lvds_cn4(8) 	<= ccd_parallel_2;
+	lvds_cn4(9) 	<= ccd_parallel_3;
+	lvds_cn4(7) 	<= ccd_transfer_gate;
+	lvds_cn9(1) 	<= ccd_serial_1;
+	lvds_cn4(1) 	<= ccd_serial_2;
+	lvds_cn4(5) 	<= ccd_reset_gate;
+	lvds_cn4(3) 	<= ccd_summing_well;
+	lvds_cn4(10) 	<= ccd_dc_restore;
+	lvds_cn9(0) 	<= ccd_integrate_reset;
+	lvds_cn9(2) 	<= ccd_integrate_minus;
+	lvds_cn9(3) 	<= ccd_integrate_plus;
+	lvds_cn4(0) 	<= ccd_adc_cnv;
+	lvds_cn4(2) 	<= ccd_adc_sck;
+	lvds_cn4(11) 	<= ccd_drain_gate;
+	lvds_cn4(4) 	<= ccd_interrupt;
+
+	ccd_adc_sck_ret		<= lvds_cn8(16);
+	ccd_adc_miso_a		<= lvds_cn8(17);
+	ccd_adc_miso_b		<= lvds_cn8(18);
+
+	-- synchronization in and out
+	clk_100mhz		<= lvds_cn8(15);
+	G_SYNCH: for i in 4 to 11 generate
+		lvds_cn9(i) <= synch_out;
+	end generate;
+	
+	ccd_parallel_1		<= ccd_waveform(0);
+	ccd_parallel_2		<= ccd_waveform(1);
+	ccd_parallel_3		<= ccd_waveform(2);
+	ccd_transfer_gate	<= ccd_waveform(3);
+	ccd_serial_1		<= ccd_waveform(4);
+	ccd_serial_2		<= ccd_waveform(5);
+	ccd_reset_gate		<= ccd_waveform(6);
+	ccd_summing_well	<= ccd_waveform(7);
+	ccd_dc_restore		<= ccd_waveform(8);
+	ccd_integrate_reset	<= ccd_waveform(9);
+	ccd_integrate_minus	<= ccd_waveform(10);
+	ccd_integrate_plus	<= ccd_waveform(11);
+	ccd_adc_cnv		<= ccd_waveform(12);
+	ccd_adc_sck		<= ccd_waveform(13);
+	ccd_drain_gate		<= ccd_waveform(14);
+	ccd_interrupt		<= ccd_waveform(15);
+
+	---------------------------------------------------------------------------
+	-- PLL
+	---------------------------------------------------------------------------
+	-- Note: The specification is for all CCD timing to be based on a
+	-- 50MHz clock.  Unfortunately we cannot generate 50MHz exactly, or
+	-- multiples of it, using a 27MHz input.  There may be a way to do that
+	-- but if so it is not immediately clear.  At this time we are
+	-- generating 199.8MHz and calling it 200.  As a result all our timing
+	-- is 0.1% slower than specified, and our 50MHz ADC clock is actually
+	-- 49.95MHz.
+
+	-- It may be that the chip actually has multiple PLLs that I can 
+	-- string together to get what I want, and the wizard just doesn't
+	-- know how to do that.  I can experiment more later if needed.
+	pll_inst : pll1
+		port map (
+			CLK_IN1 => clk_27mhz_1,
+			CLK_OUT1 => clk_200mhz
+		);
 
 	---------------------------------------------------------------------------
 	-- Bus Interface
@@ -351,8 +450,6 @@ begin
 	eeprom_cs	<= register_file(R_EEPROM).data(2);
 	
 	-- Port 0
-	register_file(R_PORT0_IN).readonly 	<= true;
-	
 	G_PORT0: for i in 0 to 11 generate
 		OBUFDS0_inst : OBUFDS
 		generic map (
@@ -361,13 +458,11 @@ begin
 		port map (
 			O => port0_p(i),
 			OB => port0_n(i),
-			I => register_file(R_PORT0_OUT).data(i)
+			I => lvds_cn4(i)
 		);
 	end generate;
 	
 	-- Port 1
-	register_file(R_PORT1_IN).readonly 	<= true;
-	
 	G_PORT1: for i in 0 to 11 generate
 		OBUFDS1_inst : OBUFDS
 		generic map (
@@ -376,26 +471,41 @@ begin
 		port map (
 			O => port1_p(i),
 			OB => port1_n(i),
-			I => register_file(R_PORT1_OUT).data(i)
+			I => lvds_cn9(i)
 		);
 	end generate;
 	
 	-- Port 2
-	register_file(R_PORT2L_IN).readonly 	<= true;
-	register_file(R_PORT2H_IN).readonly 	<= true;
-	
-	G_PORT2L: for i in 0 to 19 generate
+	G_PORT2: for i in 0 to 19 generate
 		IBUFDS_inst : IBUFDS
 		generic map (
 			DIFF_TERM => TRUE, -- Differential Termination
 			IBUF_LOW_PWR => FALSE, -- (high performance)
-			IOSTANDARD => "default")
+			IOSTANDARD => "default"
+		)
 		port map (
-			O => register_file(R_PORT2L_IN).default(i),
+			O => lvds_cn8(i),
 			I => port2_p(i),
 			IB => port2_n(i)
 		);
 	end generate;
+
+	-- Note: en_100mhz is re-registered because we are crossing clock
+	-- domains from 62.5MHz to 199.8MHz.
+	process (clk_200mhz, rst_n)
+	begin -- This is the only 200MHz process.
+		if rising_edge(clk_200mhz) then
+			if (rst_n = '0') then
+				en_100mhz <= '0';
+				en_100mhz_q <= '0';
+				synch_out <= '0';
+			else
+				en_100mhz <= register_file(R_WPU_CTRL).data(0);
+				en_100mhz_q <= en_100mhz;
+				synch_out <= en_100mhz_q and not synch_out;
+			end if;
+		end if;
+	end process;
 
 	---------------------------------------------------------------------------
 	-- Memory Interface
@@ -473,118 +583,61 @@ begin
 			c3_p0_rd_error		=>
 				register_file(R_DDR_STATUS).default(0)
 		);
-		c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
-		
-		register_file(R_DDR_RD_DATA).readonly <= true;
-		register_file(R_DDR_STATUS).readonly  <= true;
-		
-		process (clk)
-		begin
-			if rising_edge(clk) then
-				----------------------------------------------------------
-				-- Writes are triggered by writing to the WR_DATA register
-				----------------------------------------------------------
-				if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_WR_DATA,11)))) then
-					ddr_data_wr <= '1';
-				else
-					ddr_data_wr <= '0';
-				end if;
 
-				ddr_data_wr_d1 <= ddr_data_wr;
-				
-				-- For unknow reasons, we need to write the data twice
-				if (ddr_data_wr_d1 = '1' or ddr_data_wr = '1') then
-					ddr_data_wr_d <= '1';
-				else
-					ddr_data_wr_d <= '0';
-				end if;
-				
-				-- Delay command register until write data is in FIFO
-				cmd_delay <= ddr_data_wr_d1;
-				cmd_delay2 <= cmd_delay;
-				
-				----------------------------------------------------------
-				-- Reads are triggered by writing to the ADDR register
-				----------------------------------------------------------
-				if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_ADDR,11)))) then
-					ddr_data_rd <= '1';
-				else
-					ddr_data_rd <= '0';
-				end if;
-				
-				ddr_data_rd_d <= ddr_data_rd or cmd_delay2; -- Read after write
-				
-				----------------------------------------------------------
-				-- Issue command to MCB
-				----------------------------------------------------------
-				if (cmd_delay = '1')  then
-					c3_p0_cmd_en <= '1';
-					c3_p0_cmd_instr <= "000"; -- Write command
-				
-				else
-					c3_p0_cmd_en <= ddr_data_rd_d;
-					c3_p0_cmd_instr <= "001"; -- Read command
-					
-				end if;
-			end if;
-		end process;
-
-	---------------------------------------------------------------------------
-	-- Test Clocks
-	---------------------------------------------------------------------------
-	-- Reference counter based on 62.5 MHz clock
+	c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
+	
+	register_file(R_DDR_RD_DATA).readonly <= true;
+	register_file(R_DDR_STATUS).readonly  <= true;
+	
 	process (clk)
 	begin
 		if rising_edge(clk) then
-			if (rst_n = '0') then
-				clk_cnt <= '0';
-				clk_62_5MHz_cnt <= (others => '0');
+			----------------------------------------------------------
+			-- Writes are triggered by writing to the WR_DATA register
+			----------------------------------------------------------
+			if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_WR_DATA,11)))) then
+				ddr_data_wr <= '1';
+			else
+				ddr_data_wr <= '0';
+			end if;
+
+			ddr_data_wr_d1 <= ddr_data_wr;
+			
+			-- For unknow reasons, we need to write the data twice
+			if (ddr_data_wr_d1 = '1' or ddr_data_wr = '1') then
+				ddr_data_wr_d <= '1';
+			else
+				ddr_data_wr_d <= '0';
+			end if;
+			
+			-- Delay command register until write data is in FIFO
+			cmd_delay <= ddr_data_wr_d1;
+			cmd_delay2 <= cmd_delay;
+			
+			----------------------------------------------------------
+			-- Reads are triggered by writing to the ADDR register
+			----------------------------------------------------------
+			if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_ADDR,11)))) then
+				ddr_data_rd <= '1';
+			else
+				ddr_data_rd <= '0';
+			end if;
+			
+			ddr_data_rd_d <= ddr_data_rd or cmd_delay2; -- Read after write
+			
+			----------------------------------------------------------
+			-- Issue command to MCB
+			----------------------------------------------------------
+			if (cmd_delay = '1')  then
+				c3_p0_cmd_en <= '1';
+				c3_p0_cmd_instr <= "000"; -- Write command
+			
+			else
+				c3_p0_cmd_en <= ddr_data_rd_d;
+				c3_p0_cmd_instr <= "001"; -- Read command
 				
-			else
-				if (clk_62_5MHz_cnt = x"0271") then -- 625 decimal
-					clk_cnt <= '0';
-					
-				else
-					clk_62_5MHz_cnt <= clk_62_5MHz_cnt + 1;
-					clk_cnt <= '1';
-				end if;
 			end if;
 		end if;
 	end process;
-
-	-- Count first 27 MHz clock
-	process (clk_27mhz_1)
-	begin
-		if rising_edge(clk_27mhz_1) then
-			clk_cnt_1	<= clk_cnt; -- Clock domain translation
-			if (rst_n = '0') then
-				clk_27_MHz_cnt_1 <= (others => '0');
-			else
-				if (clk_cnt_1 = '1') then 
-					clk_27_MHz_cnt_1 <= clk_27_MHz_cnt_1 + 1;
-				end if;
-			end if;
-		end if;
-	end process;
-	register_file(R_CLK_27_1).default(11 downto 0) 	<= STD_LOGIC_VECTOR(clk_27_MHz_cnt_1);
-	register_file(R_CLK_27_1).readonly 	<= true;
-
-	-- Count second 27 MHz clock
-	process (clk_27mhz_2)
-	begin
-		if rising_edge(clk_27mhz_2) then
-			clk_cnt_2	<= clk_cnt; -- Clock domain translation
-			if (rst_n = '0') then
-				clk_27_MHz_cnt_2 <= (others => '0');
-			else
-				if (clk_cnt_2 = '1') then 
-					clk_27_MHz_cnt_2 <= clk_27_MHz_cnt_2 + 1;
-				end if;
-			end if;
-		end if;
-	end process;
-	register_file(R_CLK_27_2).default(11 downto 0) 	<= STD_LOGIC_VECTOR(clk_27_MHz_cnt_2);
-	register_file(R_CLK_27_2).readonly 	<= true;
-
 	
 end rtl;

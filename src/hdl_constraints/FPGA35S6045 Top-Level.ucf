@@ -232,6 +232,7 @@ NET  "mcb3_zio"                                  LOC = "U4" ;
 
 
 NET "clk_27mhz_1"                       IOSTANDARD = LVCMOS33 | LOC = "F10";        #Input
+NET clk_27mhz_1 PERIOD = 37.037ns;
 NET "clk_27mhz_2"                       IOSTANDARD = LVCMOS33 | LOC = "G9";         #Input
 NET "eeprom_cs"                         IOSTANDARD = LVCMOS33 | LOC = "V13";        #Output
 NET "eeprom_sck"                        IOSTANDARD = LVCMOS33 | LOC = "W14";        #Output
