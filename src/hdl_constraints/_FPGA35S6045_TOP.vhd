@@ -3,6 +3,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+-- This library provides the OBUFDS module that can specify LVDS IO
 Library UNISIM;
 use UNISIM.vcomponents.all;
 
@@ -105,24 +106,24 @@ architecture rtl of FPGA35S6045_TOP is
 		);
 	end component pcie_app_s6;
  
-	component PIO_EP_MEM_ACCESS is
-		port (
-			clk          : in  std_logic;
-			rst_n        : in  std_logic;
-
-			--  Read Port
-			rd_addr_i    : in  std_logic_vector(10 downto 0);
-			rd_be_i      : in  std_logic_vector(3 downto 0);
-			rd_data_o    : out std_logic_vector(31 downto 0);
-
-			--  Write Port
-			wr_addr_i    : in  std_logic_vector(10 downto 0);
-			wr_be_i      : in  std_logic_vector(7 downto 0);
-			wr_data_i    : in  std_logic_vector(31 downto 0);
-			wr_en_i      : in  std_logic;
-			wr_busy_o    : out std_logic
-		);
-	end component;
+--	component PIO_EP_MEM_ACCESS is
+--		port (
+--			clk          : in  std_logic;
+--			rst_n        : in  std_logic;
+--
+--			--  Read Port
+--			rd_addr_i    : in  std_logic_vector(10 downto 0);
+--			rd_be_i      : in  std_logic_vector(3 downto 0);
+--			rd_data_o    : out std_logic_vector(31 downto 0);
+--
+--			--  Write Port
+--			wr_addr_i    : in  std_logic_vector(10 downto 0);
+--			wr_be_i      : in  std_logic_vector(7 downto 0);
+--			wr_data_i    : in  std_logic_vector(31 downto 0);
+--			wr_en_i      : in  std_logic;
+--			wr_busy_o    : out std_logic
+--		);
+--	end component;
 
 	component mig_39
 		generic(
@@ -199,6 +200,38 @@ architecture rtl of FPGA35S6045_TOP is
         	);
 	end component;
 
+	component blockram_8kx4byte
+		port (
+			clka : in std_logic;
+			wea : in std_logic_vector(0 downto 0);
+			addra : in std_logic_vector(12 downto 0);
+			dina : in std_logic_vector(31 downto 0);
+			douta : out std_logic_vector(31 downto 0);
+			clkb : in std_logic;
+			web : in std_logic_vector(0 downto 0);
+			addrb : in std_logic_vector(12 downto 0);
+			dinb : in std_logic_vector(31 downto 0);
+			doutb : out std_logic_vector(31 downto 0)
+		);
+	end component;
+
+	component ccd_wpu is
+		port (
+			clk_100mhz_i	: in  std_logic;
+			rstn_i		: in  std_logic;
+
+			sram_adr_o	: out std_logic_vector (15 downto 0);
+			sram_dat_i	: in  std_logic_vector (31 downto 0);
+
+			wpu_rst_i	: in  std_logic;
+			len_i		: in  std_logic_vector (15 downto 0);
+			reps_i		: in  std_logic_vector (31 downto 0);
+			reps_o		: out std_logic_vector (31 downto 0);
+
+			waveform_o	: out std_logic_vector (15 downto 0)
+		);
+	end component;
+
 	-- Local Common
 	signal clk           : std_logic;
 	signal rst_n         : std_logic;
@@ -263,6 +296,11 @@ architecture rtl of FPGA35S6045_TOP is
 	signal ccd_adc_miso_b		: std_logic;
 
 	signal ccd_waveform		: std_logic_vector (15 downto 0);
+
+	signal sram_adr1		: std_logic_vector (15 downto 0);
+	signal sram_dat1		: std_logic_vector (31 downto 0);
+	signal br_we			: std_logic_vector (2 downto 0);
+	signal len			: std_logic_vector (15 downto 0);
 
 	-- Register File
 	constant REGISTER_COUNT		: natural := 32;
@@ -329,6 +367,11 @@ begin
 		lvds_cn9(i) <= synch_out;
 	end generate;
 	
+	-- CCD waveform designations
+	-- These can also be changed, if BEE application software wants to
+	-- change them for some reason.  However ccd_adc_sck gets special
+	-- treatment and the WPU module assumes it is bit 13.  The other 15
+	-- signals can be swapped around.
 	ccd_parallel_1		<= ccd_waveform(0);
 	ccd_parallel_2		<= ccd_waveform(1);
 	ccd_parallel_3		<= ccd_waveform(2);
@@ -346,9 +389,9 @@ begin
 	ccd_drain_gate		<= ccd_waveform(14);
 	ccd_interrupt		<= ccd_waveform(15);
 
-	---------------------------------------------------------------------------
+	-----------------------------------------------------------------------
 	-- PLL
-	---------------------------------------------------------------------------
+	-----------------------------------------------------------------------
 	-- Note: The specification is for all CCD timing to be based on a
 	-- 50MHz clock.  Unfortunately we cannot generate 50MHz exactly, or
 	-- multiples of it, using a 27MHz input.  There may be a way to do that
@@ -365,6 +408,85 @@ begin
 			CLK_IN1 => clk_27mhz_1,
 			CLK_OUT1 => clk_200mhz
 		);
+
+	-----------------------------------------------------------------------
+	-- Waveform processing unit
+	-----------------------------------------------------------------------
+	register_file(R_WPU_STATUS).readonly 	<= true;
+	len <= register_file(R_WPU_LEN).data(15 downto 0);
+	wpu_inst : ccd_wpu
+		port map (
+			clk_100mhz_i	=> clk_100mhz,
+			rstn_i		=> rst_n,
+
+			sram_adr_o	=> sram_adr1,
+			sram_dat_i	=> sram_dat1,
+
+			wpu_rst_i	=> register_file(R_WPU_CTRL).data(1),
+			len_i		=> len,
+			reps_i		=> register_file(R_WPU_COUNT).data,
+			reps_o		=> register_file(R_WPU_STATUS).default,
+
+			waveform_o	=> ccd_waveform
+		);
+
+
+	-----------------------------------------------------------------------
+	-- Blockram to hold waveform data
+	-----------------------------------------------------------------------
+	register_file(R_BR_RD_DATA).readonly <= true;
+	wpu_sram : blockram_8kx4byte
+		port map (
+			-- Port A is in the 62.5MHz domain and is accessed
+			-- by the register block.
+			clka	=> clk,
+			wea	=> br_we(2),
+			addra	=> register_file(R_BR_ADDR).data(14 downto 2),
+			dina	=> register_file(R_BR_WR_DATA).data,
+			douta	=> register_file(R_BR_RD_DATA).default,
+
+			-- Port B is in the 100MHz domain and is accessed
+			-- by the WPU.
+			clkb	=> clk_100mhz,
+			web	=> '0', -- WPU does not write
+			addrb	=> sram_adr1(14 downto 2),
+			dinb	=> x"0", -- WPU does not write
+			doutb	=> sram_dat1
+		);
+	
+	-- The following process block is a long winded way of saying
+	-- the following:
+	-- Any time a write is observed to the blockram write data register,
+	-- wait 2 clock cycles and then assert the blockram write enable.
+	--
+	-- br_we is 3 bits because it is a 3 bit FIFO and only the the 3rd bit
+	-- is used.  This FIFO mechanism is probably not even needed, but it
+	-- doesn't do any harm because PCIe writes will come through very 
+	-- slowly anyway.
+	process (clk, rst_n)
+	begin
+		if rising_edge(clk) then
+			if (rst_n = '0') then
+				br_we <= "000";
+			else
+				br_we(2) <= br_we(1);
+				br_we(1) <= br_we(0);
+				if ((wr_en = '1') and (wr_addr =
+				  STD_LOGIC_VECTOR(
+				    TO_UNSIGNED(R_BR_WR_DATA,11)))) then
+					br_we(0) <= '1';
+				else
+					br_we(0) <= '0';
+				end if;
+			end if;
+		end if;
+	end process;
+
+	-----------------------------------------------------------------------
+	-- ADC data deserialization
+	-----------------------------------------------------------------------
+
+
 
 	---------------------------------------------------------------------------
 	-- Bus Interface
@@ -396,6 +518,12 @@ begin
 			wr_en               => wr_en,  
 			wr_busy             => wr_busy
 		);
+
+	-- The blocks of code below are the glue between the register file
+	-- and the bus coming out of the PCIe PIO module.  Note that they are
+	-- doing an endianness swap on the data lines, reversing the order of
+	-- the bytes within a 32 bit word.  This is because while the x86 CPU
+	-- is a little endian device, PCIe is a big endian bus.
 
 	-- Register File Read
 	rd_data( 7 downto  0) <= register_file(TO_INTEGER(UNSIGNED(rd_addr))).data(31 downto 24);
@@ -434,7 +562,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"12345678";
+	register_file(R_ID).default 	<= x"bee00000";
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -449,7 +577,10 @@ begin
 	eeprom_si	<= register_file(R_EEPROM).data(1);
 	eeprom_cs	<= register_file(R_EEPROM).data(2);
 	
-	-- Port 0
+	-----------------------------------------------------------------------
+	-- IO connections
+	-----------------------------------------------------------------------
+	-- Port 0 -- 12 LVDS outputs on CN4
 	G_PORT0: for i in 0 to 11 generate
 		OBUFDS0_inst : OBUFDS
 		generic map (
@@ -462,7 +593,7 @@ begin
 		);
 	end generate;
 	
-	-- Port 1
+	-- Port 1 -- 12 LVDS outputs on CN9
 	G_PORT1: for i in 0 to 11 generate
 		OBUFDS1_inst : OBUFDS
 		generic map (
@@ -475,7 +606,7 @@ begin
 		);
 	end generate;
 	
-	-- Port 2
+	-- Port 2 -- 20 LVDS inputs on CN8
 	G_PORT2: for i in 0 to 19 generate
 		IBUFDS_inst : IBUFDS
 		generic map (
@@ -490,6 +621,9 @@ begin
 		);
 	end generate;
 
+	-----------------------------------------------------------------------
+	-- 99.9 MHz Synch_out clock generation
+	-----------------------------------------------------------------------
 	-- Note: en_100mhz is re-registered because we are crossing clock
 	-- domains from 62.5MHz to 199.8MHz.
 	process (clk_200mhz, rst_n)

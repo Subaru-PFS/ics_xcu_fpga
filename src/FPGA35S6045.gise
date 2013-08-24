@@ -64,6 +64,9 @@
     <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/par.xmsgs"/>
     <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/trce.xmsgs"/>
     <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/xst.xmsgs"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="ccd_wpu.prj"/>
+    <file xil_pn:fileType="FILE_XST_STX" xil_pn:name="ccd_wpu.stx"/>
+    <file xil_pn:fileType="FILE_XST" xil_pn:name="ccd_wpu.xst"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_BITGEN_REPORT" xil_pn:name="fpga35s6045_top.bgn" xil_pn:subbranch="FPGAConfiguration"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_BIT" xil_pn:name="fpga35s6045_top.bit" xil_pn:subbranch="FPGAConfiguration"/>
     <file xil_pn:fileType="FILE_HTML" xil_pn:name="usage_statistics_webtalk.html"/>
@@ -85,6 +88,8 @@
     <transform xil_pn:end_ts="1376705472" xil_pn:in_ck="8313690826033481400" xil_pn:name="TRAN_regenerateCores" xil_pn:prop_ck="-5316039039703177326" xil_pn:start_ts="1376705471">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="InputAdded"/>
       <outfile xil_pn:name="ipcore_dir/mig_39/user_design/rtl/iodrp_controller.vhd"/>
       <outfile xil_pn:name="ipcore_dir/mig_39/user_design/rtl/iodrp_mcb_controller.vhd"/>
       <outfile xil_pn:name="ipcore_dir/mig_39/user_design/rtl/mcb_raw_wrapper.vhd"/>
@@ -113,16 +118,22 @@
     <transform xil_pn:end_ts="1376687076" xil_pn:in_ck="-5159962406066412298" xil_pn:name="TRAN_SubProjectPreToStructuralProxy" xil_pn:prop_ck="-3972139311098429560" xil_pn:start_ts="1376687076">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
     </transform>
     <transform xil_pn:end_ts="1376687076" xil_pn:name="TRAN_platgen" xil_pn:prop_ck="-1628301723296456868" xil_pn:start_ts="1376687076">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
     </transform>
-    <transform xil_pn:end_ts="1376708313" xil_pn:in_ck="4835285327090622496" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="4713570954242212843" xil_pn:start_ts="1376708276">
+    <transform xil_pn:end_ts="1376837443" xil_pn:in_ck="-1454712949559592173" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="4713570954242212843" xil_pn:start_ts="1376837409">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputAdded"/>
+      <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.lso"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.ngc"/>
@@ -139,21 +150,26 @@
     <transform xil_pn:end_ts="1376707601" xil_pn:in_ck="-3743469257502484475" xil_pn:name="TRAN_compileBCD2" xil_pn:prop_ck="-4136738063291133721" xil_pn:start_ts="1376707601">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
     </transform>
-    <transform xil_pn:end_ts="1376708321" xil_pn:in_ck="-7615478475682691382" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="9120849613434564199" xil_pn:start_ts="1376708313">
+    <transform xil_pn:end_ts="1376837454" xil_pn:in_ck="-7615478475682691382" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="9120849613434564199" xil_pn:start_ts="1376837443">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="InputAdded"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.bld"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.ngd"/>
       <outfile xil_pn:name="FPGA35S6045_TOP_ngdbuild.xrpt"/>
       <outfile xil_pn:name="_ngo"/>
       <outfile xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
     </transform>
-    <transform xil_pn:end_ts="1376708370" xil_pn:in_ck="-5800928492710552597" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="4718453486768341897" xil_pn:start_ts="1376708321">
+    <transform xil_pn:end_ts="1376837508" xil_pn:in_ck="-5800928492710552597" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="4718453486768341897" xil_pn:start_ts="1376837454">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.pcf"/>
       <outfile xil_pn:name="FPGA35S6045_TOP_map.map"/>
       <outfile xil_pn:name="FPGA35S6045_TOP_map.mrp"/>
@@ -164,10 +180,11 @@
       <outfile xil_pn:name="FPGA35S6045_TOP_usage.xml"/>
       <outfile xil_pn:name="_xmsgs/map.xmsgs"/>
     </transform>
-    <transform xil_pn:end_ts="1376708401" xil_pn:in_ck="1006916421953225636" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="-1759769518774642592" xil_pn:start_ts="1376708370">
+    <transform xil_pn:end_ts="1376837548" xil_pn:in_ck="1006916421953225636" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="-1759769518774642592" xil_pn:start_ts="1376837508">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.ncd"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.pad"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.par"/>
@@ -183,6 +200,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
@@ -194,9 +212,10 @@
       <outfile xil_pn:name="webtalk.log"/>
       <outfile xil_pn:name="webtalk_pn.xml"/>
     </transform>
-    <transform xil_pn:end_ts="1376708411" xil_pn:in_ck="-5513853286808701209" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416184" xil_pn:start_ts="1376708401">
+    <transform xil_pn:end_ts="1376837548" xil_pn:in_ck="-5513853286808701209" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416184" xil_pn:start_ts="1376837538">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.twr"/>
       <outfile xil_pn:name="FPGA35S6045_TOP.twx"/>
       <outfile xil_pn:name="_xmsgs/trce.xmsgs"/>
