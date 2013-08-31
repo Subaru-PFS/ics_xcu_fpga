@@ -125,7 +125,8 @@ architecture rtl of FPGA35S6045_TOP is
 --		);
 --	end component;
 
-	component mig_39
+	--component mig_39
+	component dp_mem_iface
 		generic(
 			C3_P0_MASK_SIZE           : integer := 4;
 			C3_P0_DATA_PORT_SIZE      : integer := 32;
@@ -189,7 +190,32 @@ architecture rtl of FPGA35S6045_TOP is
 			c3_p0_rd_empty       : out std_logic;
 			c3_p0_rd_count       : out std_logic_vector(6 downto 0);
 			c3_p0_rd_overflow    : out std_logic;
-			c3_p0_rd_error       : out std_logic
+			c3_p0_rd_error       : out std_logic;
+
+			c3_p1_cmd_clk        : in std_logic;
+			c3_p1_cmd_en         : in std_logic;
+			c3_p1_cmd_instr      : in std_logic_vector(2 downto 0);
+			c3_p1_cmd_bl         : in std_logic_vector(5 downto 0);
+			c3_p1_cmd_byte_addr  : in std_logic_vector(29 downto 0);
+			c3_p1_cmd_empty      : out std_logic;
+			c3_p1_cmd_full       : out std_logic;
+			c3_p1_wr_clk         : in std_logic;
+			c3_p1_wr_en          : in std_logic;
+			c3_p1_wr_mask        : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
+			c3_p1_wr_data        : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+			c3_p1_wr_full        : out std_logic;
+			c3_p1_wr_empty       : out std_logic;
+			c3_p1_wr_count       : out std_logic_vector(6 downto 0);
+			c3_p1_wr_underrun    : out std_logic;
+			c3_p1_wr_error       : out std_logic;
+			c3_p1_rd_clk         : in std_logic;
+			c3_p1_rd_en          : in std_logic;
+			c3_p1_rd_data        : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+			c3_p1_rd_full        : out std_logic;
+			c3_p1_rd_empty       : out std_logic;
+			c3_p1_rd_count       : out std_logic_vector(6 downto 0);
+			c3_p1_rd_overflow    : out std_logic;
+			c3_p1_rd_error       : out std_logic
 		);
 	end component;
 
@@ -228,9 +254,38 @@ architecture rtl of FPGA35S6045_TOP is
 			reps_i		: in  std_logic_vector (31 downto 0);
 			reps_o		: out std_logic_vector (31 downto 0);
 
-			waveform_o	: out std_logic_vector (15 downto 0)
+			waveform_o	: out std_logic_vector (15 downto 0);
+                        active_o        : out std_logic
 		);
 	end component;
+
+        component deserializer is
+                port (
+                        clk_62mhz_i         : in  std_logic;
+                        rstn_i              : in  std_logic;
+
+                        adc_miso_a_i        : in  std_logic;
+                        adc_miso_b_i        : in  std_logic;
+                        adc_sck_i           : in  std_logic;
+
+                        sck_active_i        : in  std_logic;
+
+                        ddr_cmd_en_o        : out std_logic;
+                        ddr_cmd_instr_o     : out std_logic_vector(2 downto 0);
+                        ddr_cmd_byte_addr_o : out std_logic_vector(29 downto 0);
+                        ddr_cmd_bl_o        : out std_logic_vector(5 downto 0);
+                        ddr_cmd_empty_i     : in  std_logic;
+                        ddr_cmd_full_i      : in  std_logic;
+                        ddr_wr_en_o         : out std_logic;
+                        ddr_wr_data_o       : out std_logic_vector(31 downto 0);
+                        ddr_wr_full_i       : in  std_logic;
+
+                        crc_o               : out std_logic_vector(15 downto 0);
+                        crc_rst_i           : in  std_logic;
+
+                        adr_rst_i           : in  std_logic
+                );
+        end component;
 
 	-- Local Common
 	signal clk           : std_logic;
@@ -267,6 +322,20 @@ architecture rtl of FPGA35S6045_TOP is
 	signal cmd_delay	: std_logic;	
 	signal cmd_delay2	: std_logic;	
 
+	signal c3_p1_cmd_en		: std_logic;
+	signal c3_p1_cmd_instr		: std_logic_vector (2 downto 0);
+	signal c3_p1_cmd_bl		: std_logic_vector (5 downto 0);
+	signal c3_p1_cmd_byte_addr      : std_logic_vector (29 downto 0);
+	signal c3_p1_cmd_empty		: std_logic;
+	signal c3_p1_cmd_full		: std_logic;
+	signal c3_p1_wr_en		: std_logic;
+	signal c3_p1_wr_data		: std_logic_vector (31 downto 0);
+	signal c3_p1_wr_full		: std_logic;
+	signal c3_p1_wr_empty		: std_logic;
+	signal c3_p1_wr_count		: std_logic_vector (6 downto 0);
+	signal c3_p1_wr_underrun	: std_logic;
+	signal c3_p1_wr_error		: std_logic;
+
 	-- IO signals
 	-- these are single ended, connected directly to LVDS IO primitives
 	signal lvds_cn4		: std_logic_vector (11 downto 0); -- 12 outs
@@ -294,6 +363,7 @@ architecture rtl of FPGA35S6045_TOP is
 	signal ccd_adc_sck_ret		: std_logic;
 	signal ccd_adc_miso_a		: std_logic;
 	signal ccd_adc_miso_b		: std_logic;
+	signal adc_sck_active		: std_logic;
 
 	signal ccd_waveform		: std_logic_vector (15 downto 0);
 
@@ -331,6 +401,7 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_WPU_LEN	: natural := 16#0028#/4;
 	constant	R_WPU_STATUS	: natural := 16#002C#/4;
 	constant	R_IMAGE_ADR	: natural := 16#0030#/4;
+	constant	R_CRC   	: natural := 16#0034#/4;
 
 begin
 
@@ -427,7 +498,8 @@ begin
 			reps_i		=> register_file(R_WPU_COUNT).data,
 			reps_o		=> register_file(R_WPU_STATUS).default,
 
-			waveform_o	=> ccd_waveform
+			waveform_o	=> ccd_waveform,
+                        active_o        => adc_sck_active
 		);
 
 
@@ -440,7 +512,7 @@ begin
 			-- Port A is in the 62.5MHz domain and is accessed
 			-- by the register block.
 			clka	=> clk,
-			wea	=> br_we(2),
+			wea	=> br_we(2 downto 2),
 			addra	=> register_file(R_BR_ADDR).data(14 downto 2),
 			dina	=> register_file(R_BR_WR_DATA).data,
 			douta	=> register_file(R_BR_RD_DATA).default,
@@ -448,9 +520,9 @@ begin
 			-- Port B is in the 100MHz domain and is accessed
 			-- by the WPU.
 			clkb	=> clk_100mhz,
-			web	=> '0', -- WPU does not write
+			web	=> "0", -- WPU does not write
 			addrb	=> sram_adr1(14 downto 2),
-			dinb	=> x"0", -- WPU does not write
+			dinb	=> x"0000_0000", -- WPU does not write
 			doutb	=> sram_dat1
 		);
 	
@@ -486,6 +558,41 @@ begin
 	-- ADC data deserialization
 	-----------------------------------------------------------------------
 
+        -- For now, the CRC is reset any time the WPU is reset.
+	register_file(R_CRC).readonly <= true;
+        des_core : deserializer
+                port map (
+                        -- clock and reset
+                        clk_62mhz_i         => clk,
+                        rstn_i              => rst_n,
+
+                        -- ADC lines from FEE
+                        adc_miso_a_i        => ccd_adc_miso_a,
+                        adc_miso_b_i        => ccd_adc_miso_b,
+                        adc_sck_i           => ccd_adc_sck_ret,
+
+                        -- active signal from CCD WPU indicates an ADC cycle
+                        sck_active_i        => adc_sck_active,
+
+                        -- DDR RAM interface
+                        ddr_cmd_en_o        => c3_p1_cmd_en,
+                        ddr_cmd_instr_o     => c3_p1_cmd_instr,
+                        ddr_cmd_byte_addr_o => c3_p1_cmd_byte_addr,
+                        ddr_cmd_bl_o        => c3_p1_cmd_bl,
+                        ddr_cmd_empty_i     => c3_p1_cmd_empty,
+                        ddr_cmd_full_i      => c3_p1_cmd_full,
+                        ddr_wr_en_o         => c3_p1_wr_en,
+                        ddr_wr_data_o       => c3_p1_wr_data,
+                        ddr_wr_full_i       => c3_p1_wr_full,
+
+                        -- CRC output
+                        crc_o               =>
+                                register_file(R_CRC).default(15 downto 0),
+                        crc_rst_i           =>
+			        register_file(R_WPU_CTRL).data(1),
+                        adr_rst_i           =>
+			        register_file(R_WPU_CTRL).data(2)
+                );
 
 
 	---------------------------------------------------------------------------
@@ -562,7 +669,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00000";
+	register_file(R_ID).default 	<= x"bee00000"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -644,7 +751,8 @@ begin
 	---------------------------------------------------------------------------
 	-- Memory Interface
 	---------------------------------------------------------------------------
-	u_mig_39 : mig_39
+	--u_mig_39 : mig_39
+	u_mig_39 : dp_mem_iface
 		port map (
 
 			c3_sys_clk		=> clk,
@@ -679,11 +787,10 @@ begin
 			c3_p0_cmd_clk		=> clk,
 			c3_p0_cmd_en		=> c3_p0_cmd_en,
 			c3_p0_cmd_instr		=> c3_p0_cmd_instr, 
-			c3_p0_cmd_bl		=> "000001",
-			c3_p0_cmd_byte_addr(29 downto 3) =>
-				register_file(R_DDR_ADDR).data(28 downto 2),
-			c3_p0_cmd_byte_addr(2 downto 0) =>
-				"000", -- 3 lsb are unused (Xilinx says 2, but it is actually 3)
+			c3_p0_cmd_bl		=> "000000",
+			c3_p0_cmd_byte_addr(29 downto 2) =>
+				register_file(R_DDR_ADDR).data(29 downto 2),
+			c3_p0_cmd_byte_addr(1 downto 0) => "00",
 			c3_p0_cmd_empty		=>
 				register_file(R_DDR_STATUS).default(25),
 			c3_p0_cmd_full		=>
@@ -715,7 +822,34 @@ begin
 			c3_p0_rd_overflow	=>
 				register_file(R_DDR_STATUS).default(1),
 			c3_p0_rd_error		=>
-				register_file(R_DDR_STATUS).default(0)
+				register_file(R_DDR_STATUS).default(0),
+
+			c3_p1_cmd_clk		=> clk,
+			c3_p1_cmd_en		=> c3_p1_cmd_en,
+			c3_p1_cmd_instr		=> c3_p1_cmd_instr,
+			c3_p1_cmd_bl		=> c3_p1_cmd_bl,
+			c3_p1_cmd_byte_addr     => c3_p1_cmd_byte_addr,
+			c3_p1_cmd_empty		=> c3_p1_cmd_empty,
+			c3_p1_cmd_full		=> c3_p1_cmd_full,
+			c3_p1_wr_clk		=> clk,
+			c3_p1_wr_en		=> c3_p1_wr_en,
+			c3_p1_wr_mask		=> "0000",
+			c3_p1_wr_data		=> c3_p1_wr_data,
+			c3_p1_wr_full		=> c3_p1_wr_full,
+			c3_p1_wr_empty		=> c3_p1_wr_empty,
+			c3_p1_wr_count		=> c3_p1_wr_count,
+			c3_p1_wr_underrun	=> c3_p1_wr_underrun,
+			c3_p1_wr_error		=> c3_p1_wr_error,
+
+			-- We don't read on this port
+			c3_p1_rd_clk		=> clk,
+			c3_p1_rd_en		=> '0',
+			c3_p1_rd_data		=> open,
+			c3_p1_rd_full		=> open,
+			c3_p1_rd_empty		=> open,
+			c3_p1_rd_count		=> open,
+			c3_p1_rd_overflow	=> open,
+			c3_p1_rd_error		=> open
 		);
 
 	c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
@@ -735,17 +869,10 @@ begin
 				ddr_data_wr <= '0';
 			end if;
 
-			ddr_data_wr_d1 <= ddr_data_wr;
-			
-			-- For unknow reasons, we need to write the data twice
-			if (ddr_data_wr_d1 = '1' or ddr_data_wr = '1') then
-				ddr_data_wr_d <= '1';
-			else
-				ddr_data_wr_d <= '0';
-			end if;
+			ddr_data_wr_d <= ddr_data_wr;
 			
 			-- Delay command register until write data is in FIFO
-			cmd_delay <= ddr_data_wr_d1;
+			cmd_delay <= ddr_data_wr_d;
 			cmd_delay2 <= cmd_delay;
 			
 			----------------------------------------------------------

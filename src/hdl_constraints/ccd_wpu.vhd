@@ -59,7 +59,6 @@ architecture rtl of ccd_wpu is
   signal sram_adr	: unsigned (15 downto 0);
   signal reps		: unsigned (31 downto 0);
   signal finished	: boolean;
-  signal active		: std_logic_vector (3 downto 0);
 
 begin
   -- output ports
@@ -68,7 +67,6 @@ begin
   waveform_o(15 downto 14) <= waveform(15 downto 14);
   waveform_o(12 downto 0) <= waveform(12 downto 0);
   reps_o <= STD_LOGIC_VECTOR(reps);
-  active_o <= active(3);
 
   process(clk_100mhz_i, rstn_i)
   begin
@@ -81,7 +79,6 @@ begin
         sram_adr <= x"0000";
         reps <= x"00000000";
         finished <= false;
-        active <= x"0";
       else
         if (wpu_rst_i = '1') then
           -- WPU in reset:
@@ -90,16 +87,14 @@ begin
           sram_adr <= x"0000";
           reps <= UNSIGNED(reps_i);
           finished <= false;
-          active <= x"0";
         else
-          -- WPU active:
+          -- WPU running:
           if (sck_timer /= x"00") then
             sck_timer <= sck_timer - "1";
-            active(0) <= '1';
+            active_o <= '1';
           else
-            active(0) <= '0';
+            active_o <= '0';
           end if;
-          active(3 downto 1) <= active (2 downto 0);
 
           if (not finished) then
             main_timer <= main_timer + "1";
