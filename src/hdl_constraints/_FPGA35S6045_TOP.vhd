@@ -669,7 +669,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00002"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00003"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -789,9 +789,8 @@ begin
 			c3_p0_cmd_en		=> c3_p0_cmd_en,
 			c3_p0_cmd_instr		=> c3_p0_cmd_instr, 
 			c3_p0_cmd_bl		=> "000000",
-			c3_p0_cmd_byte_addr(29 downto 2) =>
-				register_file(R_DDR_ADDR).data(29 downto 2),
-			c3_p0_cmd_byte_addr(1 downto 0) => "00",
+			c3_p0_cmd_byte_addr	=>
+				register_file(R_DDR_ADDR).data(29 downto 0),
 			c3_p0_cmd_empty		=>
 				register_file(R_DDR_STATUS).default(25),
 			c3_p0_cmd_full		=>
@@ -853,7 +852,7 @@ begin
 	--		c3_p1_rd_error		=> open
 		);
 
-	c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
+	c3_p0_rd_en <= register_file(R_DDR_STATUS).default(9);
 	
 	register_file(R_DDR_RD_DATA).readonly <= true;
 	register_file(R_DDR_STATUS).readonly  <= true;
