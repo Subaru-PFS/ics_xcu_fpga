@@ -73,6 +73,7 @@ NET sys_reset_n TIG;
 #
 # Timing requirements and related constraints.
 #
+NET app/sys_clk_c PERIOD = 10ns;
 
 NET app/s6_pcie_v1_4_i/gt_refclk_out(0) TNM_NET = GT_REFCLK_OUT;
 TIMESPEC TS_GT_REFCLK_OUT = PERIOD GT_REFCLK_OUT 10ns HIGH 50 % ;

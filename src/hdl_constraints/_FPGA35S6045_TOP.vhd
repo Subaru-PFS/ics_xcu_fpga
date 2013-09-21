@@ -125,8 +125,8 @@ architecture rtl of FPGA35S6045_TOP is
 --		);
 --	end component;
 
-	--component mig_39
-	component dp_mem_iface
+	component mig_39
+	--component dp_mem_iface
 		generic(
 			C3_P0_MASK_SIZE           : integer := 4;
 			C3_P0_DATA_PORT_SIZE      : integer := 32;
@@ -190,32 +190,32 @@ architecture rtl of FPGA35S6045_TOP is
 			c3_p0_rd_empty       : out std_logic;
 			c3_p0_rd_count       : out std_logic_vector(6 downto 0);
 			c3_p0_rd_overflow    : out std_logic;
-			c3_p0_rd_error       : out std_logic;
+			c3_p0_rd_error       : out std_logic
 
-			c3_p1_cmd_clk        : in std_logic;
-			c3_p1_cmd_en         : in std_logic;
-			c3_p1_cmd_instr      : in std_logic_vector(2 downto 0);
-			c3_p1_cmd_bl         : in std_logic_vector(5 downto 0);
-			c3_p1_cmd_byte_addr  : in std_logic_vector(29 downto 0);
-			c3_p1_cmd_empty      : out std_logic;
-			c3_p1_cmd_full       : out std_logic;
-			c3_p1_wr_clk         : in std_logic;
-			c3_p1_wr_en          : in std_logic;
-			c3_p1_wr_mask        : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
-			c3_p1_wr_data        : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-			c3_p1_wr_full        : out std_logic;
-			c3_p1_wr_empty       : out std_logic;
-			c3_p1_wr_count       : out std_logic_vector(6 downto 0);
-			c3_p1_wr_underrun    : out std_logic;
-			c3_p1_wr_error       : out std_logic;
-			c3_p1_rd_clk         : in std_logic;
-			c3_p1_rd_en          : in std_logic;
-			c3_p1_rd_data        : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-			c3_p1_rd_full        : out std_logic;
-			c3_p1_rd_empty       : out std_logic;
-			c3_p1_rd_count       : out std_logic_vector(6 downto 0);
-			c3_p1_rd_overflow    : out std_logic;
-			c3_p1_rd_error       : out std_logic
+	--		c3_p1_cmd_clk        : in std_logic;
+	--		c3_p1_cmd_en         : in std_logic;
+	--		c3_p1_cmd_instr      : in std_logic_vector(2 downto 0);
+	--		c3_p1_cmd_bl         : in std_logic_vector(5 downto 0);
+	--		c3_p1_cmd_byte_addr  : in std_logic_vector(29 downto 0);
+	--		c3_p1_cmd_empty      : out std_logic;
+	--		c3_p1_cmd_full       : out std_logic;
+	--		c3_p1_wr_clk         : in std_logic;
+	--		c3_p1_wr_en          : in std_logic;
+	--		c3_p1_wr_mask        : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
+	--		c3_p1_wr_data        : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+	--		c3_p1_wr_full        : out std_logic;
+	--		c3_p1_wr_empty       : out std_logic;
+	--		c3_p1_wr_count       : out std_logic_vector(6 downto 0);
+	--		c3_p1_wr_underrun    : out std_logic;
+	--		c3_p1_wr_error       : out std_logic;
+	--		c3_p1_rd_clk         : in std_logic;
+	--		c3_p1_rd_en          : in std_logic;
+	--		c3_p1_rd_data        : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
+	--		c3_p1_rd_full        : out std_logic;
+	--		c3_p1_rd_empty       : out std_logic;
+	--		c3_p1_rd_count       : out std_logic_vector(6 downto 0);
+	--		c3_p1_rd_overflow    : out std_logic;
+	--		c3_p1_rd_error       : out std_logic
 		);
 	end component;
 
@@ -669,7 +669,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00000"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00002"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -734,6 +734,7 @@ begin
 	-- Note: en_100mhz is re-registered because we are crossing clock
 	-- domains from 62.5MHz to 199.8MHz.
 	process (clk_200mhz, rst_n)
+	-- XXX to-do: create a divisor register in case we want to run slower
 	begin -- This is the only 200MHz process.
 		if rising_edge(clk_200mhz) then
 			if (rst_n = '0') then
@@ -751,8 +752,8 @@ begin
 	---------------------------------------------------------------------------
 	-- Memory Interface
 	---------------------------------------------------------------------------
-	--u_mig_39 : mig_39
-	u_mig_39 : dp_mem_iface
+	u_mig_39 : mig_39
+	--u_mig_39 : dp_mem_iface
 		port map (
 
 			c3_sys_clk		=> clk,
@@ -822,34 +823,34 @@ begin
 			c3_p0_rd_overflow	=>
 				register_file(R_DDR_STATUS).default(1),
 			c3_p0_rd_error		=>
-				register_file(R_DDR_STATUS).default(0),
+				register_file(R_DDR_STATUS).default(0)
 
-			c3_p1_cmd_clk		=> clk,
-			c3_p1_cmd_en		=> c3_p1_cmd_en,
-			c3_p1_cmd_instr		=> c3_p1_cmd_instr,
-			c3_p1_cmd_bl		=> c3_p1_cmd_bl,
-			c3_p1_cmd_byte_addr     => c3_p1_cmd_byte_addr,
-			c3_p1_cmd_empty		=> c3_p1_cmd_empty,
-			c3_p1_cmd_full		=> c3_p1_cmd_full,
-			c3_p1_wr_clk		=> clk,
-			c3_p1_wr_en		=> c3_p1_wr_en,
-			c3_p1_wr_mask		=> "0000",
-			c3_p1_wr_data		=> c3_p1_wr_data,
-			c3_p1_wr_full		=> c3_p1_wr_full,
-			c3_p1_wr_empty		=> c3_p1_wr_empty,
-			c3_p1_wr_count		=> c3_p1_wr_count,
-			c3_p1_wr_underrun	=> c3_p1_wr_underrun,
-			c3_p1_wr_error		=> c3_p1_wr_error,
+	--		c3_p1_cmd_clk		=> clk,
+	--		c3_p1_cmd_en		=> c3_p1_cmd_en,
+	--		c3_p1_cmd_instr		=> c3_p1_cmd_instr,
+	--		c3_p1_cmd_bl		=> c3_p1_cmd_bl,
+	--		c3_p1_cmd_byte_addr     => c3_p1_cmd_byte_addr,
+	--		c3_p1_cmd_empty		=> c3_p1_cmd_empty,
+	--		c3_p1_cmd_full		=> c3_p1_cmd_full,
+	--		c3_p1_wr_clk		=> clk,
+	--		c3_p1_wr_en		=> c3_p1_wr_en,
+	--		c3_p1_wr_mask		=> "0000",
+	--		c3_p1_wr_data		=> c3_p1_wr_data,
+	--		c3_p1_wr_full		=> c3_p1_wr_full,
+	--		c3_p1_wr_empty		=> c3_p1_wr_empty,
+	--		c3_p1_wr_count		=> c3_p1_wr_count,
+	--		c3_p1_wr_underrun	=> c3_p1_wr_underrun,
+	--		c3_p1_wr_error		=> c3_p1_wr_error,
 
-			-- We don't read on this port
-			c3_p1_rd_clk		=> clk,
-			c3_p1_rd_en		=> '0',
-			c3_p1_rd_data		=> open,
-			c3_p1_rd_full		=> open,
-			c3_p1_rd_empty		=> open,
-			c3_p1_rd_count		=> open,
-			c3_p1_rd_overflow	=> open,
-			c3_p1_rd_error		=> open
+	--		-- We don't read on this port
+	--		c3_p1_rd_clk		=> clk,
+	--		c3_p1_rd_en		=> '0',
+	--		c3_p1_rd_data		=> open,
+	--		c3_p1_rd_full		=> open,
+	--		c3_p1_rd_empty		=> open,
+	--		c3_p1_rd_count		=> open,
+	--		c3_p1_rd_overflow	=> open,
+	--		c3_p1_rd_error		=> open
 		);
 
 	c3_p0_rd_en <= not register_file(R_DDR_STATUS).default(2); -- c3_p0_rd_empty
