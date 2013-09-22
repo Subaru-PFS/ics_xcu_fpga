@@ -191,31 +191,6 @@ architecture rtl of FPGA35S6045_TOP is
 			c3_p0_rd_count       : out std_logic_vector(6 downto 0);
 			c3_p0_rd_overflow    : out std_logic;
 			c3_p0_rd_error       : out std_logic
-
-	--		c3_p1_cmd_clk        : in std_logic;
-	--		c3_p1_cmd_en         : in std_logic;
-	--		c3_p1_cmd_instr      : in std_logic_vector(2 downto 0);
-	--		c3_p1_cmd_bl         : in std_logic_vector(5 downto 0);
-	--		c3_p1_cmd_byte_addr  : in std_logic_vector(29 downto 0);
-	--		c3_p1_cmd_empty      : out std_logic;
-	--		c3_p1_cmd_full       : out std_logic;
-	--		c3_p1_wr_clk         : in std_logic;
-	--		c3_p1_wr_en          : in std_logic;
-	--		c3_p1_wr_mask        : in std_logic_vector(C3_P0_MASK_SIZE - 1 downto 0);
-	--		c3_p1_wr_data        : in std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-	--		c3_p1_wr_full        : out std_logic;
-	--		c3_p1_wr_empty       : out std_logic;
-	--		c3_p1_wr_count       : out std_logic_vector(6 downto 0);
-	--		c3_p1_wr_underrun    : out std_logic;
-	--		c3_p1_wr_error       : out std_logic;
-	--		c3_p1_rd_clk         : in std_logic;
-	--		c3_p1_rd_en          : in std_logic;
-	--		c3_p1_rd_data        : out std_logic_vector(C3_P0_DATA_PORT_SIZE - 1 downto 0);
-	--		c3_p1_rd_full        : out std_logic;
-	--		c3_p1_rd_empty       : out std_logic;
-	--		c3_p1_rd_count       : out std_logic_vector(6 downto 0);
-	--		c3_p1_rd_overflow    : out std_logic;
-	--		c3_p1_rd_error       : out std_logic
 		);
 	end component;
 
@@ -311,30 +286,40 @@ architecture rtl of FPGA35S6045_TOP is
 	signal wr_busy      : std_logic := '0';	 
 	
 	-- DDR Interface Signals
-	signal ddr_data_wr	: std_logic;
-	signal ddr_data_wr_d	: std_logic;
-	signal ddr_data_wr_d1: std_logic;
-	signal ddr_data_rd	: std_logic;
-	signal ddr_data_rd_d	: std_logic;
-	signal c3_p0_cmd_instr	: std_logic_vector (2 downto 0);
-	signal c3_p0_cmd_en	: std_logic;
-	signal c3_p0_rd_en	: std_logic;
-	signal cmd_delay	: std_logic;	
-	signal cmd_delay2	: std_logic;	
+	signal ddr_data_wr		: std_logic;
+	signal ddr_data_wr_d		: std_logic;
+	signal ddr_data_wr_d1		: std_logic;
+	signal ddr_data_rd		: std_logic;
+	signal ddr_data_rd_d		: std_logic;
+	signal c3_p0_cmd_instr		: std_logic_vector (2 downto 0);
+	signal c3_p0_cmd_en		: std_logic;
+	signal c3_p0_cmd_bl		: std_logic_vector (5 downto 0);
+	signal c3_p0_cmd_byte_addr	: std_logic_vector (29 downto 0);
+	signal c3_p0_rd_en		: std_logic;
+	signal c3_p0_wr_en		: std_logic;
+	signal c3_p0_wr_data		: std_logic_vector (31 downto 0);
+	signal cmd_delay		: std_logic;	
+	signal cmd_delay2		: std_logic;	
 
-	signal c3_p1_cmd_en		: std_logic;
-	signal c3_p1_cmd_instr		: std_logic_vector (2 downto 0);
-	signal c3_p1_cmd_bl		: std_logic_vector (5 downto 0);
-	signal c3_p1_cmd_byte_addr      : std_logic_vector (29 downto 0);
-	signal c3_p1_cmd_empty		: std_logic;
-	signal c3_p1_cmd_full		: std_logic;
-	signal c3_p1_wr_en		: std_logic;
-	signal c3_p1_wr_data		: std_logic_vector (31 downto 0);
-	signal c3_p1_wr_full		: std_logic;
-	signal c3_p1_wr_empty		: std_logic;
-	signal c3_p1_wr_count		: std_logic_vector (6 downto 0);
-	signal c3_p1_wr_underrun	: std_logic;
-	signal c3_p1_wr_error		: std_logic;
+	signal pio_cmd_en		: std_logic;
+
+	signal wr_req			: std_logic;
+	signal wr_cmd_req		: std_logic;
+	signal rd_req			: std_logic;
+
+	signal adc_cmd_en		: std_logic;
+	signal adc_cmd_instr		: std_logic_vector (2 downto 0);
+	signal adc_cmd_bl		: std_logic_vector (5 downto 0);
+	signal adc_cmd_byte_addr	: std_logic_vector (29 downto 0);
+	signal adc_cmd_empty		: std_logic;
+	signal adc_cmd_full		: std_logic;
+	signal adc_wr_en		: std_logic;
+	signal adc_wr_data		: std_logic_vector (31 downto 0);
+	signal adc_wr_full		: std_logic;
+	signal adc_wr_empty		: std_logic;
+	signal adc_wr_count		: std_logic_vector (6 downto 0);
+	signal adc_wr_underrun		: std_logic;
+	signal adc_wr_error		: std_logic;
 
 	-- IO signals
 	-- these are single ended, connected directly to LVDS IO primitives
@@ -575,15 +560,15 @@ begin
                         sck_active_i        => adc_sck_active,
 
                         -- DDR RAM interface
-                        ddr_cmd_en_o        => c3_p1_cmd_en,
-                        ddr_cmd_instr_o     => c3_p1_cmd_instr,
-                        ddr_cmd_byte_addr_o => c3_p1_cmd_byte_addr,
-                        ddr_cmd_bl_o        => c3_p1_cmd_bl,
-                        ddr_cmd_empty_i     => c3_p1_cmd_empty,
-                        ddr_cmd_full_i      => c3_p1_cmd_full,
-                        ddr_wr_en_o         => c3_p1_wr_en,
-                        ddr_wr_data_o       => c3_p1_wr_data,
-                        ddr_wr_full_i       => c3_p1_wr_full,
+                        ddr_cmd_en_o        => adc_cmd_en,
+                        ddr_cmd_instr_o     => adc_cmd_instr,
+                        ddr_cmd_byte_addr_o => adc_cmd_byte_addr,
+                        ddr_cmd_bl_o        => adc_cmd_bl,
+                        ddr_cmd_empty_i     => adc_cmd_empty,
+                        ddr_cmd_full_i      => adc_cmd_full,
+                        ddr_wr_en_o         => adc_wr_en,
+                        ddr_wr_data_o       => adc_wr_data,
+                        ddr_wr_full_i       => adc_wr_full,
 
                         -- CRC output
                         crc_o               =>
@@ -669,7 +654,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00003"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00004"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -788,18 +773,16 @@ begin
 			c3_p0_cmd_clk		=> clk,
 			c3_p0_cmd_en		=> c3_p0_cmd_en,
 			c3_p0_cmd_instr		=> c3_p0_cmd_instr, 
-			c3_p0_cmd_bl		=> "000000",
-			c3_p0_cmd_byte_addr	=>
-				register_file(R_DDR_ADDR).data(29 downto 0),
+			c3_p0_cmd_bl		=> c3_p0_cmd_bl,
+			c3_p0_cmd_byte_addr	=> c3_p0_cmd_byte_addr,
 			c3_p0_cmd_empty		=>
 				register_file(R_DDR_STATUS).default(25),
 			c3_p0_cmd_full		=>
 				register_file(R_DDR_STATUS).default(24),
 			c3_p0_wr_clk		=> clk,
-			c3_p0_wr_en		=> ddr_data_wr_d,
+			c3_p0_wr_en		=> c3_p0_wr_en,
 			c3_p0_wr_mask		=> "0000",
-			c3_p0_wr_data		=>
-				register_file(R_DDR_WR_DATA).data,
+			c3_p0_wr_data		=> c3_p0_wr_data,
 			c3_p0_wr_full		=>
 				register_file(R_DDR_STATUS).default(7),
 			c3_p0_wr_empty		=>
@@ -823,81 +806,104 @@ begin
 				register_file(R_DDR_STATUS).default(1),
 			c3_p0_rd_error		=>
 				register_file(R_DDR_STATUS).default(0)
-
-	--		c3_p1_cmd_clk		=> clk,
-	--		c3_p1_cmd_en		=> c3_p1_cmd_en,
-	--		c3_p1_cmd_instr		=> c3_p1_cmd_instr,
-	--		c3_p1_cmd_bl		=> c3_p1_cmd_bl,
-	--		c3_p1_cmd_byte_addr     => c3_p1_cmd_byte_addr,
-	--		c3_p1_cmd_empty		=> c3_p1_cmd_empty,
-	--		c3_p1_cmd_full		=> c3_p1_cmd_full,
-	--		c3_p1_wr_clk		=> clk,
-	--		c3_p1_wr_en		=> c3_p1_wr_en,
-	--		c3_p1_wr_mask		=> "0000",
-	--		c3_p1_wr_data		=> c3_p1_wr_data,
-	--		c3_p1_wr_full		=> c3_p1_wr_full,
-	--		c3_p1_wr_empty		=> c3_p1_wr_empty,
-	--		c3_p1_wr_count		=> c3_p1_wr_count,
-	--		c3_p1_wr_underrun	=> c3_p1_wr_underrun,
-	--		c3_p1_wr_error		=> c3_p1_wr_error,
-
-	--		-- We don't read on this port
-	--		c3_p1_rd_clk		=> clk,
-	--		c3_p1_rd_en		=> '0',
-	--		c3_p1_rd_data		=> open,
-	--		c3_p1_rd_full		=> open,
-	--		c3_p1_rd_empty		=> open,
-	--		c3_p1_rd_count		=> open,
-	--		c3_p1_rd_overflow	=> open,
-	--		c3_p1_rd_error		=> open
 		);
 
 	c3_p0_rd_en <= register_file(R_DDR_STATUS).default(9);
 	
 	register_file(R_DDR_RD_DATA).readonly <= true;
 	register_file(R_DDR_STATUS).readonly  <= true;
+
+	-----------------------------------------------------------------------
+	-- The PIO/register_file design provided here by Xilinx and RTD is
+	-- really not very useful.  It is not a real bus; it acts like all
+	-- registers in the FPGA are essentially SRAM that can have its data
+	-- ready for a read in one clock cycle.  The weakness of this becomes
+	-- apparent when you try to connect it to the memory interface, where
+	-- reads take an arbitrary amount of time.  RTD tried to hack their
+	-- way around this by having reads triggered by writes to the address
+	-- register.  I am still doing that; I just cleaned it up some.  It
+	-- causes a bug, however, if you write the address and then read the
+	-- read data on the next line of code, because sometimes your read
+	-- comes in too fast and you read stale data.  That's why my software
+	-- writes the address register, *reads* the address register to 
+	-- waste time, and then reads the read data register.
+	--
+	-- So, performance is terrible.  Writing and reading back 128MB takes
+	-- over 8 minutes.  We have about 500KB/s bandwidth on a 2.5GHz link.
+	-----------------------------------------------------------------------
 	
-	process (clk)
+	process (clk, rst_n)
 	begin
 		if rising_edge(clk) then
-			----------------------------------------------------------
-			-- Writes are triggered by writing to the WR_DATA register
-			----------------------------------------------------------
-			if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_WR_DATA,11)))) then
-				ddr_data_wr <= '1';
+			if (rst_n = '0') then
+				wr_req <= '0';
+				wr_cmd_req <= '0';
+				rd_req <= '0';
+				c3_p0_cmd_en <= '0';
+				c3_p0_cmd_bl <= "000000";
+				c3_p0_cmd_instr <= "000";
+				c3_p0_cmd_byte_addr <= (others => '0');
+				c3_p0_wr_en <= '0';
+				c3_p0_wr_data <= (others => '0');
 			else
-				ddr_data_wr <= '0';
+				------------------------------------------------
+				-- Writes are triggered by writing to the
+				-- WR_DATA register
+				------------------------------------------------
+				if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_WR_DATA,11)))) then
+					wr_req <= '1';
+				end if;
+
+				------------------------------------------------
+				-- Reads are triggered by writing to the
+				-- ADDR register
+				------------------------------------------------
+				if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_ADDR,11)))) then
+					rd_req <= '1';
+				end if;
+				
+				------------------------------------------------
+				-- Issue write to MCB
+				------------------------------------------------
+				c3_p0_wr_en <= '0';
+				if (adc_wr_en = '1') then
+					c3_p0_wr_en <= '1';
+					c3_p0_wr_data <= adc_wr_data;
+				elsif (wr_req = '1') then
+					c3_p0_wr_en <= '1';
+					c3_p0_wr_data <=
+					  register_file(R_DDR_WR_DATA).data;
+					wr_req <= '0';
+					wr_cmd_req <= '1';
+				end if;
+
+				------------------------------------------------
+				-- Issue command to MCB
+				------------------------------------------------
+				c3_p0_cmd_en <= '0';
+				if (adc_cmd_en = '1') then
+					c3_p0_cmd_en <= '1';
+					c3_p0_cmd_bl <= adc_cmd_bl;
+					c3_p0_cmd_instr <= adc_cmd_instr;
+					c3_p0_cmd_byte_addr <=
+						adc_cmd_byte_addr;
+					rd_req <= '1'; -- Read after write
+				elsif (wr_cmd_req = '1') then
+					c3_p0_cmd_en <= '1';
+					c3_p0_cmd_bl <= "000000"; -- 1 word
+					c3_p0_cmd_instr <= "000"; -- Write
+					c3_p0_cmd_byte_addr <= register_file(R_DDR_ADDR).data(29 downto 0);
+					rd_req <= '1'; -- Read after write
+					wr_cmd_req <= '0';
+				elsif (rd_req = '1') then
+					c3_p0_cmd_en <= '1';
+					c3_p0_cmd_bl <= "000000"; -- 1 word
+					c3_p0_cmd_instr <= "001"; -- Read
+					c3_p0_cmd_byte_addr <= register_file(R_DDR_ADDR).data(29 downto 0);
+					rd_req <= '0';
+				end if;
 			end if;
 
-			ddr_data_wr_d <= ddr_data_wr;
-			
-			-- Delay command register until write data is in FIFO
-			cmd_delay <= ddr_data_wr_d;
-			cmd_delay2 <= cmd_delay;
-			
-			----------------------------------------------------------
-			-- Reads are triggered by writing to the ADDR register
-			----------------------------------------------------------
-			if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_ADDR,11)))) then
-				ddr_data_rd <= '1';
-			else
-				ddr_data_rd <= '0';
-			end if;
-			
-			ddr_data_rd_d <= ddr_data_rd or cmd_delay2; -- Read after write
-			
-			----------------------------------------------------------
-			-- Issue command to MCB
-			----------------------------------------------------------
-			if (cmd_delay = '1')  then
-				c3_p0_cmd_en <= '1';
-				c3_p0_cmd_instr <= "000"; -- Write command
-			
-			else
-				c3_p0_cmd_en <= ddr_data_rd_d;
-				c3_p0_cmd_instr <= "001"; -- Read command
-				
-			end if;
 		end if;
 	end process;
 	
