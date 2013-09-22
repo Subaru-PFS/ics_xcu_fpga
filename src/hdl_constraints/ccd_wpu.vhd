@@ -29,7 +29,8 @@ use ieee.numeric_std.all;
 entity ccd_wpu is
   port (
     -- clock and reset
-    clk_100mhz_i	: in  std_logic;
+    synch_i		: in  std_logic;
+    clk_200mhz_i	: in  std_logic;
     rstn_i		: in  std_logic;
     
     -- SRAM interface
@@ -53,8 +54,10 @@ end ccd_wpu;
 architecture rtl of ccd_wpu is
 
   -- signals
-  signal main_timer	: unsigned (16 downto 0);
-  signal sck_timer	: unsigned (7 downto 0);
+  signal main_timer	: unsigned (15 downto 0);
+  signal sck_timer	: unsigned (11 downto 0);
+  signal sck		: std_logic;
+  signal scken_fifo	: std_logic_vector (7 downto 0);
   signal waveform	: std_logic_vector (15 downto 0);
   signal sram_adr	: unsigned (15 downto 0);
   signal reps		: unsigned (31 downto 0);
@@ -63,18 +66,44 @@ architecture rtl of ccd_wpu is
 begin
   -- output ports
   sram_adr_o <= STD_LOGIC_VECTOR(sram_adr);
-  waveform_o(13) <= sck_timer(0); -- SCK gets special treatment
+  waveform_o(13) <= sck; -- SCK gets special treatment
   waveform_o(15 downto 14) <= waveform(15 downto 14);
   waveform_o(12 downto 0) <= waveform(12 downto 0);
   reps_o <= STD_LOGIC_VECTOR(reps);
 
-  process(clk_100mhz_i, rstn_i)
+  process(clk_200mhz_i, rstn_i)
   begin
-    if rising_edge(clk_100mhz_i) then
+    if rising_edge(clk_200mhz_i) then
+      if (rstn_i = '0') then
+        sck <= '0';
+        sck_timer <= x"000";
+        scken_fifo <= x"00";
+        active_o <= '0';
+      else
+        sck <= sck_timer(1); -- tap 1 of a 200MHz counter is a 50MHz clock
+        scken_fifo <= scken_fifo(6 downto 0) & waveform(13);
+        if (sck_timer /= x"000") then
+          sck_timer <= sck_timer - "1";
+          active_o <= '1';
+        else
+          active_o <= '0';
+        end if;
+        if ((scken_fifo(5) = '0') and (scken_fifo(4) = '1')) then
+          -- This is tricky here, but this starting value of 259 gives you
+          -- 65 pulses on tap 1.  x"104" or x"105" would also work, with 
+          -- an added 5ns or 10ns delay.
+          sck_timer <= x"103";
+        end if;
+      end if;
+    end if;
+  end process;
+      
+  process(synch_i, rstn_i)
+  begin
+    if rising_edge(synch_i) then
       if (rstn_i = '0') then
         -- flipflop initializations:
-        main_timer <= TO_UNSIGNED(0,17);
-        sck_timer <= x"00";
+        main_timer <= x"0000";
         waveform <= x"0000";
         sram_adr <= x"0000";
         reps <= x"00000000";
@@ -82,30 +111,17 @@ begin
       else
         if (wpu_rst_i = '1') then
           -- WPU in reset:
-          main_timer <= TO_UNSIGNED(0,17);
-          sck_timer <= x"00";
+          main_timer <= x"0000";
           sram_adr <= x"0000";
           reps <= UNSIGNED(reps_i);
           finished <= false;
         else
           -- WPU running:
-          if (sck_timer /= x"00") then
-            sck_timer <= sck_timer - "1";
-            active_o <= '1';
-          else
-            active_o <= '0';
-          end if;
-
           if (not finished) then
             main_timer <= main_timer + "1";
             -- check if opcode timestamp matches timer:
-            if (STD_LOGIC_VECTOR(main_timer)
-                = sram_dat_i(15 downto 0) & '0') then
+            if (STD_LOGIC_VECTOR(main_timer) = sram_dat_i(15 downto 0)) then
               waveform <= sram_dat_i(31 downto 16);
-              -- start ADC SCK if so ordered:
-              if (sram_dat_i(29) = '1') then
-                sck_timer <= x"81";
-              end if;
               -- increment SRAM address "instruction pointer"
               sram_adr <= sram_adr + "100";
               -- check if waveform length is reached
@@ -117,7 +133,7 @@ begin
                   finished <= true;
                 end if;
                 sram_adr <= x"0000";
-                main_timer <= TO_UNSIGNED(0,17);
+                main_timer <= x"0001";
               end if; -- if address = len
             end if; -- if timer = time in opcode
           end if; -- if not finished

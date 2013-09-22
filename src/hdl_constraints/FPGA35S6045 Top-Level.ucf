@@ -333,3 +333,6 @@ TIMESPEC TS_clk_27mhz_1 = PERIOD "clk_27mhz_1" 27 MHz HIGH 50%;
 TIMESPEC TS_port2_p_16_ = PERIOD "port2_p<16>" 49.95 MHz HIGH 50%;
 NET "port2_p<15>" TNM_NET = port2_p<15>;
 TIMESPEC TS_port2_p_15_ = PERIOD "port2_p<15>" 99.9 MHz HIGH 50%;
+#Created by Constraints Editor (xc6slx45t-fgg484-2) - 2013/09/21
+NET "synch_out" TNM_NET = synch_out;
+TIMESPEC TS_synch_out = PERIOD "synch_out" TS_pll_inst_clkout0 / 8 HIGH 50% INPUT_JITTER 2 ns;

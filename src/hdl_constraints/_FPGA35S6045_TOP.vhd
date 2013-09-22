@@ -218,7 +218,8 @@ architecture rtl of FPGA35S6045_TOP is
 
 	component ccd_wpu is
 		port (
-			clk_100mhz_i	: in  std_logic;
+			synch_i		: in  std_logic;
+			clk_200mhz_i	: in  std_logic;
 			rstn_i		: in  std_logic;
 
 			sram_adr_o	: out std_logic_vector (15 downto 0);
@@ -266,12 +267,13 @@ architecture rtl of FPGA35S6045_TOP is
 	signal clk           : std_logic;
 	signal rst_n         : std_logic;
 	signal clk_200mhz    : std_logic; -- actually 199.8 MHz (27*37/5)
-	signal clk_100mhz    : std_logic; -- actually 99.9 MHz
-	signal synch_out     : std_logic; -- actually 99.9 MHz
-	signal en_100mhz     : std_logic;
-	signal en_100mhz_q   : std_logic;
+	signal synch_clk     : std_logic;
+	signal synch_out     : std_logic;
+	signal en_synch      : std_logic;
+	signal en_synch_q    : std_logic;
+	signal synch_count   : unsigned(5 downto 0);
 	-- note: synch_out is sent to all 8 units.  When it comes back in, it
-	-- is called clk_100mhz and is used to drive CCD waveform logic.
+	-- is called synch_clk and is used to drive CCD waveform logic.
 
 	--  Local Read Port
 	signal rd_addr      : std_logic_vector(10 downto 0);
@@ -413,12 +415,14 @@ begin
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
 
-	ccd_adc_sck_ret		<= lvds_cn8(16);
+	--ccd_adc_sck_ret		<= lvds_cn8(16);
+	ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
-	clk_100mhz		<= lvds_cn8(15);
+	--synch_clk		<= lvds_cn8(15);
+	synch_clk <= synch_out; -- XXX testing only!!
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -472,7 +476,8 @@ begin
 	len <= register_file(R_WPU_LEN).data(15 downto 0);
 	wpu_inst : ccd_wpu
 		port map (
-			clk_100mhz_i	=> clk_100mhz,
+			synch_i		=> synch_clk,
+			clk_200mhz_i	=> clk_200mhz,
 			rstn_i		=> rst_n,
 
 			sram_adr_o	=> sram_adr1,
@@ -502,9 +507,9 @@ begin
 			dina	=> register_file(R_BR_WR_DATA).data,
 			douta	=> register_file(R_BR_RD_DATA).default,
 
-			-- Port B is in the 100MHz domain and is accessed
+			-- Port B is in the synch_clk domain and is accessed
 			-- by the WPU.
-			clkb	=> clk_100mhz,
+			clkb	=> synch_clk,
 			web	=> "0", -- WPU does not write
 			addrb	=> sram_adr1(14 downto 2),
 			dinb	=> x"0000_0000", -- WPU does not write
@@ -545,6 +550,8 @@ begin
 
         -- For now, the CRC is reset any time the WPU is reset.
 	register_file(R_CRC).readonly <= true;
+	register_file(R_IMAGE_ADR).readonly <= true;
+	register_file(R_IMAGE_ADR).default(29 downto 0) <= adc_cmd_byte_addr;
         des_core : deserializer
                 port map (
                         -- clock and reset
@@ -654,7 +661,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00004"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00012"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -714,22 +721,29 @@ begin
 	end generate;
 
 	-----------------------------------------------------------------------
-	-- 99.9 MHz Synch_out clock generation
+	-- 25MHz Synch_out clock generation
 	-----------------------------------------------------------------------
-	-- Note: en_100mhz is re-registered because we are crossing clock
+	-- Note: en_synch is re-registered because we are crossing clock
 	-- domains from 62.5MHz to 199.8MHz.
 	process (clk_200mhz, rst_n)
-	-- XXX to-do: create a divisor register in case we want to run slower
-	begin -- This is the only 200MHz process.
+	-- to-do: create a divisor register in case we want to run slower
+	-- Currently, there is a constant divisor of 4 which creates 25MHz.
+	begin
 		if rising_edge(clk_200mhz) then
 			if (rst_n = '0') then
-				en_100mhz <= '0';
-				en_100mhz_q <= '0';
+				en_synch <= '0';
+				en_synch_q <= '0';
 				synch_out <= '0';
+				synch_count <= "000000";
 			else
-				en_100mhz <= register_file(R_WPU_CTRL).data(0);
-				en_100mhz_q <= en_100mhz;
-				synch_out <= en_100mhz_q and not synch_out;
+				en_synch <= register_file(R_WPU_CTRL).data(0);
+				en_synch_q <= en_synch;
+				synch_count <= synch_count + "1";
+				if (synch_count = "000100") then
+					synch_out <= en_synch_q and
+						not synch_out;
+					synch_count <= "000000";
+				end if;
 			end if;
 		end if;
 	end process;

@@ -77,7 +77,7 @@ architecture rtl of deserializer is
   -- any excessive delays that the FEE and cables might introduce.
   signal active_fifo    : std_logic_vector(5 downto 0);
 
-  signal ddr_cmd_en	: std_logic;
+  signal ddr_cmd_en     : std_logic;
   signal ddr_wr_en      : std_logic;
   signal adr            : unsigned(29 downto 0);
   signal bytes          : unsigned(3 downto 0);
@@ -88,7 +88,7 @@ architecture rtl of deserializer is
 begin
 
   ddr_cmd_en_o <= ddr_cmd_en;
-  ddr_cmd_instr_o <= "001"; -- write command
+  ddr_cmd_instr_o <= "000"; -- write command
   ddr_cmd_byte_addr_o <= STD_LOGIC_VECTOR(adr);
   ddr_cmd_bl_o <= "000011"; -- 3 means burst length of 4, our whole 16 bytes
   ddr_wr_en_o <= ddr_wr_en;
@@ -101,6 +101,7 @@ begin
     if rising_edge(adc_sck_i) then
       dat_a <= dat_a(62 downto 0) & adc_miso_a_i;
       dat_b <= dat_b(62 downto 0) & adc_miso_b_i;
+      dat_b <= x"deadbeef1234abcd"; -- XXX testing only!
     end if;
   end process;
 
@@ -109,8 +110,8 @@ begin
     if rising_edge(clk_62mhz_i) then
       if (rstn_i = '0') then
         -- flip-flop initializations
-	dat_q        <= (others => '0');
-	active_fifo  <= "000000";
+        dat_q        <= (others => '0');
+        active_fifo  <= "000000";
         ddr_cmd_en   <= '0';
         ddr_wr_en    <= '0';
         adr          <= (others => '0');
@@ -118,42 +119,43 @@ begin
         crc_out      <= x"0000";
         crc_count    <= "000";
       else
-	active_fifo <= active_fifo(4 downto 0) & sck_active_i;
-	ddr_cmd_en <= '0';
+        active_fifo <= active_fifo(4 downto 0) & sck_active_i;
+        ddr_cmd_en <= '0';
+        if (adr_rst_i = '1') then
+          adr <= (others => '0');
+        end if;
+        if (crc_rst_i = '1') then
+          crc_out <= x"0000";
+        end if;
         case (state) is
           when s_idle =>
-	    bytes <= x"0";
-	    dat_q <= dat_b & dat_a; -- is this the data organization we want?
-	    if (active_fifo(5 downto 4) = "10") then
-	      -- sck_active falling edge means we can start storing data
-	      state <= s_wrdata;
-	      ddr_wr_en <= '1';
-	    end if;
+            bytes <= x"0";
+            dat_q <= dat_b & dat_a; -- is this the data organization we want?
+            if (active_fifo(5 downto 4) = "10") then
+              -- sck_active falling edge means we can start storing data
+              state <= s_wrdata;
+              ddr_wr_en <= '1';
+            end if;
           when s_wrdata =>
-	    dat_q <= dat_q(31 downto 0) & dat_q(127 downto 32); -- rotate by 32
-	    bytes <= bytes + "100";
-	    if (bytes = "1100") then
-	      ddr_wr_en <= '0';
-	      state <= s_wrcmd;
-	    end if;
+            dat_q <= dat_q(31 downto 0) & dat_q(127 downto 32); -- rotate by 32
+            bytes <= bytes + "100";
+            if (bytes = "1100") then
+              ddr_wr_en <= '0';
+              state <= s_wrcmd;
+            end if;
           when s_wrcmd =>
-	    ddr_cmd_en <= '1';
-	    state <= s_crc1;
+            ddr_cmd_en <= '1';
+            state <= s_crc1;
           -- After doing a ROR 32 4 times and sending 4 d-words to SDRAM, the
           -- data is back to where it started, and we reuse it for crc
           -- calculations.  We have 16 bytes to process, so we go to state 
           -- s_crc2 16 times.  In that state, we process 8 bits.
           when s_crc1 =>
             bytes <= bytes + "1";
-            if (bytes = "1111") then
-              state <= s_idle;
-              adr <= adr + x"10";
-            else
-              crc_out <= crc_out xor x"00" & dat_q(7 downto 0);
-	      dat_q <= dat_q(7 downto 0) & dat_q(127 downto 8); -- rotate by 8
-              crc_count <= "000";
-	      state <= s_crc2;
-            end if;
+            crc_out <= crc_out xor x"00" & dat_q(7 downto 0);
+            dat_q <= dat_q(7 downto 0) & dat_q(127 downto 8); -- rotate by 8
+            crc_count <= "000";
+            state <= s_crc2;
           when s_crc2 =>
             if (crc_out(0) = '1') then
               crc_out <= '0' & crc_out(15 downto 1) xor crc_poly;
@@ -163,8 +165,12 @@ begin
             crc_count <= crc_count + "1";
             if (crc_count = "111") then
               state <= s_crc1;
+              if (bytes = x"0") then
+                state <= s_idle;
+                adr <= adr + x"10";
+              end if;
             end if;
-	end case;
+        end case;
       end if;
     end if;
   end process;
