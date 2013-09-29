@@ -96,6 +96,7 @@ architecture rtl of FPGA35S6045_TOP is
 			rd_addr      : out std_logic_vector(10 downto 0);
 			rd_be        : out std_logic_vector(3 downto 0);
 			rd_data      : in  std_logic_vector(31 downto 0);
+			rd_ack       : out std_logic;
                         
 			--  Local Write Port
 			wr_addr      : out std_logic_vector(10 downto 0);
@@ -279,6 +280,7 @@ architecture rtl of FPGA35S6045_TOP is
 	signal rd_addr      : std_logic_vector(10 downto 0);
 	signal rd_be        : std_logic_vector(3 downto 0);
 	signal rd_data      : std_logic_vector(31 downto 0);
+	signal rd_ack       : std_logic;
 
 	--  Local Write Port
 	signal wr_addr      : std_logic_vector(10 downto 0);
@@ -303,11 +305,11 @@ architecture rtl of FPGA35S6045_TOP is
 	signal cmd_delay		: std_logic;	
 	signal cmd_delay2		: std_logic;	
 
-	signal pio_cmd_en		: std_logic;
-
 	signal wr_req			: std_logic;
-	signal wr_cmd_req		: std_logic;
-	signal rd_req			: std_logic;
+	signal cmd_req			: std_logic;
+	signal pio_cmd_instr            : std_logic_vector (2 downto 0);
+	signal pio_cmd_bl               : std_logic_vector (5 downto 0);
+	signal pio_cmd_byte_addr        : std_logic_vector (29 downto 0);
 
 	signal adc_cmd_en		: std_logic;
 	signal adc_cmd_instr		: std_logic_vector (2 downto 0);
@@ -378,6 +380,7 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_DDR_WR_DATA	: natural := 16#0054#/4;
 	constant	R_DDR_ADDR	: natural := 16#0058#/4;
 	constant	R_DDR_STATUS	: natural := 16#005C#/4;
+	constant	R_DDR_CMD	: natural := 16#0060#/4;
 
 	-- Custom registers:
 	constant	R_BR_RD_DATA	: natural := 16#0010#/4;
@@ -610,6 +613,7 @@ begin
 			rd_addr		=> rd_addr,
 			rd_be		=> rd_be,  
 			rd_data		=> rd_data,
+			rd_ack		=> rd_ack,
 			--  Local Write Port
 			wr_addr             => wr_addr,
 			wr_be               => wr_be,  
@@ -661,7 +665,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00012"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00015"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -739,7 +743,7 @@ begin
 				en_synch <= register_file(R_WPU_CTRL).data(0);
 				en_synch_q <= en_synch;
 				synch_count <= synch_count + "1";
-				if (synch_count = "000100") then
+				if (synch_count = "000011") then
 					synch_out <= en_synch_q and
 						not synch_out;
 					synch_count <= "000000";
@@ -822,8 +826,6 @@ begin
 				register_file(R_DDR_STATUS).default(0)
 		);
 
-	c3_p0_rd_en <= register_file(R_DDR_STATUS).default(9);
-	
 	register_file(R_DDR_RD_DATA).readonly <= true;
 	register_file(R_DDR_STATUS).readonly  <= true;
 
@@ -835,29 +837,44 @@ begin
 	-- apparent when you try to connect it to the memory interface, where
 	-- reads take an arbitrary amount of time.  RTD tried to hack their
 	-- way around this by having reads triggered by writes to the address
-	-- register.  I am still doing that; I just cleaned it up some.  It
-	-- causes a bug, however, if you write the address and then read the
-	-- read data on the next line of code, because sometimes your read
-	-- comes in too fast and you read stale data.  That's why my software
-	-- writes the address register, *reads* the address register to 
-	-- waste time, and then reads the read data register.
+	-- register.  There were also some bugs in how they did that.  Even
+	-- with the bugs fixed, it did not work well because it can take a long
+	-- time between when you request a read and when the MCB completes it.
 	--
-	-- So, performance is terrible.  Writing and reading back 128MB takes
-	-- over 8 minutes.  We have about 500KB/s bandwidth on a 2.5GHz link.
+	-- So, I have installed a modified method that requires software to
+	-- have more knowledge of the memory interface and direct control of
+	-- it.  Now commands have to be sent to the command interface, and
+	-- writes and reads to the data registers cause writes and reads to
+	-- the RAM FIFOs.  In order to detect reads, I had to add the rd_ack
+	-- port to the PCIe core.  I found out only through experimentation
+	-- that this signal is high for 2 clocks when there is a read.  This is
+	-- why the code below says:
+	-- 	c3_p0_rd_en <= not c3_p0_rd_en;
+	-- instead of just
+	-- 	c3_p0_rd_en <= '1';
+	--
+	-- This new method allows for bursts inside the FPGA, but each read or
+	-- write is still a single 32 bit PCIe read or write, so performance
+	-- is still terrible.  Writing and reading back 128MB takes over 4
+	-- minutes.  We have about 1MB/s bandwidth on a 2.5GHz link.
 	-----------------------------------------------------------------------
 	
+	pio_cmd_byte_addr <= register_file(R_DDR_ADDR).data(29 downto 0);
+	pio_cmd_bl <= register_file(R_DDR_CMD).data(5 downto 0);
+	pio_cmd_instr <= register_file(R_DDR_CMD).data(10 downto 8);
+
 	process (clk, rst_n)
 	begin
 		if rising_edge(clk) then
 			if (rst_n = '0') then
 				wr_req <= '0';
-				wr_cmd_req <= '0';
-				rd_req <= '0';
+				cmd_req <= '0';
 				c3_p0_cmd_en <= '0';
 				c3_p0_cmd_bl <= "000000";
 				c3_p0_cmd_instr <= "000";
 				c3_p0_cmd_byte_addr <= (others => '0');
 				c3_p0_wr_en <= '0';
+				c3_p0_rd_en <= '0';
 				c3_p0_wr_data <= (others => '0');
 			else
 				------------------------------------------------
@@ -869,11 +886,22 @@ begin
 				end if;
 
 				------------------------------------------------
-				-- Reads are triggered by writing to the
+				-- Reads are triggered by reading from the
+				-- RD_DATA register
+				------------------------------------------------
+				c3_p0_rd_en <= '0';
+				if ((rd_ack = '1') and (rd_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_RD_DATA,11)))) then
+					if (register_file(R_DDR_STATUS).default(2) = '0') then
+						c3_p0_rd_en <= not c3_p0_rd_en;
+					end if;
+				end if;
+				
+				------------------------------------------------
+				-- Commands are triggered by writing to the
 				-- ADDR register
 				------------------------------------------------
 				if ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_ADDR,11)))) then
-					rd_req <= '1';
+					cmd_req <= '1';
 				end if;
 				
 				------------------------------------------------
@@ -888,7 +916,6 @@ begin
 					c3_p0_wr_data <=
 					  register_file(R_DDR_WR_DATA).data;
 					wr_req <= '0';
-					wr_cmd_req <= '1';
 				end if;
 
 				------------------------------------------------
@@ -901,20 +928,13 @@ begin
 					c3_p0_cmd_instr <= adc_cmd_instr;
 					c3_p0_cmd_byte_addr <=
 						adc_cmd_byte_addr;
-					rd_req <= '1'; -- Read after write
-				elsif (wr_cmd_req = '1') then
+				elsif (cmd_req = '1') then
 					c3_p0_cmd_en <= '1';
-					c3_p0_cmd_bl <= "000000"; -- 1 word
-					c3_p0_cmd_instr <= "000"; -- Write
-					c3_p0_cmd_byte_addr <= register_file(R_DDR_ADDR).data(29 downto 0);
-					rd_req <= '1'; -- Read after write
-					wr_cmd_req <= '0';
-				elsif (rd_req = '1') then
-					c3_p0_cmd_en <= '1';
-					c3_p0_cmd_bl <= "000000"; -- 1 word
-					c3_p0_cmd_instr <= "001"; -- Read
-					c3_p0_cmd_byte_addr <= register_file(R_DDR_ADDR).data(29 downto 0);
-					rd_req <= '0';
+					c3_p0_cmd_bl <= pio_cmd_bl;
+					c3_p0_cmd_instr <= pio_cmd_instr;
+					c3_p0_cmd_byte_addr <=
+						pio_cmd_byte_addr;
+					cmd_req <= '0';
 				end if;
 			end if;
 

@@ -8,7 +8,7 @@ use ieee.numeric_std.all;
 -- to the DRAM.
 
 -- Most of this module is clocked at 62.5MHz as that is the domain that the 
--- DDR interface is in.  The sck_active input is clocked from the 100MHz
+-- DDR interface is in.  The sck_active input is clocked from the 25MHz
 -- domain, but we put it in a FIFO for a delay anyway so that is not a problem.
 -- The ADC data is clocked in by the 50MHz adc_sck_i.  The way we handle the
 -- domain transition between 50MHz and 62.5MHz is that we take advantage of
@@ -16,9 +16,9 @@ use ieee.numeric_std.all;
 -- we know it is inactive, which means the data is stable, and then we start
 -- working with that data in the 62.5MHz domain.
 
--- In this application, we have on the order of 1ms between ADC bursts, which
+-- In this application, we have on the order of 13us between ADC bursts, which
 -- is an eternity at 62.5MHz.  We have 16 bytes of data to move to DRAM and
--- then 62000 clock cycles to sit on our hands.
+-- then 600 clock cycles to sit on our hands.
 
 -- Software is free to ignore the CRC output.
 

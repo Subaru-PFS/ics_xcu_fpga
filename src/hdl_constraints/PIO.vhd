@@ -97,6 +97,7 @@ port (
 	rd_addr      : out std_logic_vector(10 downto 0);
 	rd_be        : out std_logic_vector(3 downto 0);
 	rd_data      : in  std_logic_vector(31 downto 0);
+	rd_ack       : out std_logic;
                   
 	--  Local Write Port
 	wr_addr      : out std_logic_vector(10 downto 0);
@@ -175,6 +176,7 @@ begin
   pio_reset_n  <= trn_reset_n and not trn_lnk_up_n;
   clk		<= trn_clk;
   rst_n 	<= pio_reset_n;
+  rd_ack        <= compl_done;
 
   --
   -- PIO instance

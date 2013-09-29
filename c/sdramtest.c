@@ -2,6 +2,7 @@
 #include<sys/types.h>
 #include<sys/mman.h>
 #include<stdio.h>
+#include<stdlib.h>
 #include<fcntl.h>
 #include<assert.h>
 
@@ -15,13 +16,16 @@
 #define R_DDR_RD_DATA	(0x50/4)
 #define R_DDR_WR_DATA	(0x54/4)
 #define R_DDR_ADDR	(0x58/4)
+#define R_DDR_STATUS	(0x5c/4)
+#define R_DDR_CMD	(0x60/4)
+
+#define BL 64 // burst length
 
 int main(int argc, char **argv) {
-	int i, k;
+	int i, j, k;
 	volatile unsigned int *fpga;
 	int fd;
 	unsigned int x;
-	volatile unsigned int dummy;
 
 	assert(2 == argc);
 
@@ -40,28 +44,34 @@ int main(int argc, char **argv) {
 	k = strtoul(argv[1], 0, 0);
 	fprintf(stderr, "mbytes=%d\n", k);
 
-	for(i=0; i<k*1024*1024; i+=4) {
-		x = getchar();
-		x |= getchar() << 8;
-		x |= getchar() << 16;
-		x |= getchar() << 24;
+	fpga[R_DDR_CMD] = BL - 1;
+	for(i=0; i<k*1024*1024; i+=4*BL) {
+		while (fpga[R_DDR_STATUS] & 0x80) {}; // check for write FIFO full
+		for (j=0; j<BL; j++) {
+			x = getchar();
+			x |= getchar() << 8;
+			x |= getchar() << 16;
+			x |= getchar() << 24;
+			fpga[R_DDR_WR_DATA] = x;
+		}
 		fpga[R_DDR_ADDR] = i;
-		fpga[R_DDR_WR_DATA] = x;
 	}
 
-	for(i=0; i<k*1024*1024; i+=4) {
+	fpga[R_DDR_CMD] = 0x100 | (BL - 1);
+	for(i=0; i<k*1024*1024; i+=4*BL) {
 		fpga[R_DDR_ADDR] = i;
-		dummy = fpga[R_DDR_ADDR];
-		x = fpga[R_DDR_RD_DATA];
-		putchar(x & 0xff);
-		x >>= 8;
-		putchar(x & 0xff);
-		x >>= 8;
-		putchar(x & 0xff);
-		x >>= 8;
-		putchar(x & 0xff);
+		while(fpga[R_DDR_STATUS] & 0x4) {};
+		for (j=0; j<BL; j++) {
+			x = fpga[R_DDR_RD_DATA];
+			putchar(x & 0xff);
+			x >>= 8;
+			putchar(x & 0xff);
+			x >>= 8;
+			putchar(x & 0xff);
+			x >>= 8;
+			putchar(x & 0xff);
+		}
 	}
-
 	return 0;
 }
 

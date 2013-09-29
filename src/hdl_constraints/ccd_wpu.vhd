@@ -8,7 +8,7 @@ use ieee.numeric_std.all;
 -- description, and drives 16 digital outputs accordingly.
 -- The format of a WPU opcode is simple.  The lower 16 bits are a timestamp
 -- and the upper 16 bits are the values that the outputs transition to at that
--- timestamp.  Timestamps are in 20ns (50MHz) increments.  (Actually 49.95MHz)
+-- timestamp.  Timestamps are in 40ns (25MHz) increments.
 --
 -- The "len" and "reps" inputs are driven by the register file.  After "len"
 -- opcodes, the waveform is over and the "instruction pointer" rolls over to
@@ -132,7 +132,9 @@ begin
                 if (reps = x"00000001") then
                   finished <= true;
                 end if;
-                sram_adr <= x"0000";
+                --sram_adr <= x"0000";
+                sram_adr <= x"0004";
+                --main_timer <= x"0000";
                 main_timer <= x"0001";
               end if; -- if address = len
             end if; -- if timer = time in opcode

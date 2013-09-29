@@ -27,6 +27,8 @@
 #define R_DDR_RD_DATA	(0x50/4)
 #define R_DDR_WR_DATA	(0x54/4)
 #define R_DDR_ADDR	(0x58/4)
+#define R_DDR_STATUS	(0x5c/4)
+#define R_DDR_CMD	(0x60/4)
 #define	R_BR_RD_DATA	(0x10/4)
 #define	R_BR_WR_DATA	(0x14/4)
 #define	R_BR_ADDR	(0x18/4)
@@ -36,6 +38,8 @@
 #define	R_WPU_STATUS	(0x2C/4)
 #define	R_IMAGE_ADR	(0x30/4)
 #define	R_CRC   	(0x34/4)
+
+#define BL 64 // burst length
 
 // Control register bits:
 #define EN_SYNCH	(1<<0)
@@ -47,7 +51,7 @@ int main(int argc, char **argv) {
 	int fd;
 	unsigned int i, j, x, length, reps, bytes_read;
 	unsigned short crc = 0;
-	volatile unsigned int dummy;
+	//volatile unsigned int dummy;
 
 	if (argc != 3) {
 		fprintf(stderr, "\nUsage: ccdctl <length> <reps> < wave.bin > row.bin\n\n");
@@ -96,31 +100,29 @@ int main(int argc, char **argv) {
 	fpga[R_WPU_CTRL] = EN_SYNCH;
 	// Read data and calculate CRC
 	bytes_read = 0;
-	// This while loop would be dangerous because the two FPGA registers are
-	// not updated at the same time.  We know we get reps*16 bytes.
-	// while ((fpga[R_WPU_STATUS] != 0) || (bytes_read != fpga[R_IMAGE_ADR])){
+	while (512 > fpga[R_IMAGE_ADR]) {}; // Give the FPGA a head start
 	while (reps * 16 != bytes_read){
-		if (bytes_read == fpga[R_IMAGE_ADR]) usleep(5000);
-		else {
-			fpga[R_DDR_ADDR] = bytes_read;
-			dummy = fpga[R_DDR_ADDR]; // Dummy read to waste time
-			x = fpga[R_DDR_RD_DATA];
-			for (i=0; i<4; i++) {
-				putchar(x & 0xff);
-				crc ^= (x & 0xff);
-				for (j=0; j<8; j++) {
-					if (crc & 1) crc = (crc >> 1) ^ CRC_POLY;
-					else crc = crc >> 1;
-					//fprintf(stderr, "crc=0x%x\n", crc);
-				}
-				x = x >> 8;
-			}
-			bytes_read += 4;
+		if (!(bytes_read & (BL - 1))) { // multiples of burst length
+			fpga[R_DDR_ADDR] = bytes_read; // command RAM read
+			while(fpga[R_DDR_STATUS] & 0x4) {}; // wait for data
 		}
+		x = fpga[R_DDR_RD_DATA];
+		for (i=0; i<4; i++) {
+			putchar(x & 0xff);
+			crc ^= (x & 0xff);
+			for (j=0; j<8; j++) {
+				if (crc & 1) crc = (crc >> 1) ^ CRC_POLY;
+				else crc = crc >> 1;
+				//fprintf(stderr, "crc=0x%x\n", crc);
+			}
+			x = x >> 8;
+		}
+		bytes_read += 4;
 	}
 	// Verify CRC
 	fprintf(stderr, "software_crc=0x%x\n", crc);
 	fprintf(stderr, "hardware_crc=0x%x\n", fpga[R_CRC]);
+	fpga[R_WPU_CTRL] = 0;
 	return 0;
 }
 

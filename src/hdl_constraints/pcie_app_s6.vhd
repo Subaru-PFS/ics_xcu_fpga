@@ -82,6 +82,7 @@ entity pcie_app_s6 is
 		rd_addr      : out std_logic_vector(10 downto 0);
 		rd_be        : out std_logic_vector(3 downto 0);
 		rd_data      : in  std_logic_vector(31 downto 0);
+		rd_ack       : out std_logic;
                      
 		--  Local Write Port
 		wr_addr      : out std_logic_vector(10 downto 0);
@@ -130,6 +131,7 @@ architecture rtl of pcie_app_s6 is
 		rd_addr      : out std_logic_vector(10 downto 0);
 		rd_be        : out std_logic_vector(3 downto 0);
 		rd_data      : in  std_logic_vector(31 downto 0);
+		rd_ack       : out std_logic;
                      
 		--  Local Write Port
 		wr_addr      : out std_logic_vector(10 downto 0);
@@ -598,6 +600,7 @@ begin
 		rd_addr      		  => rd_addr,
 		rd_be        		  => rd_be,  
 		rd_data             => rd_data,
+		rd_ack              => rd_ack,
 		--  Local Write Port
 		wr_addr             => wr_addr,
 		wr_be               => wr_be,  
