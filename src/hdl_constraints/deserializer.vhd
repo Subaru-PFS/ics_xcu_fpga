@@ -35,23 +35,14 @@ entity deserializer is
 
     -- active signal from CCD WPU indicates an ADC cycle
     sck_active_i        : in  std_logic;
+    crcctl_i            : in  std_logic;
 
     -- DDR RAM interface (This entity writes DRAM; it does not read.)
-    ddr_cmd_en_o        : out std_logic;
-    ddr_cmd_instr_o     : out std_logic_vector(2 downto 0);
-    ddr_cmd_byte_addr_o : out std_logic_vector(29 downto 0);
-    ddr_cmd_bl_o        : out std_logic_vector(5 downto 0);
-    ddr_cmd_empty_i     : in  std_logic;
-    ddr_cmd_full_i      : in  std_logic;
     ddr_wr_en_o         : out std_logic;
     ddr_wr_data_o       : out std_logic_vector(31 downto 0);
-    ddr_wr_full_i       : in  std_logic;
 
-    -- CRC output
-    crc_o               : out std_logic_vector(15 downto 0);
-    crc_rst_i           : in  std_logic;
-
-    adr_rst_i           : in  std_logic
+    -- test_pattern = 1 means ignore MISO lines and return test pattern
+    test_pattern_i      : in  std_logic
   );
 end deserializer;
 
@@ -62,7 +53,7 @@ architecture rtl of deserializer is
   type state_type is (
     s_idle,
     s_wrdata,
-    s_wrcmd,
+    s_wrcrc,
     s_crc1,
     s_crc2
   );
@@ -76,32 +67,23 @@ architecture rtl of deserializer is
   -- deep, which is overkill, but we have plenty of time and this allows for
   -- any excessive delays that the FEE and cables might introduce.
   signal active_fifo    : std_logic_vector(5 downto 0);
+  signal crcctl_fifo    : std_logic_vector(2 downto 0);
 
-  signal ddr_cmd_en     : std_logic;
-  signal ddr_wr_en      : std_logic;
-  signal adr            : unsigned(29 downto 0);
   signal bytes          : unsigned(3 downto 0);
 
   signal crc_out        : std_logic_vector(15 downto 0);
   signal crc_count      : unsigned(2 downto 0);
+  signal testx          : unsigned(15 downto 0);
 
 begin
 
-  ddr_cmd_en_o <= ddr_cmd_en;
-  ddr_cmd_instr_o <= "000"; -- write command
-  ddr_cmd_byte_addr_o <= STD_LOGIC_VECTOR(adr);
-  ddr_cmd_bl_o <= "000011"; -- 3 means burst length of 4, our whole 16 bytes
-  ddr_wr_en_o <= ddr_wr_en;
   ddr_wr_data_o <= dat_q(31 downto 0);
-
-  crc_o <= crc_out;
 
   process(adc_sck_i)
   begin -- This is the only 50MHz process
     if rising_edge(adc_sck_i) then
       dat_a <= dat_a(62 downto 0) & adc_miso_a_i;
       dat_b <= dat_b(62 downto 0) & adc_miso_b_i;
-      dat_b <= x"deadbeef1234abcd"; -- XXX testing only!
     end if;
   end process;
 
@@ -112,40 +94,58 @@ begin
         -- flip-flop initializations
         dat_q        <= (others => '0');
         active_fifo  <= "000000";
-        ddr_cmd_en   <= '0';
-        ddr_wr_en    <= '0';
-        adr          <= (others => '0');
+        crcctl_fifo  <= "000";
+        ddr_wr_en_o  <= '0';
         bytes        <= x"0";
         crc_out      <= x"0000";
         crc_count    <= "000";
+        testx        <= x"0000";
       else
         active_fifo <= active_fifo(4 downto 0) & sck_active_i;
-        ddr_cmd_en <= '0';
-        if (adr_rst_i = '1') then
-          adr <= (others => '0');
-        end if;
-        if (crc_rst_i = '1') then
+        crcctl_fifo <= crcctl_fifo(1 downto 0) & crcctl_i;
+        if (crcctl_fifo(2 downto 1) = "10") then
+          -- reset crc
           crc_out <= x"0000";
         end if;
         case (state) is
           when s_idle =>
             bytes <= x"0";
             dat_q <= dat_b & dat_a; -- is this the data organization we want?
+            -- We could assign dat_b and dat_a to dat_q with any ordering
+            -- that is convenient for the CPU.
+            if (test_pattern_i = '1') then
+              dat_q <= STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) &
+                       STD_LOGIC_VECTOR(testx) ;
+            end if;
             if (active_fifo(5 downto 4) = "10") then
               -- sck_active falling edge means we can start storing data
               state <= s_wrdata;
-              ddr_wr_en <= '1';
+              ddr_wr_en_o <= '1';
+              testx <= testx + 1;
             end if;
+            if (crcctl_fifo(2 downto 1) = "01") then
+              -- crcctl rising edge requests a CRC stored in the data stream.
+              state <= s_wrcrc;
+              dat_q(31 downto 16) <= x"cccc"; -- magic number indicates CRC
+              dat_q(15 downto 0) <= crc_out;
+              ddr_wr_en_o <= '1';
+            end if;
+          when s_wrcrc =>
+            ddr_wr_en_o <= '0';
+            state <= s_idle;
           when s_wrdata =>
             dat_q <= dat_q(31 downto 0) & dat_q(127 downto 32); -- rotate by 32
             bytes <= bytes + "100";
             if (bytes = "1100") then
-              ddr_wr_en <= '0';
-              state <= s_wrcmd;
+              ddr_wr_en_o <= '0';
+              state <= s_crc1;
             end if;
-          when s_wrcmd =>
-            ddr_cmd_en <= '1';
-            state <= s_crc1;
           -- After doing a ROR 32 4 times and sending 4 d-words to SDRAM, the
           -- data is back to where it started, and we reuse it for crc
           -- calculations.  We have 16 bytes to process, so we go to state 
@@ -167,7 +167,6 @@ begin
               state <= s_crc1;
               if (bytes = x"0") then
                 state <= s_idle;
-                adr <= adr + x"10";
               end if;
             end if;
         end case;

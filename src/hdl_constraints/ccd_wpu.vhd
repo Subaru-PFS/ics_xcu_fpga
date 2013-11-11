@@ -34,12 +34,13 @@ entity ccd_wpu is
     rstn_i		: in  std_logic;
     
     -- SRAM interface
-    sram_adr_o		: out std_logic_vector (15 downto 0);
+    sram_adr_o		: out std_logic_vector (17 downto 0);
     sram_dat_i		: in  std_logic_vector (31 downto 0);
     
     -- control signals to and from register block
     wpu_rst_i		: in  std_logic;
-    len_i		: in  std_logic_vector (15 downto 0);
+    start_i		: in  std_logic_vector (15 downto 0);
+    stop_i		: in  std_logic_vector (15 downto 0);
     reps_i		: in  std_logic_vector (31 downto 0);
     reps_o		: out std_logic_vector (31 downto 0);
     
@@ -47,7 +48,8 @@ entity ccd_wpu is
     waveform_o		: out std_logic_vector (15 downto 0);
 
     -- active_o indicates that ADC SCK is active
-    active_o		: out std_logic
+    active_o		: out std_logic;
+    crcctl_o            : out std_logic
   );
 end ccd_wpu;
 
@@ -55,6 +57,7 @@ architecture rtl of ccd_wpu is
 
   -- signals
   signal main_timer	: unsigned (15 downto 0);
+  signal duration	: unsigned (15 downto 0);
   signal sck_timer	: unsigned (11 downto 0);
   signal sck		: std_logic;
   signal scken_fifo	: std_logic_vector (7 downto 0);
@@ -65,7 +68,7 @@ architecture rtl of ccd_wpu is
 
 begin
   -- output ports
-  sram_adr_o <= STD_LOGIC_VECTOR(sram_adr);
+  sram_adr_o <= STD_LOGIC_VECTOR(sram_adr) & "00";
   waveform_o(13) <= sck; -- SCK gets special treatment
   waveform_o(15 downto 14) <= waveform(15 downto 14);
   waveform_o(12 downto 0) <= waveform(12 downto 0);
@@ -108,36 +111,38 @@ begin
         sram_adr <= x"0000";
         reps <= x"00000000";
         finished <= false;
+        duration <= x"0000";
+        crcctl_o <= '0';
       else
         if (wpu_rst_i = '1') then
           -- WPU in reset:
           main_timer <= x"0000";
-          sram_adr <= x"0000";
+          sram_adr <= UNSIGNED(start_i);
           reps <= UNSIGNED(reps_i);
           finished <= false;
+          duration <= x"0002";
         else
           -- WPU running:
           if (not finished) then
             main_timer <= main_timer + "1";
-            -- check if opcode timestamp matches timer:
-            if (STD_LOGIC_VECTOR(main_timer) = sram_dat_i(15 downto 0)) then
+            -- check if opcode duration is reached
+            if (main_timer = duration) then
               waveform <= sram_dat_i(31 downto 16);
+              duration <= "0" & UNSIGNED(sram_dat_i(14 downto 0));
+              crcctl_o <= sram_dat_i(15);
               -- increment SRAM address "instruction pointer"
-              sram_adr <= sram_adr + "100";
+              sram_adr <= sram_adr + "1";
+              main_timer <= x"0001";
               -- check if waveform length is reached
-              if (STD_LOGIC_VECTOR(sram_adr(15 downto 2))
-                  = len_i(13 downto 0)) then
+              if (STD_LOGIC_VECTOR(sram_adr) = stop_i) then
                 reps <= reps - "1";
                 -- check if number of reps is reached
                 if (reps = x"00000001") then
                   finished <= true;
                 end if;
-                --sram_adr <= x"0000";
-                sram_adr <= x"0004";
-                --main_timer <= x"0000";
-                main_timer <= x"0001";
-              end if; -- if address = len
-            end if; -- if timer = time in opcode
+                sram_adr <= UNSIGNED(start_i);
+              end if; -- if address = stop
+            end if; -- if timer = duration
           end if; -- if not finished
         end if; -- if WPU reset; else
       end if; -- if global reset; else
