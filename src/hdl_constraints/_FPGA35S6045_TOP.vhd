@@ -442,14 +442,14 @@ begin
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
 
-	--ccd_adc_sck_ret		<= lvds_cn8(16);
-	ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
+	ccd_adc_sck_ret		<= lvds_cn8(16);
+	--ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
-	--synch_clk		<= lvds_cn8(15);
-	synch_clk <= synch_out; -- XXX testing only!!
+	synch_clk		<= lvds_cn8(15);
+	--synch_clk <= synch_out; -- XXX testing only!!
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -706,7 +706,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00033"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00038"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -751,7 +751,46 @@ begin
 	end generate;
 	
 	-- Port 2 -- 20 LVDS inputs on CN8
-	G_PORT2: for i in 0 to 19 generate
+	G_PORT2: for i in 0 to 14 generate
+		IBUFDS_inst : IBUFDS
+		generic map (
+			DIFF_TERM => TRUE, -- Differential Termination
+			IBUF_LOW_PWR => FALSE, -- (high performance)
+			IOSTANDARD => "default"
+		)
+		port map (
+			O => lvds_cn8(i),
+			I => port2_p(i),
+			IB => port2_n(i)
+		);
+	end generate;
+
+	-- 15 and 16 have to be IBUFGDS because they are clocks
+	IBUFDS_15 : IBUFGDS
+	generic map (
+		DIFF_TERM => TRUE, -- Differential Termination
+		IBUF_LOW_PWR => FALSE, -- (high performance)
+		IOSTANDARD => "default"
+	)
+	port map (
+		O => lvds_cn8(15),
+		I => port2_p(15),
+		IB => port2_n(15)
+	);
+
+	IBUFDS_16 : IBUFGDS
+	generic map (
+		DIFF_TERM => TRUE, -- Differential Termination
+		IBUF_LOW_PWR => FALSE, -- (high performance)
+		IOSTANDARD => "default"
+	)
+	port map (
+		O => lvds_cn8(16),
+		I => port2_p(16),
+		IB => port2_n(16)
+	);
+
+	G_PORT3: for i in 17 to 19 generate
 		IBUFDS_inst : IBUFDS
 		generic map (
 			DIFF_TERM => TRUE, -- Differential Termination
