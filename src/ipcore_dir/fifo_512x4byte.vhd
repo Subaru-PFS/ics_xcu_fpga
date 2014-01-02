@@ -22,7 +22,7 @@
 --    devices, or systems.  Use in such applications are expressly            --
 --    prohibited.                                                             --
 --                                                                            --
---    (c) Copyright 1995-2013 Xilinx, Inc.                                    --
+--    (c) Copyright 1995-2014 Xilinx, Inc.                                    --
 --    All rights reserved.                                                    --
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -51,8 +51,8 @@ ENTITY fifo_512x4byte IS
     dout : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
     full : OUT STD_LOGIC;
     empty : OUT STD_LOGIC;
-    rd_data_count : OUT STD_LOGIC_VECTOR(8 DOWNTO 0);
-    wr_data_count : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
+    rd_data_count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0);
+    wr_data_count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0)
   );
 END fifo_512x4byte;
 
@@ -69,8 +69,8 @@ COMPONENT wrapped_fifo_512x4byte
     dout : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
     full : OUT STD_LOGIC;
     empty : OUT STD_LOGIC;
-    rd_data_count : OUT STD_LOGIC_VECTOR(8 DOWNTO 0);
-    wr_data_count : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
+    rd_data_count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0);
+    wr_data_count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0)
   );
 END COMPONENT;
 
@@ -217,7 +217,7 @@ END COMPONENT;
       c_prog_full_type_wdch => 0,
       c_prog_full_type_wrch => 0,
       c_rach_type => 0,
-      c_rd_data_count_width => 9,
+      c_rd_data_count_width => 10,
       c_rd_depth => 512,
       c_rd_freq => 1,
       c_rd_pntr_width => 9,
@@ -243,12 +243,12 @@ END COMPONENT;
       c_use_ecc_wrch => 0,
       c_use_embedded_reg => 0,
       c_use_fifo16_flags => 0,
-      c_use_fwft_data_count => 0,
+      c_use_fwft_data_count => 1,
       c_valid_low => 0,
       c_wach_type => 0,
       c_wdch_type => 0,
       c_wr_ack_low => 0,
-      c_wr_data_count_width => 9,
+      c_wr_data_count_width => 10,
       c_wr_depth => 512,
       c_wr_depth_axis => 1024,
       c_wr_depth_rach => 16,

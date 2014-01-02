@@ -1,7 +1,7 @@
 ##############################################################
 #
 # Xilinx Core Generator version 14.1
-# Date: Sat Oct 26 22:57:53 2013
+# Date: Thu Jan 02 03:31:44 2014
 #
 ##############################################################
 #
@@ -168,7 +168,7 @@ CSET rach_type=FIFO
 CSET rdch_type=FIFO
 CSET read_clock_frequency=1
 CSET read_data_count=true
-CSET read_data_count_width=9
+CSET read_data_count_width=10
 CSET register_slice_mode_axis=Fully_Registered
 CSET register_slice_mode_rach=Fully_Registered
 CSET register_slice_mode_rdch=Fully_Registered
@@ -193,7 +193,7 @@ CSET underflow_sense_axi=Active_High
 CSET use_clock_enable=false
 CSET use_dout_reset=true
 CSET use_embedded_registers=false
-CSET use_extra_logic=false
+CSET use_extra_logic=true
 CSET valid_flag=false
 CSET valid_sense=Active_High
 CSET wach_type=FIFO
@@ -203,11 +203,11 @@ CSET write_acknowledge_flag=false
 CSET write_acknowledge_sense=Active_High
 CSET write_clock_frequency=1
 CSET write_data_count=true
-CSET write_data_count_width=9
+CSET write_data_count_width=10
 CSET wuser_width=1
 # END Parameters
 # BEGIN Extra information
 MISC pkg_timestamp=2012-04-13T16:13:14Z
 # END Extra information
 GENERATE
-# CRC: 3aba5710
+# CRC: fb227458
