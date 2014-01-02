@@ -9,6 +9,30 @@ use ieee.numeric_std.all;
 -- backup if fifo_out fills up and 64 words are available in fifo_in.  DRAM
 -- is always accessed with 64 word bursts.
 
+-- In this FPGA design, all code with any knowledge of the Xilinx memory
+-- interface to the DDR2 RAM is in this component.  It is designed so that
+-- multiple FIFO components could share the DRAM as long as they used separate
+-- regions, but at this time there is only one.  To do a memory interface
+-- read, you send a read command, wait for read data to be available, and then
+-- read it.  To do a memory interface write, you write data and then send a
+-- write command.  These transactions are implemented in the state machine
+-- in this component.
+
+-- The write port of the input FIFO and the read port of the output FIFO are
+-- controlled directly by external logic.
+
+-- This FIFO does not check for overflows.  If it runs out of DRAM storage,
+-- data will just be lost.  Our intended usage is to store one 36MB image at
+-- a time, and we address 64MB of DRAM.  We could easily expand to the full
+-- 128MB of DRAM.
+
+-- The rd_data_count_o output from this component only tells the user how
+-- many words are available in fifo_out.  This will max out around 300 even
+-- when millions of words are queued, but that suffices to get read
+-- overhead down to a reasonable level.  The memory interface can have
+-- unexpected delays due to refresh cycles, so we don't want to promise more
+-- than what is guaranteed to be available for fast reading.
+
 entity fifo_large is
   port (
     -- clock and reset for memory interface domain
@@ -36,7 +60,7 @@ entity fifo_large is
 
     -- write slave interface
     wr_clk_i            : in std_logic;
-    wr_data_count_o     : out std_logic_vector(8 downto 0);
+    wr_data_count_o     : out std_logic_vector(9 downto 0);
     data_i              : in std_logic_vector(31 downto 0);
     wr_en_i             : in std_logic;
     full_o              : out std_logic;
@@ -46,7 +70,7 @@ entity fifo_large is
     rd_en_i             : in std_logic;
     data_o              : out std_logic_vector(31 downto 0);
     empty_o             : out std_logic;
-    rd_data_count_o     : out std_logic_vector(8 downto 0)
+    rd_data_count_o     : out std_logic_vector(9 downto 0)
   );
 end fifo_large;
 
@@ -63,8 +87,8 @@ architecture rtl of fifo_large is
       dout : out std_logic_vector(31 downto 0);
       full : out std_logic;
       empty : out std_logic;
-      rd_data_count : out std_logic_vector(8 downto 0);
-      wr_data_count : out std_logic_vector(8 downto 0)
+      rd_data_count : out std_logic_vector(9 downto 0);
+      wr_data_count : out std_logic_vector(9 downto 0)
     );
   end component;
 
@@ -77,16 +101,19 @@ architecture rtl of fifo_large is
   );
   signal state          : state_type;
 
+  -- fifo_in interface
   signal fifo_rd        : std_logic;
   signal fifo_dout      : std_logic_vector(31 downto 0);
-  signal rd_count       : std_logic_vector(8 downto 0);
+  signal rd_count       : std_logic_vector(9 downto 0);
   signal fifo_empty     : std_logic;
 
+  -- fifo_out interface
   signal fifo_wr        : std_logic;
   signal fifo_din       : std_logic_vector(31 downto 0);
-  signal wr_count       : std_logic_vector(8 downto 0);
+  signal wr_count       : std_logic_vector(9 downto 0);
   signal fifo_full      : std_logic;
 
+  -- head and tail are DRAM addresses
   signal head           : unsigned(23 downto 0);
   signal tail           : unsigned(23 downto 0);
   signal words          : unsigned(5 downto 0);
@@ -100,6 +127,7 @@ begin
   ddr_cmd_bl_o <= "111111"; -- 64 word burst length
   ddr_wr_data_o <= fifo_dout;
 
+  -- Internal blockram-based FIFO instantiations:
   fifo_in : fifo_512x4byte
     port map (
       rst => not rstn_i,
@@ -165,6 +193,18 @@ begin
         ddr_cmd_en_o <= '0';
 
         case (state) is
+          -- There are three transactions that this state machine can execute:
+          -- fifo_in to DRAM, DRAM to fifo_out, and fifo_in to fifo_out.
+          -- The fifo_in to fifo_out is the simplest, and is accomplished 
+          -- without leaving the idle state.
+          -- fifo_in and fifo_out are 513 deep, but that is overkill so we 
+          -- only write to fifo_out if it is under 256 full.
+          -- I saw some issues when writing to fifo_out on consecutive clocks.
+          -- We certainly don't need that level of bandwidth anyway, so now I
+          -- only assert fifo_wr if it is not already asserted.  Still,
+          -- fifo_out supports 125MB/s and we read it at about 1MB/s.
+          -- By the same token we don't read from fifo_in on consecutive
+          -- clocks.
           when s_idle =>
             ddr_cmd_instr_o <= "001"; -- read instruction = 1
             ddr_cmd_byte_addr_o <= "0000" & STD_LOGIC_VECTOR(head) & "00";
@@ -174,13 +214,13 @@ begin
               if (ddr_grant_i = '1' and ddr_wr_empty_i = '1') then
                 state <= s_ddr_wr;
               end if;
-            elsif ((head /= tail) and (wr_count(8 downto 7) = "00")) then
+            elsif ((head /= tail) and (wr_count(8) = '0')) then
               -- if outgoing FIFO can accept 64 words from RAM, fetch them
               ddr_req_o <= '1';
               if (ddr_grant_i = '1') then
                 state <= s_rd_cmd;
               end if;
-            elsif (head = tail and fifo_empty = '0' and fifo_full = '0' and
+            elsif (head = tail and fifo_empty = '0' and wr_count(8) = '0' and
 	           fifo_wr = '0') then
               -- skip RAM and move from one FIFO to the other
               fifo_rd <= '1';

@@ -1,9 +1,46 @@
 
+------------------------------------------------------------------------------
+-- This is the top level component for this FPGA design.  This design is for
+-- the Subaru PFS back end electronics (BEE).  The BEE consists of two boards,
+-- a single board computer module and an FPGA module.  At this time the
+-- computer board is a 1.2GHz Celeron from RTD.  This FPGA code is expected to
+-- be portable to other platforms if necessary. The two modules are connected
+-- by a stackable PCIe bus connector.  The FPGA is a PCIe endpoint for the CPU.
+
+-- The boilerplate codebase provided by Xilinx and RTD included a PIO entity,
+-- (programmed IO) which handles 32 bit read and write accesses from the PCIe
+-- root, and a "register file" structure that the PIO can read and write.  It
+-- also included a memory interface module to connect to the 128MB DDR2 RAM
+-- that is on the FPGA board.
+
+-- The memory interface is being used as is.  The PIO code was only modified
+-- slightly so that our logic can know when a read cycle has occurred.  This
+-- is the rd_ack output, and it makes it possible to do repeated reads from a
+-- FIFO without doing writes.
+
+-- The components that have been written for this application can be divided
+-- into an output (control) chain and an input chain.
+
+-- The output chain consists of:
+-- - blockram32kx4byte -- internal SRAM to hold output specifications
+-- - ccd_wpu -- CCD waveform processor
+
+-- The input chain consist of:
+-- - deserializer -- component that stores ADC data
+-- - fifo_large -- FIFO storage for up to 64MB of ADC data
+
+-- The fifo_large component accesses DDR2 RAM for backup storage.
+
+-- The input and output chains are independent with the exception of two 
+-- control lines from ccd_wpu to the deserializer.  The register file
+-- controls the blockram, the FIFO, and the WPU.
+------------------------------------------------------------------------------
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- This library provides the OBUFDS module that can specify LVDS IO
+-- This library provides the OBUFDS/IBUFDS components that can specify LVDS IO
 Library UNISIM;
 use UNISIM.vcomponents.all;
 
@@ -107,27 +144,7 @@ architecture rtl of FPGA35S6045_TOP is
 		);
 	end component pcie_app_s6;
  
---	component PIO_EP_MEM_ACCESS is
---		port (
---			clk          : in  std_logic;
---			rst_n        : in  std_logic;
---
---			--  Read Port
---			rd_addr_i    : in  std_logic_vector(10 downto 0);
---			rd_be_i      : in  std_logic_vector(3 downto 0);
---			rd_data_o    : out std_logic_vector(31 downto 0);
---
---			--  Write Port
---			wr_addr_i    : in  std_logic_vector(10 downto 0);
---			wr_be_i      : in  std_logic_vector(7 downto 0);
---			wr_data_i    : in  std_logic_vector(31 downto 0);
---			wr_en_i      : in  std_logic;
---			wr_busy_o    : out std_logic
---		);
---	end component;
-
 	component mig_39
-	--component dp_mem_iface
 		generic(
 			C3_P0_MASK_SIZE           : integer := 4;
 			C3_P0_DATA_PORT_SIZE      : integer := 32;
@@ -242,6 +259,7 @@ architecture rtl of FPGA35S6045_TOP is
                 port (
                         clk_62mhz_i         : in  std_logic;
                         rstn_i              : in  std_logic;
+                        clk_200mhz_i        : in  std_logic;
 
                         adc_miso_a_i        : in  std_logic;
                         adc_miso_b_i        : in  std_logic;
@@ -279,7 +297,7 @@ architecture rtl of FPGA35S6045_TOP is
 			ddr_grant_i         : in  std_logic;
 
 			wr_clk_i            : in std_logic;
-			wr_data_count_o     : out std_logic_vector(8 downto 0);
+			wr_data_count_o     : out std_logic_vector(9 downto 0);
 			data_i              : in std_logic_vector(31 downto 0);
 			wr_en_i             : in std_logic;
 			full_o              : out std_logic;
@@ -288,7 +306,7 @@ architecture rtl of FPGA35S6045_TOP is
 			rd_en_i             : in std_logic;
 			data_o              : out std_logic_vector(31 downto 0);
 			empty_o             : out std_logic;
-			rd_data_count_o     : out std_logic_vector(8 downto 0)
+			rd_data_count_o     : out std_logic_vector(9 downto 0)
 		);
         end component;
 
@@ -406,6 +424,7 @@ architecture rtl of FPGA35S6045_TOP is
 
 	constant	R_DDR_RD_DATA	: natural := 16#0050#/4;
 	constant	R_DDR_WR_DATA	: natural := 16#0054#/4;
+	constant	R_DDR_COUNT	: natural := 16#0058#/4;
 	constant	R_DDR_STATUS	: natural := 16#005C#/4;
 
 	-- Custom registers:
@@ -575,6 +594,7 @@ begin
                         -- clock and reset
                         clk_62mhz_i         => clk,
                         rstn_i              => rst_n,
+                        clk_200mhz_i        => clk_200mhz,
 
                         -- ADC lines from FEE
                         adc_miso_a_i        => ccd_adc_miso_a,
@@ -615,7 +635,7 @@ begin
 			ddr_rd_empty_i      => c3_p0_rd_empty,
 
 			ddr_req_o           => open,
-			ddr_grant_i         => '1',
+			ddr_grant_i         => '1', -- nobody else can use DDR
 
 			wr_clk_i            => clk,
 			wr_data_count_o     => open, -- could monitor this
@@ -628,7 +648,8 @@ begin
 			data_o              =>
 				register_file(R_DDR_RD_DATA).default,
 			empty_o             => open, -- could monitor this
-			rd_data_count_o     => open -- could monitor this
+			rd_data_count_o     =>
+				register_file(R_DDR_COUNT).default(9 downto 0)
 		);
 
 	---------------------------------------------------------------------------
@@ -706,7 +727,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00038"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00043"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -778,6 +799,8 @@ begin
 		IB => port2_n(15)
 	);
 
+	-- input 16 is the ADC SCK return.  If I want to use the falling edge
+	-- instead of the rising edge I will swap _p and _n.
 	IBUFDS_16 : IBUFGDS
 	generic map (
 		DIFF_TERM => TRUE, -- Differential Termination
@@ -836,7 +859,6 @@ begin
 	-- Memory Interface
 	---------------------------------------------------------------------------
 	u_mig_39 : mig_39
-	--u_mig_39 : dp_mem_iface
 		port map (
 
 			c3_sys_clk		=> clk,
@@ -894,9 +916,12 @@ begin
 		);
 
 	register_file(R_DDR_RD_DATA).readonly <= true;
+	register_file(R_DDR_COUNT).readonly <= true;
 	register_file(R_DDR_STATUS).readonly  <= true;
 
 	-----------------------------------------------------------------------
+	-- We don't monitor this DDR information anymore, but there is no
+	-- need to remove this code.
 	register_file(R_DDR_STATUS).default(31)            <= c3_calib_done;
 	register_file(R_DDR_STATUS).default(25)            <= c3_p0_cmd_empty;
 	register_file(R_DDR_STATUS).default(24)            <= c3_p0_cmd_full;
@@ -910,37 +935,18 @@ begin
 	register_file(R_DDR_STATUS).default(14 downto 8)   <= c3_p0_rd_count;
 	register_file(R_DDR_STATUS).default(1)             <= c3_p0_rd_overflow;
 	register_file(R_DDR_STATUS).default(0)             <= c3_p0_rd_error;
-	--register_file(R_DDR_RD_DATA).default => c3_p0_rd_data;
 	-----------------------------------------------------------------------
 
 	-----------------------------------------------------------------------
-	-- The PIO/register_file design provided here by Xilinx and RTD is
-	-- really not very useful.  It is not a real bus; it acts like all
-	-- registers in the FPGA are essentially SRAM that can have its data
-	-- ready for a read in one clock cycle.  The weakness of this becomes
-	-- apparent when you try to connect it to the memory interface, where
-	-- reads take an arbitrary amount of time.  RTD tried to hack their
-	-- way around this by having reads triggered by writes to the address
-	-- register.  There were also some bugs in how they did that.  Even
-	-- with the bugs fixed, it did not work well because it can take a long
-	-- time between when you request a read and when the MCB completes it.
-	--
-	-- So, I have installed a modified method that requires software to
-	-- have more knowledge of the memory interface and direct control of
-	-- it.  Now commands have to be sent to the command interface, and
-	-- writes and reads to the data registers cause writes and reads to
-	-- the RAM FIFOs.  In order to detect reads, I had to add the rd_ack
-	-- port to the PCIe core.  I found out only through experimentation
-	-- that this signal is high for 2 clocks when there is a read.  This is
-	-- why the code below says:
-	-- 	c3_p0_rd_en <= not c3_p0_rd_en;
-	-- instead of just
-	-- 	c3_p0_rd_en <= '1';
-	--
-	-- This new method allows for bursts inside the FPGA, but each read or
-	-- write is still a single 32 bit PCIe read or write, so performance
-	-- is still terrible.  Writing and reading back 128MB takes over 4
-	-- minutes.  We have about 1MB/s bandwidth on a 2.5GHz link.
+	-- The boilerplate design provided by RTD had a clunky and broken
+	-- mechanism for DDR access.  I have removed that and replaced it with
+	-- a FIFO component.  The fifo_large component is a 32 bit wide FIFO
+	-- that uses the DDR for extra storage.  It is the only DDR access
+	-- mechanism in this design.  The register block can see how many
+	-- data words are immediately available from this FIFO, and read them.
+	-- The FIFO is normally written by the deserializer, but it can also
+	-- be written by the register block for testing purposes.  Don't try
+	-- to mix these.
 	-----------------------------------------------------------------------
 	
 	fifo_wr <= ((wr_en = '1') and

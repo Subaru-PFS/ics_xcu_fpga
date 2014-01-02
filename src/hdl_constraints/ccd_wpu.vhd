@@ -6,9 +6,25 @@ use ieee.numeric_std.all;
 -- This entity is the "waveform processor unit" for CCD control lines.
 -- It reads 32 bit "opcodes" from blockram, interprets them as a waveform
 -- description, and drives 16 digital outputs accordingly.
--- The format of a WPU opcode is simple.  The lower 16 bits are a timestamp
--- and the upper 16 bits are the values that the outputs transition to at that
--- timestamp.  Timestamps are in 40ns (25MHz) increments.
+--
+-- 32 bit opcode format:
+-- bits 31:16 = waveform values
+-- bit 15 = CRC control
+-- bits 14:0 = opcode duration
+--
+-- When an opcode is executed, its waveform values are driven on the outputs
+-- and then the opcode duration passes before the next opcode is executed.
+-- Duration is expressed in 40ns increments.  The maximum duration is
+-- therefore around 1.3ms.  If a duration of several ms is required, it is
+-- permissible to implement this with several consective opcodes that have
+-- identical waveform values.
+--
+-- The CRC control bit is pulsed to inform the input chain that a row is over
+-- and a CRC should be stored.
+--
+-- 15 of the 16 waveform values drive outputs directly.  Bit 13, (opcode bit
+-- 29) is different.  A rising edge on this bit triggers SCK activity.
+-- Output 13 is used for ADC SCK and must always pulse in bursts of 65.
 --
 -- The "len" and "reps" inputs are driven by the register file.  After "len"
 -- opcodes, the waveform is over and the "instruction pointer" rolls over to
@@ -74,6 +90,10 @@ begin
   waveform_o(12 downto 0) <= waveform(12 downto 0);
   reps_o <= STD_LOGIC_VECTOR(reps);
 
+  -- This 200MHz process exists only to generate the ADC SCK signal.  For the
+  -- ADC, the requirement is that SCK is mostly idle, and then when we
+  -- trigger it, we get 65 50MHz pulses.  The trigger is a positive transition
+  -- on waveform(13).
   process(clk_200mhz_i, rstn_i)
   begin
     if rising_edge(clk_200mhz_i) then
