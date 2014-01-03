@@ -98,12 +98,13 @@ begin
   begin
     if rising_edge(clk_200mhz_i) then
       if (rstn_i = '0') then
-        sck <= '0';
+        sck <= '1';
         sck_timer <= x"000";
         scken_fifo <= x"00";
         active_o <= '0';
       else
-        sck <= sck_timer(1); -- tap 1 of a 200MHz counter is a 50MHz clock
+	-- SCK needs to idle high, so it is inverted at this stage
+        sck <= not sck_timer(1); -- tap 1 of a 200MHz counter is a 50MHz clock
         scken_fifo <= scken_fifo(6 downto 0) & waveform(13);
         if (sck_timer /= x"000") then
           sck_timer <= sck_timer - "1";
@@ -111,7 +112,7 @@ begin
         else
           active_o <= '0';
         end if;
-        if ((scken_fifo(5) = '0') and (scken_fifo(4) = '1')) then
+        if (scken_fifo(5 downto 4) = "01")  then
           -- This is tricky here, but this starting value of 259 gives you
           -- 65 pulses on tap 1.  x"104" or x"105" would also work, with 
           -- an added 5ns or 10ns delay.
