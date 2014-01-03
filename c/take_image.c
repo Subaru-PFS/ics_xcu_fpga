@@ -40,6 +40,7 @@ unsigned int output_states;
 #define SET_0(x) output_states &= ~(x)
 
 #define R_DDR_RD_DATA		(0x50/4)
+#define R_DDR_COUNT		(0x58/4)
 #define	R_BR_WR_DATA		(0x14/4)
 #define	R_BR_ADDR		(0x18/4)
 #define	R_WPU_CTRL		(0x20/4)
@@ -157,7 +158,7 @@ unsigned int write_row_readout(unsigned int start) {
 	SET_1(CCD_RG);
 	send_opcode(50);
 
-	SET_1(CCD_DCR);
+	SET_0(CCD_DCR);
 	send_opcode(2);
 
 	return bram_addr - 4;
@@ -165,7 +166,7 @@ unsigned int write_row_readout(unsigned int start) {
 
 int main(void) {
 	int fd;
-	unsigned int i, j, x, b, c, end_addr;
+	unsigned int i, j, x, b, c, end_addr, words_ready;
 	unsigned short crc;
 
 	assert(4 == sizeof(unsigned int));
@@ -200,21 +201,27 @@ int main(void) {
 	// Start clock
 	fpga[R_WPU_CTRL] = EN_SYNCH | WPU_TEST; // Enable test pattern
 	// Read data and calculate CRC
-	while (fpga[R_WPU_STATUS] > PIX_H - 10) {};
-	// That gives the FPGA a head start.  Once it has a head start,
-	// software cannot catch up because PCIe reads are too slow.
-	// So we assume data is available to read out.
+	usleep(10000);
 	//
 	// Just to clarify the four layers of looping that follows:
 	// i increments for each row
 	// j increments for each D-word of data
 	// b increments for each byte
 	// c increments for each bit (to compute CRC)
+	words_ready = 0;
 	for (i=0; i<PIX_H; i++) {
 		crc = 0;
 		for (j=0; j<PIX_W * 4; j++) {
 		// PIX_W * 4 because each pixel generates 4 D-words of data
+			if (words_ready == 0) {
+				words_ready = fpga[R_DDR_COUNT];
+				while (words_ready == 0) {
+					usleep(1000);
+					words_ready = fpga[R_DDR_COUNT];
+				}
+			}
 			x = fpga[R_DDR_RD_DATA];
+			words_ready--;
 			for (b=0; b<4; b++) {
 				putchar(x & 0xff);
 				crc ^= (x & 0xff);
@@ -226,7 +233,15 @@ int main(void) {
 			}
 		}
 		// Check CRC per row:
+		if (words_ready == 0) {
+			words_ready = fpga[R_DDR_COUNT];
+			while (words_ready == 0) {
+				usleep(1000);
+				words_ready = fpga[R_DDR_COUNT];
+			}
+		}
 		x = fpga[R_DDR_RD_DATA];
+		words_ready--;
 		assert ((0xcccc0000 | crc) == x);
 		// 0xcccc is the magic upper word that indicates a CRC word.
 	}
