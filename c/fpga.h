@@ -3,6 +3,9 @@
 #define CRC_POLY 0xa001
 
 // Map of BAR0. Probably should get from FPGA definition file.
+#define R_ID                    (0x00/4)
+#define R_STATUS                (0x04/4)
+#define R_EEPROM                (0x08/4)
 #define R_DDR_RD_DATA		(0x50/4)
 #define R_DDR_COUNT		(0x58/4)
 #define	R_BR_WR_DATA		(0x14/4)
