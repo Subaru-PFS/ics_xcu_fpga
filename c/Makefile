@@ -3,10 +3,10 @@ CFLAGS = -g -O2 --std=c99 -Wall
 
 all: test_image
 
-test_image: bee_mem_file.h test_image.o libfpga.so
+test_image: bee_mem_file.h fpga.h test_image.o libfpga.so
 	$(CC) $(CFLAGS) test_image.o -L. -lfpga -o test_image
 
-libfpga.so: fpga.c
+libfpga.so: fpga.c fpga.h
 	$(CC) -shared -fPIC $(CFLAGS) $< -o $@
 
 # Probe for this machine's FPGA BAR0 access file.
