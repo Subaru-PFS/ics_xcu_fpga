@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include "bee_mem_file.h"
 
 #define CRC_POLY 0xa001
@@ -42,8 +44,8 @@
 #define PIX_H 4240 // number of rows
 #define PIX_W 536 // number of columns
 
-typedef unsigned short pixel_t;
-typedef unsigned int   fpga_word_t;
+typedef uint16_t pixel_t;
+typedef uint32_t fpga_word_t;
 
 extern int configureFpga(const char *mmapname);
 extern void configureForReadout(void);
