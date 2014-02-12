@@ -9,7 +9,7 @@ if test "$BUS_ID"; then
     echo "/sys/bus/pci/devices/$BUS_ID/resource0"
     exit 0
 else
-    echo "Cannot find the RTD FPGA board on the bus!"
+    echo "Cannot find the RTD FPGA board on the bus!" >&2
     exit 1
 fi
 
