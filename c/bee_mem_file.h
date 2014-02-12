@@ -9,8 +9,6 @@ permissions.
 
 */
 
-#undef PROBED_FILENAME
-
 #ifdef PROBED_FILENAME
 #define PFS_FPGA_MMAP_FILE PROBED_FILENAME
 #else
