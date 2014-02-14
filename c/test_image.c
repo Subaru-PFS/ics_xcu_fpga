@@ -1,18 +1,19 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "fpga.h"
 
- 
 int read_and_print_image()
 {
-  fpga_word_t *imageBuf;
+  uint32_t *imageBuf;
   int ret;
 
-  imageBuf = calloc(PIX_H * PIX_W * 4, sizeof(fpga_word_t));
+  imageBuf = calloc(PIX_H * PIX_W * 4, sizeof(uint32_t));
 
+  fprintf(stderr, "ID: 0x%08x\n", peekWord(R_ID));
   ret = readImage(PIX_H, PIX_W, imageBuf);
-  fwrite(imageBuf, PIX_H*PIX_W*4, sizeof(fpga_word_t), stdout);
+  fwrite(imageBuf, PIX_H*PIX_W*4, sizeof(uint32_t), stdout);
 
   return ret;
 }
