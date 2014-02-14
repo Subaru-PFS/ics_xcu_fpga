@@ -2,6 +2,12 @@
 *~
 #*#
 
+################ Languages
+*.o
+*.so
+*.pyc
+*.pyo
+
 ################ Xilinx
 *.bgn
 *.bit
