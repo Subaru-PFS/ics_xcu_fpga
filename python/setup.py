@@ -2,6 +2,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 import os.path
+import numpy
 
 ext_modules=[
     Extension("pyFPGA",
@@ -9,7 +10,7 @@ ext_modules=[
               library_dirs=['../c'],
               libraries=['fpga'],
               include_dirs=['../c', 
-                            '/home/pfs/anaconda/lib/python2.7/site-packages/numpy/core/include'])
+                            numpy.get_include()])
 ]
 
 setup(
