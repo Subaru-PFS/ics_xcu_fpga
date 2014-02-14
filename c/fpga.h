@@ -9,6 +9,7 @@
 #define R_STATUS                (0x04/4)
 #define R_EEPROM                (0x08/4)
 #define R_DDR_RD_DATA		(0x50/4)
+#define R_DDR_WR_DATA	        (0x54/4)
 #define R_DDR_COUNT		(0x58/4)
 #define	R_BR_WR_DATA		(0x14/4)
 #define	R_BR_ADDR		(0x18/4)
@@ -36,7 +37,7 @@
 #define CCD_I_P  (1 << 27)  // Integrate Plus
 #define CCD_CNV  (1 << 28)  // ADC Convert
 #define CCD_SCK  (1 << 29)  // ADC SCK Burst
-#define CCD_DG   (1 << 30)  // Draig Gate
+#define CCD_DG   (1 << 30)  // Drain Gate
 #define CCD_IRQ  (1 << 31)  // Interrupt
 #define CCD_CRC  (1 << 15)  // CRC Control
 
@@ -44,13 +45,14 @@
 #define PIX_H 4240 // number of rows
 #define PIX_W 536 // number of columns
 
-typedef uint16_t pixel_t;
-typedef uint32_t fpga_word_t;
-
 extern int configureFpga(const char *mmapname);
 extern void configureForReadout(void);
 extern void finishReadout(void);
-extern fpga_word_t readWord(void);
-extern int readLine(int npixels, fpga_word_t *rowbuf, int rownum);
-extern int readImage(int nrows, int ncols, fpga_word_t *imageBuf);
+extern uint32_t readWord(void);
+extern int readLine(int npixels, uint32_t *rowbuf, int rownum);
+extern int readImage(int nrows, int ncols, uint32_t *imageBuf);
+
+extern uint32_t peekWord(uint32_t addr);
+extern int fifoRead(int nBlocks);
+extern void fifoWrite(int nBlocks);
 

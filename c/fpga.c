@@ -11,12 +11,14 @@
 #include<assert.h>
 #include <time.h>
 #include <errno.h>
+#include <stdint.h>
 
 #include "fpga.h"
 
-volatile fpga_word_t *fpga;
-unsigned int bram_addr;
-unsigned int output_states;
+static volatile uint32_t *fpga;
+static uint32_t bram_addr;
+static uint32_t output_states;
+static int wordsReady;
 
 #define SET_1(x) output_states |= (x)
 #define SET_0(x) output_states &= ~(x)
@@ -31,7 +33,7 @@ static void send_opcode(unsigned int duration) {
 
 // write_row_readout() is a routine to write blockram with opcodes that read
 // a row of CCD pixels.
-unsigned int write_row_readout(unsigned int start) {
+uint32_t write_row_readout(uint32_t start) {
 
 	int i;
 	bram_addr = start;
@@ -135,12 +137,14 @@ unsigned int write_row_readout(unsigned int start) {
 
 int configureFpga(const char *mmapname)
 {
+  const char *mapfile;
   static int fd;
 
   assert(fpga == 0);
-  assert(4 == sizeof(unsigned int));
+  assert(4 == sizeof(uint32_t));
 
-  fd = open(PFS_FPGA_MMAP_FILE, O_RDWR|O_SYNC);
+  mapfile = mmapname ? mmapname : PFS_FPGA_MMAP_FILE;
+  fd = open(mapfile, O_RDWR|O_SYNC);
   if (fd == -1) {
     perror("open(/dev/mem):");
     return 0;
@@ -151,12 +155,13 @@ int configureFpga(const char *mmapname)
     return 0;
   }
 
+  fprintf(stderr, "Configured ID: 0x%08x\n", peekWord(R_ID));
   return 1;
 }
 
 void configureForReadout(void)
 {
-  unsigned int end_addr;
+  uint32_t end_addr;
 
   // Reset WPU, disable synch clock
   fpga[R_WPU_CTRL] = WPU_RST;
@@ -177,6 +182,8 @@ void configureForReadout(void)
   // all units are ready.
   // Start clock
   fpga[R_WPU_CTRL] = EN_SYNCH | WPU_TEST; // Enable test pattern
+
+  fprintf(stderr, "Prepped ID: 0x%08x\n", peekWord(R_ID));
 }
 
 void finishReadout(void)
@@ -202,29 +209,28 @@ void usleep(long usecs)
 }
 #endif
 
-static int words_ready;
-fpga_word_t readWord(void)
+uint32_t readWord(void)
 {
-  fpga_word_t word;
+  uint32_t word;
 
-  if (words_ready == 0) {
-    words_ready = fpga[R_DDR_COUNT];
-    while (words_ready == 0) {
+  if (wordsReady == 0) {
+    wordsReady = fpga[R_DDR_COUNT];
+    while (wordsReady == 0) {
       usleep(5000);
-      words_ready = fpga[R_DDR_COUNT];
-      //fprintf(stderr, "slept on line (avail=%d)\n", words_ready);
+      wordsReady = fpga[R_DDR_COUNT];
+      //fprintf(stderr, "slept on line (avail=%d)\n", wordsReady);
     }
   }
   word = fpga[R_DDR_RD_DATA];
-  words_ready -= 1;
+  wordsReady -= 1;
 
   return word;
 }
 
 // Add timeout handler -- CPL.
-int readLine(int npixels, fpga_word_t *rowbuf, int rownum)
+int readLine(int npixels, uint32_t *rowbuf, int rownum)
 {
-  unsigned int word, crc, fpgaCrc;
+  uint32_t word, crc, fpgaCrc;
 
   crc = 0;
   for (int j=0; j<npixels*4; j++) {
@@ -254,14 +260,16 @@ int readLine(int npixels, fpga_word_t *rowbuf, int rownum)
   return 1;
 }
 
-int readImage(int nrows, int ncols, fpga_word_t *imageBuf)
+int readImage(int nrows, int ncols, uint32_t *imageBuf)
 {
   int badRows = 0;
-  int rowWords = ncols * 4;
+  int rowWords = ncols * sizeof(uint32_t);
+
+  fprintf(stderr, "Reading ID: 0x%08x (%d,%d,0x%08lx)\n", peekWord(R_ID), nrows, ncols, (unsigned long)imageBuf);
   
   for (int i=0; i<nrows; i++) {
     int lineOK;
-    fpga_word_t *rowBuf = imageBuf + i*rowWords;
+    uint32_t *rowBuf = imageBuf + i*rowWords;
     
     lineOK = readLine(ncols, rowBuf, i);
     if (!lineOK) {
@@ -277,3 +285,39 @@ int readImage(int nrows, int ncols, fpga_word_t *imageBuf)
   return badRows;
 }
  
+uint32_t peekWord(uint32_t addr)
+{
+  uint32_t intdat = (fpga[addr]);
+  printf("0x%08X\n", intdat);
+  return intdat;
+}
+
+int fifoRead(int nBlocks)
+{
+  int errCnt = 0;
+  uint32_t y;
+
+  y = 0xffffffff;
+  for (int i=0; i<nBlocks*1024/4; i++) {
+    uint32_t x = fpga[R_DDR_RD_DATA];
+    if (y+1 != x) {
+      errCnt += 1;
+      fprintf(stderr, "%x followed %x\n", x, y);
+    }
+    y = x;
+
+    if (errCnt > 100) {
+      return errCnt;
+    }
+  }
+
+  return errCnt;
+
+}
+
+void fifoWrite(int nBlocks)
+{
+  for (int i=0; i<nBlocks*1024/4; i++) {
+    fpga[R_DDR_WR_DATA] = i;
+  }
+}
