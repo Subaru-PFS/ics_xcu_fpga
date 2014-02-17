@@ -6,17 +6,30 @@
 #   - replaced "-intstyle ise" with "-inststyle xflow", which adjusts the tool outputs for "batch mode".
 #   - define and use $ROOT, $PROJ, $TARG
 #
-# In other words, I have no idea what the zillians of options do.
+# In other words, I have no idea what the zillions of options do.
 #
 # I webbed for Makefiles, but found either toys or things so complex I could not trust them. But given
 # our specific needs we almost certainly could.
+#
+# The final .bit file is identical to that from the ISE, barring four bytes which feel like a timestamp.
 #
 
 ROOT="/home/pfs/ccdFPGA/src" # Just $PWD?
 PROJ="FPGA35S6045_TOP"
 TARG="xc6slx45t-fgg484-2"
 
+# Required for xst to run.
+mkdir -p xst/projnav.tmp
+
+# Required inputs for xst (and all the rest?) are: 
+#   ${PROJ}.xst
+#   ${PROJ}.prj
+#   iseconfig/filter.filter
+#   ${PROJ}.ut  # for bitgen, looks like an option list.
+##   The .vhd files listed in the ${PROJ}.prj file
+#
 xst -intstyle xflow -filter "$ROOT/iseconfig/filter.filter" -ifn "$ROOT/${PROJ}.xst" -ofn "$ROOT/${PROJ}.syr" 
+
 ngdbuild -filter "iseconfig/filter.filter" -intstyle xflow -dd _ngo -sd ipcore_dir -aul -aut -nt timestamp -uc "hdl_constraints/FPGA35S6045 Top-Level.ucf" -p ${TARG} ${PROJ}.ngc ${PROJ}.ngd  
 map -filter "$ROOT/iseconfig/filter.filter" -intstyle xflow -p ${TARG} -w -logic_opt off -ol high -t 1 -xt 0 -register_duplication off -r 4 -global_opt off -mt 2 -ir off -pr off -lc off -power off -o ${PROJ}_map.ncd ${PROJ}.ngd ${PROJ}.pcf 
 par -filter "$ROOT/iseconfig/filter.filter" -w -intstyle xflow -ol high -mt 4 ${PROJ}_map.ncd ${PROJ}.ncd ${PROJ}.pcf 
