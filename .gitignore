@@ -28,7 +28,6 @@
 *.pad
 *.par
 *.pcf
-*.prj
 *.ptwx
 *.stx
 *.syr
@@ -36,11 +35,9 @@
 *.twx
 *.unroutes
 *.upf
-*.ut
 *.xmsgs
 *.xpi
 *.xrpt
-*.xst
 *.xwbt
 *.xreport
 _xmsgs/
