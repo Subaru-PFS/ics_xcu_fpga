@@ -47,7 +47,7 @@
 #define N_AMPS 8   // number of amps. So N_AMPS * PIX_W
 
 extern int configureFpga(const char *mmapname);
-extern void configureForReadout(void);
+extern void configureForReadout(int doTest);
 extern void finishReadout(void);
 extern uint32_t readWord(void);
 extern int readRawLine(int npixels, uint32_t *rowbuf, int rownum);

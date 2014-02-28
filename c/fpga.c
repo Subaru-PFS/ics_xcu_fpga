@@ -158,7 +158,7 @@ int configureFpga(const char *mmapname)
   return 1;
 }
 
-void configureForReadout(void)
+void configureForReadout(int doTest)
 {
   uint32_t end_addr;
 
@@ -180,7 +180,7 @@ void configureForReadout(void)
   // At this point the master must again get acknowledgement that
   // all units are ready.
   // Start clock
-  fpga[R_WPU_CTRL] = EN_SYNCH | WPU_TEST; // Enable test pattern
+  fpga[R_WPU_CTRL] = EN_SYNCH | (doTest ? WPU_TEST : 0); // Optionally enable test pattern
 
   fprintf(stderr, "Prepped ID: 0x%08x\n", peekWord(R_ID));
 }
@@ -301,7 +301,7 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
 uint32_t peekWord(uint32_t addr)
 {
   uint32_t intdat = (fpga[addr]);
-  fprintf(stderr, "0x%08X\n", intdat);
+
   return intdat;
 }
 
