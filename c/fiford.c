@@ -6,14 +6,7 @@
 #include<fcntl.h>
 #include<assert.h>
 
-#define FPGABASE 0xfe9ff000
-
-/* VHDL register definitions:
-	constant	R_DDR_RD_DATA	: natural := 16#0050#/4;
-	constant	R_DDR_WR_DATA	: natural := 16#0054#/4;
-*/
-#define R_DDR_RD_DATA	(0x50/4)
-#define R_DDR_WR_DATA	(0x54/4)
+#include "fpga.h"
 
 int main(int argc, char **argv) {
 	int i, k;
@@ -24,12 +17,12 @@ int main(int argc, char **argv) {
 	assert(2 == argc);
 
 	assert(4 == sizeof(unsigned int));
-	fd = open("/dev/mem", O_RDWR|O_SYNC);
+	fd = open(PFS_FPGA_MMAP_FILE, O_RDWR|O_SYNC);
 	if (fd == -1) {
 		perror("open(/dev/mem):");
 		return 0;
 	}
-	fpga = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_SHARED, fd, FPGABASE);
+	fpga = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 	if (fpga == MAP_FAILED) {
 		perror("mmap:");
 		return 0;
