@@ -14,8 +14,10 @@ cdef extern from "fpga.h":
      void configureForReadout()
      void finishReadout()
      uint32_t readWord()
+     int readRawLine(int npixels, uint32_t *rowbuf, int rownum)
      int readLine(int npixels, uint16_t *rowbuf, int rownum)
-     int readImage(int nrows, int ncols, uint32_t *imageBuf)
+     int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
+     uint32_t peekWord(uint32_t addr)
      int fifoRead(int nBlocks)
      int fifoWrite(int nBlocks)
      
@@ -24,14 +26,14 @@ cdef class FPGA:
     def __cinit__(self):
         configureFpga(<const char *>0)
 
-    cpdef readImage(self, int nrows=4240, int ncols=536):
+    cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8):
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
-        cdef numpy.ndarray[numpy.uint32_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*4), 
-                                                                                 dtype='u4')
+        cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
+                                       	                                         dtype='u2')
 
         configureForReadout()
-        ret = readImage(nrows, ncols, &image[0,0])
+        ret = readImage(nrows, ncols, namps, &image[0,0])
         finishReadout()
 
         return image
