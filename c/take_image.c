@@ -9,10 +9,9 @@
 #include<fcntl.h>
 #include<assert.h>
 
-#define FPGABASE 0xfe9ff000
+#include "fpga.h"
+
 #define CRC_POLY 0xa001
-#define PIX_H 4240 // number of rows
-#define PIX_W 536 // number of columns
 
 volatile unsigned int *fpga;
 unsigned int bram_addr;
@@ -170,12 +169,12 @@ int main(void) {
 	unsigned short crc;
 
 	assert(4 == sizeof(unsigned int));
-	fd = open("/dev/mem", O_RDWR|O_SYNC);
+	fd = open(PFS_FPGA_MMAP_FILE, O_RDWR|O_SYNC);
 	if (fd == -1) {
 		perror("open(/dev/mem):");
 		return 0;
 	}
-	fpga = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_SHARED, fd, FPGABASE);
+	fpga = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 	if (fpga == MAP_FAILED) {
 		perror("mmap:");
 		return 0;
