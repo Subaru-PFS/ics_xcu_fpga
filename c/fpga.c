@@ -141,7 +141,6 @@ int configureFpga(const char *mmapname)
   static int fd;
 
   assert(fpga == 0);
-  assert(4 == sizeof(uint32_t));
 
   mapfile = mmapname ? mmapname : PFS_FPGA_MMAP_FILE;
   fd = open(mapfile, O_RDWR|O_SYNC);
@@ -227,14 +226,14 @@ uint32_t readWord(void)
   return word;
 }
 
-// Add timeout handler -- CPL.
-int readLine(int npixels, uint32_t *rowbuf, int rownum)
+/* readRawLine -- read a single line of raw FPGA words. */
+int readRawLine(int nwords, uint32_t *rowbuf, int rownum)
 {
   uint32_t word, crc, fpgaCrc;
 
   crc = 0;
-  for (int j=0; j<npixels*4; j++) {
-    // PIX_W * 4 because each pixel generates 4 D-words of data
+  
+  for (int j=0; j<nwords; j++) {
     word = readWord();
     rowbuf[j] = word;
 
@@ -251,7 +250,8 @@ int readLine(int npixels, uint32_t *rowbuf, int rownum)
   fpgaCrc = readWord();
   if ((0xcccc0000 | crc) != fpgaCrc) {
     // 0xcccc is the magic upper word that indicates a CRC word.
-    fprintf(stderr, "CRC mismatch on row %d: CRC read: 0x%08x vs. calculated: 0x%08x. read CRC MUST start with 0xccc0000\n",
+    fprintf(stderr, 
+	    "CRC mismatch on row %d: CRC read: 0x%08x vs. calculated: 0x%08x. read CRC MUST start with 0xccc0000\n",
             rownum, fpgaCrc, crc);
 
     return 0;
@@ -260,18 +260,31 @@ int readLine(int npixels, uint32_t *rowbuf, int rownum)
   return 1;
 }
 
-int readImage(int nrows, int ncols, uint32_t *imageBuf)
+/* readLine -- read a single line of _pixels_. */
+int readLine(int npixels, uint16_t *rowbuf, int rownum)
+{
+  int nwords;
+
+  // Round up, so that we can read odd-width rows.
+  nwords = (npixels * sizeof(uint16_t) + sizeof(uint16_t)/2)/sizeof(uint32_t);
+
+  return readRawLine(nwords, (uint32_t *)rowbuf, rownum);
+}
+
+int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
 {
   int badRows = 0;
-  int rowWords = ncols * sizeof(uint32_t);
+  int rowPixels = ncols*namps;
 
-  fprintf(stderr, "Reading ID: 0x%08x (%d,%d,0x%08lx)\n", peekWord(R_ID), nrows, ncols, (unsigned long)imageBuf);
+  fprintf(stderr, "Reading ID: 0x%08x (%d,%d,%d,0x%08lx)\n", 
+	  peekWord(R_ID), 
+	  nrows, ncols, rowPixels, (unsigned long)imageBuf);
   
   for (int i=0; i<nrows; i++) {
     int lineOK;
-    uint32_t *rowBuf = imageBuf + i*rowWords;
+    uint16_t *rowBuf = imageBuf + i*rowPixels;
     
-    lineOK = readLine(ncols, rowBuf, i);
+    lineOK = readLine(rowPixels, rowBuf, i);
     if (!lineOK) {
       badRows++;
     }
@@ -288,7 +301,7 @@ int readImage(int nrows, int ncols, uint32_t *imageBuf)
 uint32_t peekWord(uint32_t addr)
 {
   uint32_t intdat = (fpga[addr]);
-  printf("0x%08X\n", intdat);
+  fprintf(stderr, "0x%08X\n", intdat);
   return intdat;
 }
 
@@ -298,26 +311,29 @@ int fifoRead(int nBlocks)
   uint32_t y;
 
   y = 0xffffffff;
-  for (int i=0; i<nBlocks*1024/4; i++) {
+  for (uint32_t i=0; i<nBlocks*1024/sizeof(uint32_t); i++) {
     uint32_t x = fpga[R_DDR_RD_DATA];
     if (y+1 != x) {
       errCnt += 1;
-      fprintf(stderr, "%x followed %x\n", x, y);
+      fprintf(stderr, "at %0x08x; 0x%04x followed 0x%04x\n", i, x, y);
+    } else {
+      errCnt = 0;
     }
+
     y = x;
 
     if (errCnt > 100) {
+      fprintf(stderr, "giving up after 100 contiguous errors\n");
       return errCnt;
     }
   }
 
   return errCnt;
-
 }
 
 void fifoWrite(int nBlocks)
 {
-  for (int i=0; i<nBlocks*1024/4; i++) {
+  for (uint32_t i=0; i<nBlocks*1024/sizeof(uint32_t); i++) {
     fpga[R_DDR_WR_DATA] = i;
   }
 }

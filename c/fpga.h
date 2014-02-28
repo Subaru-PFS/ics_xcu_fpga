@@ -43,14 +43,16 @@
 
 // Default image size. Should probably not be here.
 #define PIX_H 4240 // number of rows
-#define PIX_W 536 // number of columns
+#define PIX_W 536  // number of columns (pixels per amp)
+#define N_AMPS 8   // number of amps. So N_AMPS * PIX_W
 
 extern int configureFpga(const char *mmapname);
 extern void configureForReadout(void);
 extern void finishReadout(void);
 extern uint32_t readWord(void);
-extern int readLine(int npixels, uint32_t *rowbuf, int rownum);
-extern int readImage(int nrows, int ncols, uint32_t *imageBuf);
+extern int readRawLine(int npixels, uint32_t *rowbuf, int rownum);
+extern int readLine(int npixels, uint16_t *rowbuf, int rownum);
+extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
 
 extern uint32_t peekWord(uint32_t addr);
 extern int fifoRead(int nBlocks);
