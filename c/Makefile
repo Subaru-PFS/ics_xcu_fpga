@@ -1,12 +1,14 @@
 # CPL used c99 features, sorry.
-CFLAGS = -g -O2 --std=c99 -Wall
+CFLAGS = -g -O1 --std=c99 -Wall
 
-all: test_image
+all: libfpga.so test_image
 
 test_image: bee_mem_file.h fpga.h test_image.o libfpga.so
 	$(CC) $(CFLAGS) test_image.o -L. -lfpga -o test_image
 
-libfpga.so: fpga.c fpga.h
+test_image.o: fpga.h
+
+libfpga.so: fpga.c fpga.h bee_mem_file.h
 	$(CC) -shared -fPIC $(CFLAGS) $< -o $@
 
 # Probe for this machine's FPGA BAR0 access file.
@@ -28,4 +30,6 @@ bee_mem_file.h::
 
 clean:
 	rm -f *.o *.so *.S *.s *~
-	rm -f test_image bee_mem_file.h
+	rm -f bee_mem_file.h
+	rm -f test_image take_image 
+	rm -f fiford fifowr summary
