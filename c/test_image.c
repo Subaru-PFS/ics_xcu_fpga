@@ -6,14 +6,15 @@
 
 int read_and_print_image()
 {
-  uint32_t *imageBuf;
+  int npixels = PIX_H * PIX_W * N_AMPS;
+  uint16_t *imageBuf;
   int ret;
-
-  imageBuf = calloc(PIX_H * PIX_W * 4, sizeof(uint32_t));
+  
+  imageBuf = calloc(npixels, sizeof(uint16_t));
 
   fprintf(stderr, "ID: 0x%08x\n", peekWord(R_ID));
-  ret = readImage(PIX_H, PIX_W, imageBuf);
-  fwrite(imageBuf, PIX_H*PIX_W*4, sizeof(uint32_t), stdout);
+  ret = readImage(PIX_H, PIX_W, N_AMPS, imageBuf);
+  fwrite(imageBuf, npixels, sizeof(uint16_t), stdout);
 
   return ret;
 }
