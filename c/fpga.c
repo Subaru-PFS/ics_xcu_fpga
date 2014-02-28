@@ -182,7 +182,7 @@ void configureForReadout(int doTest)
   // Start clock
   fpga[R_WPU_CTRL] = EN_SYNCH | (doTest ? WPU_TEST : 0); // Optionally enable test pattern
 
-  fprintf(stderr, "Prepped ID: 0x%08x\n", peekWord(R_ID));
+  fprintf(stderr, "Prepped ID: 0x%08x (test=%d)\n", peekWord(R_ID), doTest);
 }
 
 void finishReadout(void)
@@ -276,9 +276,9 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
   int badRows = 0;
   int rowPixels = ncols*namps;
 
-  fprintf(stderr, "Reading ID: 0x%08x (%d,%d,%d,0x%08lx)\n", 
+  fprintf(stderr, "Reading ID: 0x%08x (%d,%d*%d=%d,0x%08lx)\n", 
 	  peekWord(R_ID), 
-	  nrows, ncols, rowPixels, (unsigned long)imageBuf);
+	  nrows, ncols, namps, rowPixels, (unsigned long)imageBuf);
   
   for (int i=0; i<nrows; i++) {
     int lineOK;

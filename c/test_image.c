@@ -26,7 +26,7 @@ int main(void)
   ret = configureFpga(PFS_FPGA_MMAP_FILE);
   if (!ret) exit(1);
 
-  configureForReadout();
+  configureForReadout(1);
   ret = read_and_print_image();
 
   exit(ret);

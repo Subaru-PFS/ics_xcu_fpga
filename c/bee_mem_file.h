@@ -1,3 +1,4 @@
+#define PROBED_FILENAME "/sys/bus/pci/devices/0000:03:00.0/resource0"
 /* Return the filename of the Spartan-6 FPGA memory, preferably as found by probing the PCI bus.
 
  This can be fetched using sane and published methods: we know the
