@@ -215,8 +215,35 @@ architecture rtl of FPGA35S6045_TOP is
 	component pll1
 		port(
 			CLK_IN1           : in     std_logic;
-			CLK_OUT1          : out    std_logic
+			CLK_OUT1          : out    std_logic;
+			CLK_OUT2          : out    std_logic;
+			LOCKED            : out    std_logic
         	);
+	end component;
+
+	component pio_resynch is
+		port (
+			-- Input clock and reset
+			clk1_i        : in std_logic;
+			rstn1_i       : in std_logic;
+			-- Input signals
+			rd_addr_i    : in std_logic_vector(10 downto 0);
+			rd_ack_i     : in std_logic;
+			wr_addr_i    : in std_logic_vector(10 downto 0);
+			wr_be_i      : in std_logic_vector(7 downto 0);
+			wr_data_i    : in std_logic_vector(31 downto 0);
+			wr_en_i      : in std_logic;
+			-- Output clock and reset
+			clk2_i        : in std_logic;
+			rstn2_i       : in std_logic;
+			-- Output signals
+			rd_addr_o    : out std_logic_vector(10 downto 0);
+			rd_ack_o     : out std_logic;
+			wr_addr_o    : out std_logic_vector(10 downto 0);
+			wr_be_o      : out std_logic_vector(7 downto 0);
+			wr_data_o    : out std_logic_vector(31 downto 0);
+			wr_en_o      : out std_logic
+		);
 	end component;
 
 	component blockram_32kx4byte
@@ -311,9 +338,13 @@ architecture rtl of FPGA35S6045_TOP is
         end component;
 
 	-- Local Common
-	signal clk           : std_logic;
-	signal rst_n         : std_logic;
+	signal clk           : std_logic; -- 62.5MHz "user" clock from PCIe bridge
+	signal rst_n         : std_logic; -- "user reset" associated with 62.5MHz
 	signal clk_200mhz    : std_logic; -- actually 199.8 MHz (27*37/5)
+	signal clk_77mhz     : std_logic; -- actually 76.846 MHz (27*37/13)
+	signal rst77_n       : std_logic;
+	signal pll_lock      : std_logic;
+	signal lock_count    : unsigned(15 downto 0);
 	signal synch_clk     : std_logic;
 	signal synch_out     : std_logic;
 	signal en_synch      : std_logic;
@@ -323,17 +354,27 @@ architecture rtl of FPGA35S6045_TOP is
 	-- is called synch_clk and is used to drive CCD waveform logic.
 
 	--  Local Read Port
-	signal rd_addr      : std_logic_vector(10 downto 0);
-	signal rd_be        : std_logic_vector(3 downto 0);
-	signal rd_data      : std_logic_vector(31 downto 0);
-	signal rd_ack       : std_logic;
+	signal rd_addr_62   : std_logic_vector(10 downto 0);
+	signal rd_be_62     : std_logic_vector(3 downto 0);
+	signal rd_data_62   : std_logic_vector(31 downto 0);
+	signal rd_ack_62    : std_logic;
 
 	--  Local Write Port
+	signal wr_addr_62   : std_logic_vector(10 downto 0);
+	signal wr_be_62     : std_logic_vector(7 downto 0);
+	signal wr_data_62   : std_logic_vector(31 downto 0);
+	signal wr_en_62     : std_logic;
+	signal wr_busy_62   : std_logic := '0';	 
+
+	--  77MHz domain Read Port
+	signal rd_addr      : std_logic_vector(10 downto 0);
+	signal rd_ack       : std_logic;
+
+	--  77MHz domain Write Port
 	signal wr_addr      : std_logic_vector(10 downto 0);
 	signal wr_be        : std_logic_vector(7 downto 0);
 	signal wr_data      : std_logic_vector(31 downto 0);
 	signal wr_en        : std_logic;
-	signal wr_busy      : std_logic := '0';	 
 	
 	-- DDR Interface Signals
 	signal c3_calib_done		: std_logic;
@@ -416,6 +457,8 @@ architecture rtl of FPGA35S6045_TOP is
 	end record;
 	type reg_32bit_array	is array (natural range <>) of reg_32bit;
 	signal register_file	: reg_32bit_array (REGISTER_COUNT-1 downto 0) := (others => (x"00000000", x"00000000", false));
+	signal file_q		: reg_32bit_array (REGISTER_COUNT-1 downto 0) := (others => (x"00000000", x"00000000", false));
+	signal file_q2		: reg_32bit_array (REGISTER_COUNT-1 downto 0) := (others => (x"00000000", x"00000000", false));
 	
 	-- Register Locations
 	constant	R_ID		: natural := 16#0000#/4;
@@ -462,13 +505,13 @@ begin
 	lvds_cn4(4) 	<= ccd_interrupt;
 
 	ccd_adc_sck_ret		<= lvds_cn8(16);
-	--ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
+	-- ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
 	synch_clk		<= lvds_cn8(15);
-	--synch_clk <= synch_out; -- XXX testing only!!
+	-- synch_clk		<= synch_out; -- XXX testing only!!
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -498,12 +541,31 @@ begin
 	-----------------------------------------------------------------------
 	-- PLL
 	-----------------------------------------------------------------------
-	-- Note: clk_200mhz is 199.8MHz.
+	-- Note: clk_200mhz is 199.8MHz. clk_77mhz is 76.846 MHz.
 	pll_inst : pll1
 		port map (
 			CLK_IN1 => clk_27mhz_1,
-			CLK_OUT1 => clk_200mhz
+			CLK_OUT1 => clk_200mhz,
+			CLK_OUT2 => clk_77mhz,
+			LOCKED => pll_lock
 		);
+
+	-- This mysterious block of code is a hack to create a reset signal
+	-- that is synchronous to its clock.
+	process (clk_77mhz)
+	begin
+		if rising_edge(clk_77mhz) then
+			if (pll_lock = '1') then
+				lock_count <= lock_count + 1;
+			else
+				lock_count <= x"0000";
+				rst77_n <= '0';
+			end if;	
+			if (lock_count(15) = '1') then
+				rst77_n <= '1';
+			end if;
+		end if;
+	end process;
 
 	-----------------------------------------------------------------------
 	-- Waveform processing unit
@@ -515,7 +577,7 @@ begin
 		port map (
 			synch_i		=> synch_clk,
 			clk_200mhz_i	=> clk_200mhz,
-			rstn_i		=> rst_n,
+			rstn_i		=> rst77_n,
 
 			sram_adr_o	=> sram_adr1,
 			sram_dat_i	=> sram_dat1,
@@ -542,7 +604,7 @@ begin
 		port map (
 			-- Port A is in the 62.5MHz domain and is accessed
 			-- by the register block.
-			clka	=> clk,
+			clka	=> clk_77mhz,
 			wea	=> br_we(2 downto 2),
 			addra	=> register_file(R_BR_ADDR).data(16 downto 2),
 			dina	=> register_file(R_BR_WR_DATA).data,
@@ -566,10 +628,10 @@ begin
 	-- is used.  This FIFO mechanism is probably not even needed, but it
 	-- doesn't do any harm because PCIe writes will come through very 
 	-- slowly anyway.
-	process (clk, rst_n)
+	process (clk_77mhz, rst77_n)
 	begin
-		if rising_edge(clk) then
-			if (rst_n = '0') then
+		if rising_edge(clk_77mhz) then
+			if (rst77_n = '0') then
 				br_we <= "000";
 			else
 				br_we(2) <= br_we(1);
@@ -592,8 +654,8 @@ begin
         des_core : deserializer
                 port map (
                         -- clock and reset
-                        clk_62mhz_i         => clk,
-                        rstn_i              => rst_n,
+                        clk_62mhz_i         => clk_77mhz,
+                        rstn_i              => rst77_n,
                         clk_200mhz_i        => clk_200mhz,
 
                         -- ADC lines from FEE
@@ -617,8 +679,8 @@ begin
 	-----------------------------------------------------------------------
 	image_fifo : fifo_large
 		port map (
-			clk_62mhz_i         => clk,
-			rstn_i              => rst_n,
+			clk_62mhz_i         => clk_77mhz,
+			rstn_i              => rst77_n,
 
 			ddr_cmd_en_o        => c3_p0_cmd_en,
 			ddr_cmd_instr_o     => c3_p0_cmd_instr,
@@ -637,13 +699,13 @@ begin
 			ddr_req_o           => open,
 			ddr_grant_i         => '1', -- nobody else can use DDR
 
-			wr_clk_i            => clk,
+			wr_clk_i            => clk_77mhz,
 			wr_data_count_o     => open, -- could monitor this
 			data_i              => fifo_data_i,
 			wr_en_i             => wr_req,
 			full_o              => open, -- could monitor this
 
-			rd_clk_i            => clk,
+			rd_clk_i            => clk_77mhz,
 			rd_en_i             => rd_req,
 			data_o              =>
 				register_file(R_DDR_RD_DATA).default,
@@ -669,19 +731,43 @@ begin
 			sys_reset_n	=> sys_reset_n,
 
 			-- Local Common
-			clk                 => clk,   
-			rst_n               => rst_n, 	
+			clk		=> clk,   
+			rst_n		=> rst_n, 	
 			--  Local Read Port
-			rd_addr		=> rd_addr,
-			rd_be		=> rd_be,  
-			rd_data		=> rd_data,
-			rd_ack		=> rd_ack,
+			rd_addr		=> rd_addr_62,
+			rd_be		=> rd_be_62,
+			rd_data		=> rd_data_62,
+			rd_ack		=> rd_ack_62,
 			--  Local Write Port
-			wr_addr             => wr_addr,
-			wr_be               => wr_be,  
-			wr_data             => wr_data,
-			wr_en               => wr_en,  
-			wr_busy             => wr_busy
+			wr_addr		=> wr_addr_62,
+			wr_be		=> wr_be_62,
+			wr_data		=> wr_data_62,
+			wr_en		=> wr_en_62,
+			wr_busy		=> wr_busy_62
+		);
+
+	resynch_62_to77 : pio_resynch
+		port map (
+			-- Input clock and reset
+			clk1_i      => clk,
+			rstn1_i     => rst_n,
+			-- Input signals
+			rd_addr_i   => rd_addr_62,
+			rd_ack_i    => rd_ack_62,
+			wr_addr_i   => wr_addr_62,
+			wr_be_i     => wr_be_62,
+			wr_data_i   => wr_data_62,
+			wr_en_i     => wr_en_62,
+			-- Output clock and reset
+			clk2_i      => clk_77mhz,
+			rstn2_i     => rst77_n,
+			-- Output signals
+			rd_addr_o   => rd_addr,
+			rd_ack_o    => rd_ack,
+			wr_addr_o   => wr_addr,
+			wr_be_o     => wr_be,
+			wr_data_o   => wr_data,
+			wr_en_o     => wr_en
 		);
 
 	-- The blocks of code below are the glue between the register file
@@ -691,17 +777,35 @@ begin
 	-- is a little endian device, PCIe is a big endian bus.
 
 	-- Register File Read
-	rd_data( 7 downto  0) <= register_file(TO_INTEGER(UNSIGNED(rd_addr))).data(31 downto 24);
-	rd_data(15 downto  8) <= register_file(TO_INTEGER(UNSIGNED(rd_addr))).data(23 downto 16);
-	rd_data(23 downto 16) <= register_file(TO_INTEGER(UNSIGNED(rd_addr))).data(15 downto  8);
-	rd_data(31 downto 24) <= register_file(TO_INTEGER(UNSIGNED(rd_addr))).data( 7 downto  0);
+	rd_data_62( 7 downto  0) <=
+		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(31 downto 24);
+	rd_data_62(15 downto  8) <=
+		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(23 downto 16);
+	rd_data_62(23 downto 16) <=
+		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(15 downto  8);
+	rd_data_62(31 downto 24) <=
+		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data( 7 downto  0);
 	
-	-- Register File Write
-	G_REG_WRITES: for i in 0 to REGISTER_COUNT-1 generate
-		process (clk, rst_n)
+	-- The endian swap above could go in the resynch below, but that's
+	-- just aesthetic.
+
+	-- Register File Resynchronize
+	G_REG_RESYNC: for i in 0 to REGISTER_COUNT-1 generate
+		process (clk)
 		begin
 			if rising_edge (clk) then
-				if ((rst_n = '0') or register_file(i).readonly) then
+				file_q(i).data <= register_file(i).data;
+				file_q2(i).data <= file_q(i).data;
+			end if;
+		end process;
+	end generate;
+
+	-- Register File Write
+	G_REG_WRITES: for i in 0 to REGISTER_COUNT-1 generate
+		process (clk_77mhz, rst77_n)
+		begin
+			if rising_edge (clk_77mhz) then
+				if ((rst77_n = '0') or register_file(i).readonly) then
 					register_file(i).data <= register_file(i).default;
 					
 				elsif ((wr_en = '1') and (wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(i,11)))) then
@@ -727,7 +831,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00043"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00051"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -831,13 +935,16 @@ begin
 	-- 25MHz Synch_out clock generation
 	-----------------------------------------------------------------------
 	-- Note: en_synch is re-registered because we are crossing clock
-	-- domains from 62.5MHz to 199.8MHz.
-	process (clk_200mhz, rst_n)
+	-- domains from 77MHz to 199.8MHz.  I believe the fact that I use a
+	-- reset signal from the 77MHz domain for this 200MHz process is not
+	-- a concern because when rst77_n is released, all these registers
+	-- will be zero anyway.
+	process (clk_200mhz, rst77_n)
 	-- to-do: create a divisor register in case we want to run slower
 	-- Currently, there is a constant divisor of 4 which creates 25MHz.
 	begin
 		if rising_edge(clk_200mhz) then
-			if (rst_n = '0') then
+			if (rst77_n = '0') then
 				en_synch <= '0';
 				en_synch_q <= '0';
 				synch_out <= '0';
@@ -861,8 +968,8 @@ begin
 	u_mig_39 : mig_39
 		port map (
 
-			c3_sys_clk		=> clk,
-			c3_sys_rst_i		=> rst_n,
+			c3_sys_clk		=> clk_77mhz,
+			c3_sys_rst_i		=> rst77_n,
 
 			-- Connections to DDR2 Chip
 			mcb3_dram_dq		=> mcb3_dram_dq,
@@ -889,14 +996,14 @@ begin
 
 			c3_calib_done		=> c3_calib_done,
 
-			c3_p0_cmd_clk		=> clk,
+			c3_p0_cmd_clk		=> clk_77mhz,
 			c3_p0_cmd_en		=> c3_p0_cmd_en,
 			c3_p0_cmd_instr		=> c3_p0_cmd_instr, 
 			c3_p0_cmd_bl		=> c3_p0_cmd_bl,
 			c3_p0_cmd_byte_addr	=> c3_p0_cmd_byte_addr,
 			c3_p0_cmd_empty		=> c3_p0_cmd_empty,
 			c3_p0_cmd_full		=> c3_p0_cmd_full,
-			c3_p0_wr_clk		=> clk,
+			c3_p0_wr_clk		=> clk_77mhz,
 			c3_p0_wr_en		=> c3_p0_wr_en,
 			c3_p0_wr_mask		=> "0000",
 			c3_p0_wr_data		=> c3_p0_wr_data,
@@ -905,7 +1012,7 @@ begin
 			c3_p0_wr_count		=> c3_p0_wr_count,
 			c3_p0_wr_underrun	=> c3_p0_wr_underrun,
 			c3_p0_wr_error		=> c3_p0_wr_error,
-			c3_p0_rd_clk		=> clk,
+			c3_p0_rd_clk		=> clk_77mhz,
 			c3_p0_rd_en		=> c3_p0_rd_en,
 			c3_p0_rd_data		=> c3_p0_rd_data,
 			c3_p0_rd_full		=> c3_p0_rd_full,
@@ -954,10 +1061,10 @@ begin
 	fifo_rd <= ((rd_ack = '1') and (rd_ack_q = '0') and
 		(rd_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_RD_DATA,11))));
 
-	process (clk, rst_n)
+	process (clk_77mhz, rst77_n)
 	begin
-	if rising_edge(clk) then
-		if (rst_n = '0') then
+	if rising_edge(clk_77mhz) then
+		if (rst77_n = '0') then
 			wr_req <= '0';
 			rd_req <= '0';
 			rd_ack_q <= '0';
