@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+DEV=/dev/ttyS0
+python -m serial.tools.miniterm --lf "$@" $DEV
+
+
