@@ -69,6 +69,7 @@ NET   pci_exp_rxn  LOC = C7;
 # Ignore timing on asynchronous signals.
 #
 NET sys_reset_n TIG;
+NET rst77_n TIG;
 
 #
 # Timing requirements and related constraints.
@@ -324,7 +325,9 @@ NET "port2_n[19]"                   LOC = "V20";        # CN8.48
 NET "port2_p<16>" CLOCK_DEDICATED_ROUTE = FALSE;
 
 NET "ccd_adc_sck_ret" TNM_NET = "ccd_adc_sck_ret";
-NET "clk_100mhz" TNM_NET = "clk_100mhz";
+NET "clk_200mhz" TNM_NET = "clk_200mhz";
+NET "clk_77mhz" TNM_NET = "clk_77mhz";
+NET "clk" TNM_NET = "clk_62mhz";
 #Created by Constraints Editor (xc6slx45t-fgg484-2) - 2013/08/31
 NET "port2_p<16>" TNM_NET = port2_p<16>;
 NET "app/s6_pcie_v1_4_i/gt_refclk_out<0>" TNM_NET = app/s6_pcie_v1_4_i/gt_refclk_out<0>;
@@ -332,7 +335,20 @@ NET "clk_27mhz_1" TNM_NET = clk_27mhz_1;
 TIMESPEC TS_clk_27mhz_1 = PERIOD "clk_27mhz_1" 27 MHz HIGH 50%;
 TIMESPEC TS_port2_p_16_ = PERIOD "port2_p<16>" 49.95 MHz HIGH 50%;
 NET "port2_p<15>" TNM_NET = port2_p<15>;
-TIMESPEC TS_port2_p_15_ = PERIOD "port2_p<15>" 99.9 MHz HIGH 50%;
+TIMESPEC TS_port2_p_15_ = PERIOD "port2_p<15>" 40.04 ns HIGH 50%;
 #Created by Constraints Editor (xc6slx45t-fgg484-2) - 2013/09/21
 NET "synch_out" TNM_NET = synch_out;
 TIMESPEC TS_synch_out = PERIOD "synch_out" TS_pll_inst_clkout0 / 8 HIGH 50% INPUT_JITTER 2 ns;
+
+# The lines below tell the tools that when we cross clock domains, we are
+# dealing with it and the tools should not worry about timing.
+#Created by Constraints Editor (xc6slx45t-fgg484-2) - 2014/03/02
+TIMESPEC TS_13 = FROM "pll_inst_clkout1" TO "pll_inst_clkout0" TIG;
+TIMESPEC TS_14 = FROM "pll_inst_clkout0" TO "pll_inst_clkout1" TIG;
+#Created by Constraints Editor (xc6slx45t-fgg484-2) - 2014/03/02
+TIMESPEC TS_03 = FROM "pll_inst_clkout1" TO "synch_out" TIG;
+TIMESPEC TS_04 = FROM "synch_out" TO "pll_inst_clkout1" 20 ns;
+TIMESPEC TS_05 = FROM "app_s6_pcie_v1_4_i_clk_62_5" TO "pll_inst_clkout1" TIG;
+TIMESPEC TS_06 = FROM "pll_inst_clkout1" TO "app_s6_pcie_v1_4_i_clk_62_5" TIG;
+#Created by Constraints Editor (xc6slx45t-fgg484-2) - 2014/03/02
+TIMESPEC TS_07 = FROM "synch_out" TO "pll_inst_clkout0" TIG;
