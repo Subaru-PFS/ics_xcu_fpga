@@ -7,7 +7,7 @@ class FeeSet(object):
         self.name = name
         self.letter = letter
         self.subs = subs
-        self.status = {}
+        self.statusCache = {}
         self.setCmd = setCmd
         self.getCmd = getCmd
 
@@ -34,6 +34,19 @@ class FeeSet(object):
         else:
             return "g%s" % (self.letter)
 
+    def fetchStatus(self):
+        if not self.getCmd:
+            return dict()
+        for sub in subs:
+            
+    def status(self, useCache=False):
+        if not useCache:
+            self.statusCache = {}
+        if not self.statusCache:
+            self.statusCache = self.fetchStatus()
+
+        return self.statusCache
+        
 class FeeControl(object):
     def __init__(self, ttyName='/dev/ttyS0', logLevel=logging.DEBUG):
         self.logger = logging.getLogger()
@@ -109,11 +122,11 @@ class FeeControl(object):
         #define pb_wipe "wipe"
         #define po_offset "offset"
 
-        I do not understand the save command yet....
+
         """
-        self.commands['Presets'] =  FeeSet('Presets', 'p', 
-                                           ["erase", "read", "expose", "wipe", "offset"],
-                                           getCmd=None)
+        self.commands['Presets'] = FeeSet('Presets', 'p', 
+                                          ["erase", "read", "expose", "wipe", "offset"],
+                                          getCmd='l')
 
     def sendSetCommand(self, setName, subName, value):
         cmdSet = self.commands[setName]
@@ -170,3 +183,5 @@ class FeeControl(object):
                 return response
 
     
+def test1():
+    fee = FeeControl()
