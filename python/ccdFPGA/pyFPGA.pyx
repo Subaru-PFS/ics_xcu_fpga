@@ -26,14 +26,33 @@ cdef class FPGA:
     def __cinit__(self):
         configureFpga(<const char *>0)
 
-    cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, doTest=1):
-        # a contiguous C array with all the numpy and cython geometry information.
-        # Yes, magic -- look at the cython manual...
+        cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, doTest=1):
+            # a contiguous C array with all the numpy and cython geometry information.
+            # Yes, magic -- look at the cython manual...
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
-                                       	                                         dtype='u2')
+                                                                                 dtype='u2')
 
         configureForReadout(doTest)
         ret = readImage(nrows, ncols, namps, &image[0,0])
+        finishReadout()
+
+        return image
+
+    cpdef readImageByRows(self, int nrows=4240, int ncols=536, int namps=8, doTest=1, rowFunc=None):
+        # a contiguous C array with all the numpy and cython geometry information.
+        # Yes, magic -- look at the cython manual...
+        cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
+                                                                                 dtype='u2')
+
+        configureForReadout(doTest)
+        for row in range(nrows):
+            ret = readLine(ncols*namps, &image[row,0], row)
+            
+            if rowFunc:
+                rowFunc(row, image)
+            else:
+                if row%100 == 0 or row == nrows-1:
+                    sys.stderr.write("line %d (ret=%s)\n" % (row, ret))
         finishReadout()
 
         return image
