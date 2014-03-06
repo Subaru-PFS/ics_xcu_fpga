@@ -9,12 +9,16 @@
 *.pyo
 
 ################ Xilinx
+# .xise and .prj define the project
+# .ut are config files
+# iseconfig/filter.filter 
+#
 *.bgn
 *.bit
 *.bld
 *.cfi
 *.cmd_log
-*.filter
+*.gise
 *.log
 *.lso
 *.lst
@@ -30,6 +34,7 @@
 *.pcf
 *.ptwx
 *.stx
+*_summary.html
 *.syr
 *.twr
 *.twx
@@ -37,10 +42,10 @@
 *.upf
 *.xmsgs
 *.xpi
+*.xreport
 *.xrpt
 *.xwbt
-*.xreport
-_xmsgs/
 _ngo/
+_xmsgs/
 xlnx_auto*/
 xst/
