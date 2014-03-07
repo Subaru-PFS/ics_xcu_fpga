@@ -1,14 +1,14 @@
 /* 
    This is a library of the FPGA readout routines.
- */
+*/
 
-#include<unistd.h>
-#include<sys/types.h>
-#include<sys/mman.h>
-#include<stdio.h>
-#include<stdlib.h>
-#include<fcntl.h>
-#include<assert.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <assert.h>
 #include <time.h>
 #include <errno.h>
 #include <stdint.h>
@@ -25,7 +25,8 @@ static int wordsReady;
 
 // send_opcode(d) causes the output states currently stored in the global
 // output_states to be driven on the outputs for d*40ns
-static void send_opcode(unsigned int duration) {
+static void send_opcode(unsigned int duration) 
+{
   fpga[R_BR_ADDR] = bram_addr;
   fpga[R_BR_WR_DATA] = output_states | duration;
   bram_addr += 4;
@@ -33,107 +34,108 @@ static void send_opcode(unsigned int duration) {
 
 // write_row_readout() is a routine to write blockram with opcodes that read
 // a row of CCD pixels.
-uint32_t write_row_readout(uint32_t start) {
-
-	int i;
-	bram_addr = start;
-
-	// initial states:
-	SET_0(CCD_P1);
-	SET_1(CCD_P2);
-	SET_0(CCD_P3);
-	SET_1(CCD_TG);
-	SET_1(CCD_S1);
-	SET_0(CCD_S2);
-	SET_1(CCD_RG);
-	SET_1(CCD_SW);
-	SET_0(CCD_DCR);
-	SET_0(CCD_IR);
-	SET_0(CCD_I_M);
-	SET_0(CCD_I_P);
-	SET_1(CCD_CNV);
-	SET_0(CCD_SCK);
-	SET_1(CCD_DG);
-	SET_0(CCD_IRQ);
-	SET_0(CCD_CRC);
-	// arbitrary 4000ns -- initial states should already be present
-	send_opcode(100);
-
-	for(i=0; i<PIX_W; i++) {
-		// Each loop iteration here does 1 serial pixel
-		SET_0(CCD_S1);
-		SET_1(CCD_S2);
-		SET_0(CCD_RG);
-		SET_1(CCD_DCR);
-		SET_1(CCD_IR);
-		SET_1(CCD_SCK);
-		send_opcode(16);
-
-		SET_1(CCD_RG);
-		SET_0(CCD_SCK);
-		send_opcode(8);
-
-		SET_1(CCD_S1);
-		SET_0(CCD_S2);
-		SET_0(CCD_SW);
-		SET_0(CCD_IR);
-		SET_0(CCD_CNV);
-		send_opcode(8);
-
-		SET_0(CCD_DCR);
-		send_opcode(8);
-
-		SET_1(CCD_I_M);
-		send_opcode(120);
-
-		SET_0(CCD_I_M);
-		SET_1(CCD_SW);
-		send_opcode(8);
-
-		SET_1(CCD_I_P);
-		send_opcode(120);
-
-		SET_0(CCD_I_P);
-		send_opcode(4);
-
-		SET_1(CCD_CNV);
-		send_opcode(44);
-	}
-
-	// parallel clocking:
-	SET_1(CCD_P1);
-	SET_0(CCD_RG);
-	SET_1(CCD_DCR);
-	send_opcode(1000);
-
-	SET_0(CCD_P2);
-	SET_0(CCD_TG);
-	SET_1(CCD_CRC);
-	send_opcode(1000);
-	
-	SET_1(CCD_P3);
-	SET_0(CCD_CRC);
-	send_opcode(1000);
-
-	SET_0(CCD_P1);
-	send_opcode(1000);
-
-	SET_1(CCD_P2);
-	SET_1(CCD_TG);
-	send_opcode(1000);
-
-	SET_1(CCD_P1);
-	send_opcode(1000);
-
-	SET_1(CCD_RG);
-	send_opcode(50);
-
-	SET_0(CCD_DCR);
-	send_opcode(2);
-
-	return bram_addr - 4;
+uint32_t write_row_readout(uint32_t start, int ncols) 
+{
+  int i;
+  bram_addr = start;
+  
+  // initial states:
+  output_states = 0;
+  SET_0(CCD_P1);
+  SET_1(CCD_P2);
+  SET_0(CCD_P3);
+  SET_1(CCD_TG);
+  SET_1(CCD_S1);
+  SET_0(CCD_S2);
+  SET_1(CCD_RG);
+  SET_1(CCD_SW);
+  SET_0(CCD_DCR);
+  SET_0(CCD_IR);
+  SET_0(CCD_I_M);
+  SET_0(CCD_I_P);
+  SET_1(CCD_CNV);
+  SET_0(CCD_SCK);
+  SET_1(CCD_DG);
+  SET_0(CCD_IRQ);
+  SET_0(CCD_CRC);
+  // arbitrary 4000ns -- initial states should already be present
+  send_opcode(100);
+  
+  for(i=0; i<ncols; i++) {
+    // Each loop iteration here does 1 serial pixel
+    // All amps are always read, so we get ncols * namps pixels
+    SET_0(CCD_S1);
+    SET_1(CCD_S2);
+    SET_0(CCD_RG);
+    SET_1(CCD_DCR);
+    SET_1(CCD_IR);
+    SET_1(CCD_SCK);
+    send_opcode(16);
+    
+    SET_1(CCD_RG);
+    SET_0(CCD_SCK);
+    send_opcode(8);
+    
+    SET_1(CCD_S1);
+    SET_0(CCD_S2);
+    SET_0(CCD_SW);
+    SET_0(CCD_IR);
+    SET_0(CCD_CNV);
+    send_opcode(8);
+    
+    SET_0(CCD_DCR);
+    send_opcode(8);
+    
+    SET_1(CCD_I_M);
+    send_opcode(120);
+    
+    SET_0(CCD_I_M);
+    SET_1(CCD_SW);
+    send_opcode(8);
+    
+    SET_1(CCD_I_P);
+    send_opcode(120);
+    
+    SET_0(CCD_I_P);
+    send_opcode(4);
+    
+    SET_1(CCD_CNV);
+    send_opcode(44);
+  }
+  
+  // parallel clocking:
+  SET_1(CCD_P1);
+  SET_0(CCD_RG);
+  SET_1(CCD_DCR);
+  send_opcode(1000);
+  
+  SET_0(CCD_P2);
+  SET_0(CCD_TG);
+  SET_1(CCD_CRC);
+  send_opcode(1000);
+  
+  SET_1(CCD_P3);
+  SET_0(CCD_CRC);
+  send_opcode(1000);
+  
+  SET_0(CCD_P1);
+  send_opcode(1000);
+  
+  SET_1(CCD_P2);
+  SET_1(CCD_TG);
+  send_opcode(1000);
+  
+  SET_1(CCD_P1);
+  send_opcode(1000);
+  
+  SET_1(CCD_RG);
+  send_opcode(50);
+  
+  SET_0(CCD_DCR);
+  send_opcode(2);
+  
+  return bram_addr - 4;
 }
-
 
 int configureFpga(const char *mmapname)
 {
@@ -158,18 +160,18 @@ int configureFpga(const char *mmapname)
   return 1;
 }
 
-void configureForReadout(int doTest)
+void configureForReadout(int doTest, int nrows, int ncols)
 {
   uint32_t end_addr;
 
   // Reset WPU, disable synch clock
   fpga[R_WPU_CTRL] = WPU_RST;
   // Load waveform into blockram
-  end_addr = write_row_readout(0);
+  end_addr = write_row_readout(0, ncols);
   // Set parameters
   // START_STOP register wants D-word addresses.
   fpga[R_WPU_START_STOP] = (end_addr/4) << 16;
-  fpga[R_WPU_COUNT] = PIX_H; // FPGA wants N-1 for N loops.
+  fpga[R_WPU_COUNT] = nrows; // FPGA wants N-1 for N loops.
   // At this point the master must get acknowledgement that
   // all units are ready via network communications.
   // Start and stop synch clock
@@ -182,7 +184,7 @@ void configureForReadout(int doTest)
   // Start clock
   fpga[R_WPU_CTRL] = EN_SYNCH | (doTest ? WPU_TEST : 0); // Optionally enable test pattern
 
-  fprintf(stderr, "Prepped ID: 0x%08x (test=%d)\n", peekWord(R_ID), doTest);
+  fprintf(stderr, "Prepped ID: 0x%08x %s\n", peekWord(R_ID), doTest ? "looping SCK" : "");
 }
 
 void finishReadout(void)
@@ -323,7 +325,7 @@ int fifoRead(int nBlocks)
     y = x;
 
     if (errCnt > 100) {
-      fprintf(stderr, "giving up after 100 contiguous errors\n");
+      fprintf(stderr, "giving up after 100 consecutive errors\n");
       return errCnt;
     }
   }

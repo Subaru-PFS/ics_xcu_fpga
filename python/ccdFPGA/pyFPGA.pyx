@@ -11,7 +11,7 @@ numpy.import_array()
 
 cdef extern from "fpga.h":
      int configureFpga(const char *mmapname)
-     void configureForReadout(int doTest)
+     void configureForReadout(int doTest, int nrows, int ncols)
      void finishReadout()
      uint32_t readWord()
      int readRawLine(int npixels, uint32_t *rowbuf, int rownum)
@@ -38,7 +38,7 @@ cdef class FPGA:
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
                                                                                  dtype='u2')
 
-        configureForReadout(doTest)
+        configureForReadout(doTest, nrows, ncols)
         ret = readImage(nrows, ncols, namps, &image[0,0])
         finishReadout()
         
@@ -51,7 +51,7 @@ cdef class FPGA:
                                                                                  dtype='u2')
         cdef int row_i
 
-        configureForReadout(doTest)
+        configureForReadout(doTest, nrows, ncols)
         for row_i in range(nrows):
             ret = readLine(ncols*namps, &image[row_i,0], row_i)
 
