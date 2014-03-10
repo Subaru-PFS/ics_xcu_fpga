@@ -158,9 +158,9 @@ begin
           when s_idle =>
             bytes <= x"0";
             -- comment out this line to use the optional clocking method:
-            dat_q <= dat_b & dat_a;
+            -- dat_q <= dat_b & dat_a;
             -- comment out this line to use the default clocking method:
-            -- dat_q <= dat_b2 & dat_a2;
+            dat_q <= dat_b2 & dat_a2;
             -- We could assign words to dat_q with any ordering
             -- that is convenient for the CPU.
             -- test pattern overrides real data:
