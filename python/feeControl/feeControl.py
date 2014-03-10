@@ -13,7 +13,7 @@ class FeeSet(object):
         self.setLetter = setLetter
         self.getLetter = getLetter
 
-    def _genCmdString(self, cmdLetter, *parts):
+    def _getCmdString(self, cmdLetter, *parts):
         allParts = [cmdLetter, self.letter].extend(parts)
         return ','.join(allParts)
 
