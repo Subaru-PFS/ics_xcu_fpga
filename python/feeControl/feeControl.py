@@ -75,18 +75,20 @@ class FeeChannelSet(FeeSet):
 
 
 class FeeControl(object):
-    def __init__(self, ttyName='/dev/ttyS0', logLevel=logging.WARNING):
+    def __init__(self, port=None, logLevel=logging.WARNING):
+        if port is None:
+            port = '/dev/ttyS0'
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
         self.status = {}
-        self.devConfig = dict(port=ttyName, baudrate=9600)
+        self.devConfig = dict(port=port, baudrate=9600)
         self.devConfig['writeTimeout'] = 100 * 1.0/(self.devConfig['baudrate']/8)
         self.EOL = '\n'
                               
         self.defineCommands()
 
-        self.setDevice(ttyName)
+        self.setDevice(port)
 
     def setDevice(self, devName):
         """ """
@@ -243,23 +245,35 @@ class FeeControl(object):
         pass
 
 
-def main(argv):
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
     if isinstance(argv, basestring):
         argv = argv.split()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', type=bool)
-    parser.add_argument('-r', '--raw', type=str)
+    parser = argparse.ArgumentParser(description="Send one or more commands to the FEE controller.",
+                                     epilog="At least one command must be specified.\n")
+
+    parser.add_argument('-p', '--port', 
+                        type=str, default='/dev/ttyS0',
+                        help='the port to use. Currently must be a tty name. Default=%(default)s')
+    parser.add_argument('-r', '--raw', action='append',
+                        help='a raw command to send. The "~" is automatically prepended.')
+    parser.add_argument('--debug', action='store_true',
+                        help='show all traffic to the port.')
 
     args = parser.parse_args(argv)
 
     logLevel = logging.DEBUG if args.debug else logging.WARN
 
-    fee = FeeControl(logLevel=logLevel)
-    if args.raw:
-        print fee.getRaw(args.raw)
-    
+    if not (args.raw):
+        parser.print_help()
+        parser.exit(1)
 
+    fee = FeeControl(logLevel=logLevel)
+    for rawCmd in args.raw:
+        print fee.getRaw(rawCmd)
+    
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
 
