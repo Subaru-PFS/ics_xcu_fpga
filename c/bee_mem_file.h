@@ -1,4 +1,3 @@
-#define PROBED_FILENAME "/sys/bus/pci/devices/0000:03:00.0/resource0"
 /* Return the filename of the Spartan-6 FPGA memory, preferably as found by probing the PCI bus.
 
  This can be fetched using sane and published methods: we know the
@@ -10,8 +9,12 @@ permissions.
 
 */
 
-#ifdef PROBED_FILENAME
-#define PFS_FPGA_MMAP_FILE PROBED_FILENAME
-#else
-#define PFS_FPGA_MMAP_FILE "/sys/bus/pci/devices/0000:03:00.0/resource0"
+#ifndef PROBED_BUSID
+#define PROBED_BUSID "0000:03:00.0"
 #endif
+
+#define PFS_FPGA_DEV_DIR     "/sys/bus/pci/devices/" PROBED_BUSID
+
+#define PFS_FPGA_MMAP_FILE   PFS_FPGA_DEV_DIR "/resource0"
+#define PFS_FPGA_RESET_FILE  PFS_FPGA_DEV_DIR "/reset"
+
