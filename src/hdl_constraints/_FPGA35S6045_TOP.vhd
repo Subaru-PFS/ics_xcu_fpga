@@ -467,8 +467,8 @@ begin
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
-	synch_clk		<= lvds_cn8(15);
-	--synch_clk <= synch_out; -- XXX testing only!!
+	-- synch_clk		<= lvds_cn8(15);
+	synch_clk <= synch_out; -- software loopback until we fix hardware or logic.
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -727,7 +727,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00045"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00046"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
