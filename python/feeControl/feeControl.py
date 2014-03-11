@@ -14,7 +14,9 @@ class FeeSet(object):
         self.getLetter = getLetter
 
     def _getCmdString(self, cmdLetter, *parts):
-        allParts = [cmdLetter, self.letter].extend(parts)
+        allParts = ["%s%s" % (cmdLetter, self.letter)]
+        allParts.extend(parts)
+        #print "%r : %r : %r : %r" % (cmdLetter, self.letter, parts, allParts)
         return ','.join(allParts)
 
     def setVal(self, subName, value):
