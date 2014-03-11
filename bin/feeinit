@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+feecontrol -r se,all,on -r lp,read
+
