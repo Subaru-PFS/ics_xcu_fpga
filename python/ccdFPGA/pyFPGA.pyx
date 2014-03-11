@@ -22,17 +22,25 @@ cdef extern from "fpga.h":
      int fifoWrite(int nBlocks)
      
 
-def prow(row_i, image):
+def prow(row_i, image, **kwargs):
+    """ A somple end-of-row callback. """
+
     nrows, ncols = image.shape
 
+    extraArgs = kwargs if kwargs else ""
+
     if row_i%100 == 0 or row_i == nrows-1:
-        sys.stderr.write("line %d" % (row_i))
+        sys.stderr.write("line %d %s" % (row_i, extraArgs))
 
 cdef class FPGA:
+    """ Provide access to the FPGA routines, especially for readout. 
+
+    """
+
     def __cinit__(self):
         configureFpga(<const char *>0)
 
-    cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, doTest=1):
+    cpdef readImageAtOnce(self, int nrows=4240, int ncols=536, int namps=8, doTest=True):
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
@@ -44,7 +52,41 @@ cdef class FPGA:
         
         return image
 
-    cpdef readImageByRows(self, int nrows=4240, int ncols=536, int namps=8, doTest=1, rowFunc=None):
+    cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, 
+                    doTest=False, rowFunc=None,
+                    debug=1):
+        """ Configure and read out a detector. 
+
+        Parameters
+        ----------
+        nrows : int, optional
+           The number of rows in the image. Default=4240
+        ncols : int, optional
+           The number of columns in the image. Note that this per amp. Default=536
+        namps : int, optional
+           The number of amps in the image. So the number of pixels is ncols * namps. Default=8
+        doTest : bool, optional
+           If true, return a BEE-generated synthetic image.
+        rowFunc : callable, optional
+           If set, a function called at the end of each line. The signature is:
+              rowFunc(rowNum, image, error=None)
+           where rawNum is the 0-based index of the just-read row, image, is the full image, and error
+           contains any error string from the row's readout.
+
+        Returns
+        -------
+        image
+            An unsigned 16-bit pixels image of nrows, (ncols*namps) pixels.
+        
+        Examples
+        --------
+
+        >>> fpga = FPGA()
+        >>> simImage = fpga.readImageByRows()
+        >>> shortRealImage = fpga.readImageByRows(nrows=100, doTest=0)
+
+        """
+
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
