@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,7 @@
 #include <time.h>
 #include <errno.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "fpga.h"
 
@@ -306,6 +308,30 @@ uint32_t peekWord(uint32_t addr)
 
   return intdat;
 }
+
+void pokeWord(uint32_t addr, uint32_t data)
+{
+  fpga[addr] = data;
+}
+
+/* Try to send the PCI reset signal. */
+void pciReset(void)
+{
+  int f, ret;
+
+  f = open(PFS_FPGA_RESET_FILE, O_WRONLY);
+  if (f < 0) {
+    fprintf(stderr, "cannot open FPGA reset file %s (%s)\n", PFS_FPGA_RESET_FILE, strerror(errno));
+    return;
+  }
+  ret = write(f, "1", 1);
+  if (ret < 0) {
+    fprintf(stderr, "cannot write to FPGA reset file %s (%s)\n", PFS_FPGA_RESET_FILE, strerror(errno));
+    return;
+  }
+  close(f);
+}
+
 
 int fifoRead(int nBlocks)
 {

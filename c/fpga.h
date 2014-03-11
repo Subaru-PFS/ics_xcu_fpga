@@ -54,6 +54,8 @@ extern int readRawLine(int npixels, uint32_t *rowbuf, int rownum);
 extern int readLine(int npixels, uint16_t *rowbuf, int rownum);
 extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
 
+extern void pciReset(void);
+
 extern uint32_t peekWord(uint32_t addr);
 extern int fifoRead(int nBlocks);
 extern void fifoWrite(int nBlocks);
