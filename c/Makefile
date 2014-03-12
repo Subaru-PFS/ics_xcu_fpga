@@ -16,13 +16,12 @@ libfpga.so: fpga.c fpga.h bee_mem_file.h
 bee_mem_file.h::
 	@echo "NOTE: regenerating bee_mem_file.h by probing the current machine. This will _only_ work on a BEE FPGA+CPU board!"
 	@( \
-	PROBED_FILENAME=`get_fpga_mmap_file.sh`; \
 	PROBED_BUSID=`get_fpga_bus_id.sh`; \
 	if test -z "$${PROBED_BUSID}"; then \
 		echo "could not find FPGA on bus, using default value!" >&2 ; \
 		cp bee_mem_file.h-in bee_mem_file.h ; \
 	else \
-	        ( echo "#define PFS_FPGA_BUSID \"$${PROBED_BUSID}\"" ; \
+	        ( echo "#define PFS_FPGA_BUSID \"$${PROBED_BUSID}\"\n" ; \
 	      	  cat bee_mem_file.h-in ;\
                 ) > bee_mem_file.h; \
 		echo "using new probed FPGA file: /sys/bus/pci/devices/$${PROBED_BUSID}/resource0" >&2 ; \
