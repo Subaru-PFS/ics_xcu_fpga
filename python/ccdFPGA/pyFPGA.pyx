@@ -14,23 +14,22 @@ cdef extern from "fpga.h":
      void configureForReadout(int doTest, int nrows, int ncols)
      void finishReadout()
      uint32_t readWord()
-     int readRawLine(int npixels, uint32_t *rowbuf, int rownum)
-     int readLine(int npixels, uint16_t *rowbuf, int rownum)
+     int readRawLine(int npixels, uint32_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
+     int readLine(int npixels, uint16_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
      int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
      uint32_t peekWord(uint32_t addr)
      int fifoRead(int nBlocks)
      int fifoWrite(int nBlocks)
      
 
-def prow(row_i, image, **kwargs):
-    """ A somple end-of-row callback. """
+def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
+                  **kwargs):
+    """ A sample end-of-row callback. """
 
     nrows, ncols = image.shape
 
-    extraArgs = kwargs if kwargs else ""
-
-    if row_i%100 == 0 or row_i == nrows-1:
-        sys.stderr.write("line %d %s" % (row_i, extraArgs))
+    if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
+        sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 cdef class FPGA:
     """ Provide access to the FPGA routines, especially for readout. 
@@ -53,8 +52,8 @@ cdef class FPGA:
         return image
 
     cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, 
-                    doTest=False, rowFunc=None,
-                    debug=1):
+                    doTest=False, debugLevel=1,
+                    rowFunc=None, rowFuncArgs=None):
         """ Configure and read out a detector. 
 
         Parameters
@@ -67,9 +66,11 @@ cdef class FPGA:
            The number of amps in the image. So the number of pixels is ncols * namps. Default=8
         doTest : bool, optional
            If true, return a BEE-generated synthetic image.
+        rowFuncArgs : dict, optional
+           If set and rowFunc is to be called, these are added to the rowFunc keyword arguments
         rowFunc : callable, optional
            If set, a function called at the end of each line. The signature is:
-              rowFunc(rowNum, image, error=None)
+              rowFunc(rowNum, image, error=None, dataCrc=int, fpgaCrc=int, **rowFuncArgs)
            where rawNum is the 0-based index of the just-read row, image, is the full image, and error
            contains any error string from the row's readout.
 
@@ -91,17 +92,32 @@ cdef class FPGA:
         # Yes, magic -- look at the cython manual...
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
                                                                                  dtype='u2')
+        cdef uint32_t dataCrc, fpgaCrc
         cdef int row_i
+
+        if rowFunc is None:
+            rowFunc = printProgress
+        if rowFunc and rowFuncArgs is None:
+            rowFuncArgs = dict()
 
         configureForReadout(doTest, nrows, ncols)
         for row_i in range(nrows):
-            ret = readLine(ncols*namps, &image[row_i,0], row_i)
+            ret = readLine(ncols*namps, &image[row_i,0], &dataCrc, &fpgaCrc)
+            if dataCrc != fpgaCrc:
+                errorMsg = ("CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n" %
+                            (fpgaCrc, dataCrc))
+            elif ret != 0:
+                errorMsg = ("CRCs FPGA: 0x%08x calculated: 0x%08x." % (fpgaCrc, dataCrc))
+            else:
+                errorMsg = "OK?"
 
             if rowFunc:
-                rowFunc(row_i, image)
-            else:
-                if row_i%100 == 0 or row_i == nrows-1:
-                    sys.stderr.write("line %d (ret=%s)\n" % (row_i, ret))
+                rowFunc(row_i, image, error=errorMsg, 
+                        fpgaCrc=fpgaCrc, dataCrc=dataCrc,
+                        **rowFuncArgs)
+            #else:
+            #    if row_i%100 == 0 or row_i == nrows-1:
+            #        sys.stderr.write("line %d (ret=%s)\n" % (row_i, ret))
         finishReadout()
 
         return image

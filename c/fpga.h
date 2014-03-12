@@ -47,16 +47,21 @@
 #define N_AMPS 8   // number of amps. So N_AMPS * PIX_W
 
 extern int configureFpga(const char *mmapname);
-extern void configureForReadout(int doTest, int nrows, int ncols);
-extern void finishReadout(void);
-extern uint32_t readWord(void);
-extern int readRawLine(int npixels, uint32_t *rowbuf, int rownum);
-extern int readLine(int npixels, uint16_t *rowbuf, int rownum);
-extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
-
 extern void pciReset(void);
 
+extern void configureForReadout(int doTest, int nrows, int ncols);
+extern void finishReadout(void);
+
+extern int readRawLine(int nwords, uint32_t *rowbuf, 
+		       uint32_t *calcCrc, uint32_t *fpgaCrc);
+extern int readLine(int npixels, uint16_t *rowbuf, 
+		    uint32_t *calcCrc, uint32_t *fpgaCrc);
+extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
+
+
+extern uint32_t readWord(void);
 extern uint32_t peekWord(uint32_t addr);
+extern void pokeWord(uint32_t addr, uint32_t data);
 extern int fifoRead(int nBlocks);
 extern void fifoWrite(int nBlocks);
 

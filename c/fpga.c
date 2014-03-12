@@ -235,9 +235,9 @@ uint32_t readWord(void)
 }
 
 /* readRawLine -- read a single line of raw FPGA words. */
-int readRawLine(int nwords, uint32_t *rowbuf, int rownum)
+int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
 {
-  uint32_t word, crc, fpgaCrc;
+  uint32_t word, crc;
 
   crc = 0;
   
@@ -255,50 +255,50 @@ int readRawLine(int nwords, uint32_t *rowbuf, int rownum)
     }
   }
   // Check CRC per row:
-  fpgaCrc = readWord();
-  if ((0xcccc0000 | crc) != fpgaCrc) {
-    // 0xcccc is the magic upper word that indicates a CRC word.
-    fprintf(stderr, 
-	    "CRC mismatch on row %d: CRC read: 0x%08x vs. calculated: 0x%08x. read CRC MUST start with 0xccc0000\n",
-            rownum, fpgaCrc, crc);
+  // 0xcccc is the magic upper word that indicates a CRC word. We add that
+  // in instead of masking it off of the FPGA CRC so that we can keep the full
+  // 32-bits of the perhaps trashed FPGA value.
+  *fpgaCrc = readWord();
+  crc |= 0xcccc0000;
+  *dataCrc = crc;
 
-    return 0;
-  }
-
-  return 1;
+  return (crc != *fpgaCrc);
 }
 
 /* readLine -- read a single line of _pixels_. */
-int readLine(int npixels, uint16_t *rowbuf, int rownum)
+int readLine(int npixels, uint16_t *rowbuf,
+	     uint32_t *dataCrc, uint32_t *fpgaCrc)
 {
-  int nwords;
+  int nwords, ret;
 
   // Round up, so that we can read odd-width rows.
   nwords = (npixels * sizeof(uint16_t) + sizeof(uint16_t)/2)/sizeof(uint32_t);
 
-  return readRawLine(nwords, (uint32_t *)rowbuf, rownum);
+  ret = readRawLine(nwords, (uint32_t *)rowbuf, dataCrc, fpgaCrc);
+  return ret;
 }
 
 int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
 {
   int badRows = 0;
   int rowPixels = ncols*namps;
+  uint32_t dataCrc, fpgaCrc;
 
   fprintf(stderr, "Reading ID: 0x%08x (%d,%d*%d=%d,0x%08lx)\n", 
 	  peekWord(R_ID), 
 	  nrows, ncols, namps, rowPixels, (unsigned long)imageBuf);
   
   for (int i=0; i<nrows; i++) {
-    int lineOK;
+    int lineBad;
     uint16_t *rowBuf = imageBuf + i*rowPixels;
     
-    lineOK = readLine(rowPixels, rowBuf, i);
-    if (!lineOK) {
+    lineBad = readLine(rowPixels, rowBuf, &dataCrc, &fpgaCrc);
+    if (lineBad) {
       badRows++;
-    }
 
-    if (i%100 == 0 || i == (nrows-1) || !lineOK) {
-      fprintf(stderr, "end line %d (ok=%d)\n", i, lineOK);
+      fprintf(stderr, 
+	      "row %d CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n",
+	      i, fpgaCrc, dataCrc);
     }
   }
 
