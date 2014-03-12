@@ -17,9 +17,11 @@
 
 #include "fpga.h"
 
+readoutStates readoutState = OFF;
+
 static volatile uint32_t *fpga;
-static uint32_t bram_addr;
 static uint32_t output_states;
+static uint32_t bram_addr;
 static int wordsReady;
 
 #define SET_1(x) output_states |= (x)
@@ -144,10 +146,10 @@ int configureFpga(const char *mmapname)
   const char *mapfile;
   static int fd;
 
+  readoutState = UNKNOWN;
+
   if (fpga) {
-    fprintf(stderr, "closing and re-opening FPGA mmap\n");
-    munmap((void *)fpga, sysconf(_SC_PAGESIZE));
-    fpga = 0;
+    releaseFpga();
   }
 
   mapfile = mmapname ? mmapname : PFS_FPGA_MMAP_FILE;
@@ -162,14 +164,44 @@ int configureFpga(const char *mmapname)
     return 0;
   }
 
+  readoutState = IDLE;
   fprintf(stderr, "Configured ID: 0x%08x\n", peekWord(R_ID));
   return 1;
 }
 
-void configureForReadout(int doTest, int nrows, int ncols)
+void releaseFpga(void)
+{
+  readoutState = FAILED;
+
+  fprintf(stderr, "closing and re-opening FPGA mmap\n");
+  munmap((void *)fpga, sysconf(_SC_PAGESIZE));
+  fpga = 0;
+
+  readoutState = OFF;
+}
+
+int requireFpga(void)
+{
+  if (!fpga) {
+    fprintf(stderr, "FPGA has not yet been configured!");
+    return 0;
+  }
+  return 1;
+}
+
+int configureForReadout(int doTest, int nrows, int ncols)
 {
   uint32_t end_addr;
 
+  if (!requireFpga()) 
+    return 0;
+
+  if (readoutState != IDLE) {
+    fprintf(stderr, "readoutState=%d, but need it to be %d to configure readout", readoutState, IDLE);
+    return 0;
+  }
+    
+    
   // Reset WPU, disable synch clock
   fpga[R_WPU_CTRL] = WPU_RST;
   // Load waveform into blockram
@@ -189,14 +221,20 @@ void configureForReadout(int doTest, int nrows, int ncols)
   // all units are ready.
   // Start clock
   fpga[R_WPU_CTRL] = EN_SYNCH | (doTest ? WPU_TEST : 0); // Optionally enable test pattern
+  readoutState = ARMED;
 
-  fprintf(stderr, "Prepped ID: 0x%08x %s\n", peekWord(R_ID), doTest ? "looping SCK" : "");
+  // Not sure about how necessary this is. -- CPL
+  usleep(5000);
+
+  fprintf(stderr, "Prepped ID: 0x%08x %s\n", peekWord(R_ID), doTest ? "simulating" : "");
+  return 1;
 }
 
 void finishReadout(void)
 {
   // Need tons of sanity checks.
   fpga[R_WPU_CTRL] = 0;
+  readoutState = IDLE;
 }
 
 #if 0
@@ -271,10 +309,20 @@ int readLine(int npixels, uint16_t *rowbuf,
 {
   int nwords, ret;
 
+  if (!requireFpga()) 
+    return 0;
+  if (readoutState != ARMED) {
+    fprintf(stderr, "FPGA must be armed for readout! (readoutState=%d)", readoutState);
+    return 0;
+  }
+
   // Round up, so that we can read odd-width rows.
   nwords = (npixels * sizeof(uint16_t) + sizeof(uint16_t)/2)/sizeof(uint32_t);
 
+  readoutState = READING;
   ret = readRawLine(nwords, (uint32_t *)rowbuf, dataCrc, fpgaCrc);
+  readoutState = ARMED;
+
   return ret;
 }
 
@@ -316,6 +364,7 @@ uint32_t peekWord(uint32_t addr)
 void pokeWord(uint32_t addr, uint32_t data)
 {
   fpga[addr] = data;
+  // Set readoutState = UNKNOWN?
 }
 
 /* Try to send the PCI reset signal. */
@@ -334,6 +383,8 @@ void pciReset(void)
     return;
   }
   close(f);
+  
+  readoutState = IDLE;
 }
 
 
@@ -341,6 +392,8 @@ int fifoRead(int nBlocks)
 {
   int errCnt = 0;
   uint32_t y;
+
+  readoutState = UNKNOWN;
 
   y = 0xffffffff;
   for (uint32_t i=0; i<nBlocks*1024/sizeof(uint32_t); i++) {
@@ -365,6 +418,8 @@ int fifoRead(int nBlocks)
 
 void fifoWrite(int nBlocks)
 {
+  readoutState = UNKNOWN;
+
   for (uint32_t i=0; i<nBlocks*1024/sizeof(uint32_t); i++) {
     fpga[R_DDR_WR_DATA] = i;
   }

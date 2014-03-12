@@ -2,6 +2,8 @@
 
 #include "bee_mem_file.h"
 
+typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
+
 #define CRC_POLY 0xa001
 
 // Map of BAR0. Probably should get from FPGA definition file.
@@ -44,14 +46,20 @@
 // Default image size. Should probably not be here.
 #define PIX_H 4240 // number of rows
 #define PIX_W 536  // number of columns (pixels per amp)
-#define N_AMPS 8   // number of amps. So N_AMPS * PIX_W
+
+#define N_AMPS 8   // number of amps. So the number of pixels in a row is N_AMPS * PIX_W
+                   // This is set by the readout hardware.
+
+extern readoutStates readoutState;
 
 extern int configureFpga(const char *mmapname);
+extern void releaseFpga(void);
 extern void pciReset(void);
 
-extern void configureForReadout(int doTest, int nrows, int ncols);
+extern int configureForReadout(int doTest, int nrows, int ncols);
 extern void finishReadout(void);
 
+extern uint32_t readWord(void);
 extern int readRawLine(int nwords, uint32_t *rowbuf, 
 		       uint32_t *calcCrc, uint32_t *fpgaCrc);
 extern int readLine(int npixels, uint16_t *rowbuf, 
@@ -59,7 +67,6 @@ extern int readLine(int npixels, uint16_t *rowbuf,
 extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
 
 
-extern uint32_t readWord(void);
 extern uint32_t peekWord(uint32_t addr);
 extern void pokeWord(uint32_t addr, uint32_t data);
 extern int fifoRead(int nBlocks);
