@@ -1,7 +1,14 @@
+# We ship bee_mem_file.h-in, and use bee_mem_file.h, which is built from that.
+bee_mem_file.h
+
+# Executables
 take_image
 test_image
+take_image2
 take_image3
 fiford
 fifowr
 summary
 looptest
+peekpoke
+sertest
