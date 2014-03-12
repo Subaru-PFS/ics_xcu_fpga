@@ -144,7 +144,11 @@ int configureFpga(const char *mmapname)
   const char *mapfile;
   static int fd;
 
-  assert(fpga == 0);
+  if (fpga) {
+    fprintf(stderr, "closing and re-opening FPGA mmap\n");
+    munmap((void *)fpga, sysconf(_SC_PAGESIZE));
+    fpga = 0;
+  }
 
   mapfile = mmapname ? mmapname : PFS_FPGA_MMAP_FILE;
   fd = open(mapfile, O_RDWR|O_SYNC);
