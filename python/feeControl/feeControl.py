@@ -189,9 +189,9 @@ class FeeControl(object):
         return self.sendCommandStr(cmdStr)
 
     def sendCommandStr(self, cmdStr):
-        fullCmd = "~%s\n" % (cmdStr)
+        fullCmd = "~%s%s" % (cmdStr, self.EOL)
 
-        logging.debug("sending command :%s:" % (fullCmd[:-1]))
+        logging.debug("sending command :%r:" % (fullCmd))
         try:
             self.device.write(fullCmd)
         except serial.writeTimeoutError as e:
@@ -216,11 +216,24 @@ class FeeControl(object):
         return self.readResponse()
 
     def readResponse(self):
+        """ Read a single response line, up to the next self.EOL.
+
+        Returns
+        -------
+        response
+           A string, with trailing EOL removed.
+
+        Notes
+        -----
+        Ignores CRs
+        """
+
         response = ""
 
         while True:
             try:
                 c = self.device.read(size=1)
+                # logging.debug("received char :%r:" % (c))
             except serial.SerialException as e:
                 raise
             except serial.portNotOpenError as e:
@@ -228,20 +241,25 @@ class FeeControl(object):
             except Exception as e:
                 raise
 
-            response += c
+            if c == '\r':
+                logging.debug("ignoring CR")
+                continue
             if c == self.EOL:
-                logging.debug("received :%s:" % (response))
-                return response
+                break
+            response += c
+                
+        logging.debug("received :%s:" % (response))
+        return response
 
     def setRaw(self, cmdStr):
         """ Send a raw commmand string. Well we add the ~ and EOL. """
         
-        print self.sendCommandStr(cmdStr)
+        return self.sendCommandStr(cmdStr)
 
     def getRaw(self, cmdStr):
         """ Send a raw commmand string. Well we add the ~ and EOL. """
         
-        print self.sendCommandStr(cmdStr)
+        return self.sendCommandStr(cmdStr)
 
     def getAll(self):
         pass
