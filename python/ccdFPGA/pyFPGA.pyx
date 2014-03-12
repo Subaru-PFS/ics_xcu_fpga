@@ -10,21 +10,31 @@ cimport pyFPGA
 numpy.import_array()
 
 cdef extern from "fpga.h":
+     ctypedef enum readoutStates:
+        OFF = 0,
+        IDLE = 1, 
+        ARMED = 2, 
+        READING = 3, 
+        FAILED = 4, 
+        UNKNOWN = 5
+     readoutStates readoutState
      int configureFpga(const char *mmapname)
-     void configureForReadout(int doTest, int nrows, int ncols)
+     void releaseFpga()
+     void pciReset()
+
+     int configureForReadout(int doTest, int nrows, int ncols)
      void finishReadout()
-     uint32_t readWord()
-     int readRawLine(int npixels, uint32_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
      int readLine(int npixels, uint16_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
-     int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
+
      uint32_t peekWord(uint32_t addr)
+     void pokeWord(uint32_t addr, uint32_t data)
      int fifoRead(int nBlocks)
      int fifoWrite(int nBlocks)
      
 
 def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
                   **kwargs):
-    """ A sample end-of-row callback. """
+    """ A sample end-of-row callback. Prints all errors and per-100 row progess lines. """
 
     nrows, ncols = image.shape
 
@@ -32,29 +42,40 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 cdef class FPGA:
-    """ Provide access to the FPGA routines, especially for readout. 
-
-    """
-
     def __cinit__(self):
         configureFpga(<const char *>0)
 
-    cpdef readImageAtOnce(self, int nrows=4240, int ncols=536, int namps=8, doTest=True):
-        # a contiguous C array with all the numpy and cython geometry information.
-        # Yes, magic -- look at the cython manual...
-        cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
-                                                                                 dtype='u2')
+    def __init__(self):
+        """ Cython has no class doc strings? See CCD class
+        Provide access to the FPGA routines, especially for readout. 
+        """
 
-        configureForReadout(doTest, nrows, ncols)
-        ret = readImage(nrows, ncols, namps, &image[0,0])
-        finishReadout()
-        
-        return image
+        pass
+
+    def __deallocate__(self):
+        releaseFpga()
+    
+    def __str__(self):
+        return "FPGA(readoutState=%d)" % (readoutState)
+
+    def readoutState(self):
+        return readoutState
+
+    def reconnect(self):
+        releaseFpga()
+        pciReset()
+        configureFpga(<const char *>0)
+
+    def pciReset(self):
+        """ Trigger the PCI reset line. As it stands, this stops all FPGA processing and resets all pointers.
+        """
+
+        pciReset()
 
     cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, 
                     doTest=False, debugLevel=1, doAmpMap=True,
                     rowFunc=None, rowFuncArgs=None):
-        """ Configure and read out a detector. 
+        """ Configure and read out the detector. 
 
         Parameters
         ----------
@@ -75,6 +96,8 @@ cdef class FPGA:
               rowFunc(rowNum, image, error=None, dataCrc=int, fpgaCrc=int, **rowFuncArgs)
            where rawNum is the 0-based index of the just-read row, image, is the full image, and error
            contains any error string from the row's readout.
+           Pass False to call no per-row routine.
+           Pass None (the default) to print errors and per-100 row happy-lines.
 
         Returns
         -------
@@ -88,6 +111,10 @@ cdef class FPGA:
         >>> simImage = fpga.readImageByRows()
         >>> shortRealImage = fpga.readImageByRows(nrows=100, doTest=0)
 
+        >>> def myRowFunc(rowNum, image, **kwargs):
+                print "row %04d mean=%0.2f" % (rowNum, image[rowNum].mean())
+        >>> im = fpga.readImage(nrows=100, rowFunc=myRowFunc)
+
         """
 
         # a contiguous C array with all the numpy and cython geometry information.
@@ -97,14 +124,18 @@ cdef class FPGA:
         cdef numpy.ndarray[numpy.uint16_t, ndim=1, mode="c"] rowImage = numpy.zeros((ncols*namps), 
                                                                                     dtype='u2')
         cdef uint32_t dataCrc, fpgaCrc
-        cdef int row_i
+        cdef int row_i, col_i, amp_i
 
         if rowFunc is None:
             rowFunc = printProgress
         if rowFunc and rowFuncArgs is None:
             rowFuncArgs = dict()
 
-        configureForReadout(doTest, nrows, ncols)
+        ret = configureForReadout(doTest, nrows, ncols)
+        if not ret:
+            sys.stderr.write("failed to configure and arm the readout\n")
+            return None
+            
         for row_i in range(nrows):
             ret = readLine(ncols*namps, &rowImage[0], &dataCrc, &fpgaCrc)
             if dataCrc != fpgaCrc:
@@ -117,23 +148,74 @@ cdef class FPGA:
 
             
             if doAmpMap:
-                cdef int c_i, a_i
-                for a_i in range(namps):
-                    for c_i in range(ncols):
-                        image[row_i,a_i*ncols + c_i] = rowImage[c_i*namps + a_i]
-                    
+                for amp_i in range(namps):
+                    for col_i in range(ncols):
+                        image[row_i,amp_i*ncols + col_i] = rowImage[col_i*namps + amp_i]
+            else:
+                image[row_i,:] = rowImage
+
             if rowFunc:
                 rowFunc(row_i, image, error=errorMsg, 
                         fpgaCrc=fpgaCrc, dataCrc=dataCrc,
                         **rowFuncArgs)
-            #else:
-            #    if row_i%100 == 0 or row_i == nrows-1:
-            #        sys.stderr.write("line %d (ret=%s)\n" % (row_i, ret))
+
         finishReadout()
 
         return image
 
+    cpdef peekWord(self, uint32_t addr):
+        """ Read a 32-bit word from the PCI BRAM space.
+
+        Parameters
+        ----------
+        addr : int
+           The 0-index BAR0 address to read a 32-bit word from. [0..4095]
+
+        Returns
+        -------
+        data
+           the 32-bit value 
+        
+        """
+
+        cdef uint32_t data
+
+        if addr >= 4096:
+            raise IndexError("addr (%d) must with the 4kB PCI BAR0 page" % (addr))
+
+        data = peekWord(addr)
+        return data
+
+    cpdef pokeWord(self, uint32_t addr, uint32_t data):
+        """ Read a 32-bit word from the PCI BRAM space.
+
+        Parameters
+        ----------
+        addr : int
+           The 0-index BAR0 address to write to. [0..4095]
+        data : int
+           The 32-bit data to write
+
+        """
+
+        if addr >= 4096:
+            raise IndexError("addr (%d) must with the 4kB PCI BAR0 page" % (addr))
+
+        pokeWord(addr, data)
+
     cpdef fifoTest(self, int nBlocks):
+        """ Test the FPGA buffering, without a readout.
+
+        There should be no significant output.
+
+        Parameters
+        ----------
+        nBlocks : int
+            The number of 1k blocks to write then read.
+
+        
+        """
+
         sys.stderr.write("writing %d blocks\n" % (nBlocks))
         fifoWrite(nBlocks)
         sys.stderr.write("reading %d blocks\n" % (nBlocks))
