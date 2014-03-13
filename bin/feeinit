@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
+# Standard initialization
 feecontrol -r se,all,on -r lp,read
 
