@@ -1,5 +1,9 @@
+import numpy
+
 import pyFPGA
-import feeControl
+import fee
+
+
 
 class CCD(pyFPGA.FPGA):
     """Top-level wrapper for FPGA control and readout. 
@@ -15,3 +19,11 @@ class CCD(pyFPGA.FPGA):
     """
     def __init__(self):
         pass
+
+    def ampidx(self, ampid, im=None):
+        if im:
+            ncols = im.shape[1]/self.namps
+        else:
+            ncols = 536
+        
+        eturn numpy.arange(ncols) + ampid*ncols
