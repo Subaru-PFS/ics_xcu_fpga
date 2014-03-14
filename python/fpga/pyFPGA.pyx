@@ -31,7 +31,6 @@ cdef extern from "fpga.h":
      int fifoRead(int nBlocks)
      int fifoWrite(int nBlocks)
      
-
 def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
                   **kwargs):
     """ A sample end-of-row callback. Prints all errors and per-100 row progess lines. """
@@ -44,19 +43,20 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
 cdef class FPGA:
     def __cinit__(self):
         configureFpga(<const char *>0)
+        self.namps = 8
 
     def __init__(self):
-        """ Cython has no class doc strings? See CCD class
-        Provide access to the FPGA routines, especially for readout. 
-        """
-
+        """ Please use the CCD subclass instead of FPGA! """
         pass
 
     def __deallocate__(self):
         releaseFpga()
     
     def __str__(self):
-        return "FPGA(readoutState=%d)" % (readoutState)
+        return "FPGA(readoutState=%d,id=0x%08x)" % (readoutState, id(self))
+
+    def __repr__(self):
+        return self.str()
 
     def readoutState(self):
         return readoutState
@@ -72,7 +72,7 @@ cdef class FPGA:
 
         pciReset()
 
-    cpdef readImage(self, int nrows=4240, int ncols=536, int namps=8, 
+    cpdef readImage(self, int nrows=4240, int ncols=536,  
                     doTest=False, debugLevel=1, doAmpMap=True,
                     rowFunc=None, rowFuncArgs=None):
         """ Configure and read out the detector. 
@@ -83,8 +83,6 @@ cdef class FPGA:
            The number of rows in the image. Default=4240
         ncols : int, optional
            The number of columns in the image. Note that this is per amp. Default=536
-        namps : int, optional
-           The number of amps in the image. So the number of pixels is ncols * namps. Default=8
         doTest : bool, optional
            If set True, return an FPGA-generated synthetic image.
         doAmpMap : bool, optional
@@ -108,6 +106,8 @@ cdef class FPGA:
         --------
 
         >>> fpga = FPGA()
+          or (better):
+        >>> fpga = CCD() 
         >>> simImage = fpga.readImageByRows()
         >>> shortRealImage = fpga.readImageByRows(nrows=100, doTest=0)
 
@@ -119,6 +119,7 @@ cdef class FPGA:
 
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
+        cdef namps = self.namps
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
                                                                                  dtype='u2')
         cdef numpy.ndarray[numpy.uint16_t, ndim=1, mode="c"] rowImage = numpy.zeros((ncols*namps), 
