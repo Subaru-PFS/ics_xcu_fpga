@@ -77,7 +77,7 @@ class FeeChannelSet(FeeSet):
 
 
 class FeeControl(object):
-    def __init__(self, port=None, logLevel=logging.WARNING):
+    def __init__(self, port=None, logLevel=logging.DEBUG):
         if port is None:
             port = '/dev/ttyS0'
         self.logger = logging.getLogger()
@@ -111,16 +111,48 @@ class FeeControl(object):
             ret = self.fetchAll()
             print "connected to FEE, revision %s" % (ret)
     
+    def powerUp(self):
+        """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
+
+        print self.sendCommandStr('se,all,on')
+        print self.sendCommandStr('lp,read')
+        #self.setEnable('all','on')
+        #self.getPreset('read')
+
     def fetchAll(self):
-        return self.sendGetCommand('Revision')
+        return self.sendCommandStr('gr')
+
+    def _defineFullCommand(self, cmdSet):
+        """ For a passed commandset, create methods to set&get values."""
+
+        self.commands[cmdSet.name] = cmdSet
 
     def defineCommands(self):
         self.commands = {}
 
         # Read from file....
-        self.commands['Revision'] = FeeSet('Revision', 'r', setLetter=None)
-        self.commands['Enable'] = FeeSet('Enable', 'e', ['all'])
+        self.commands['revision'] = FeeSet('revision', 'r', setLetter=None)
 
+        """
+        #define setPowerEn   "se" // must include 0 or 1 for off or on 
+        #define getPowerEn   "ge" 
+        #define pe_3V3reg   "3V3" 
+        #define pe_5Vreg    "5V" 
+        #define pe_12Vreg   "12V" 
+        #define pe_24Vreg   "24V" 
+        #define pe_54Vreg   "54V" 
+        #define pe_Preamp   "PA" 
+        #define pe_LVDS     "LVDS" 
+        #define pe_Vbb0     "Vbb0"// Bias amplifier enable 
+        #define pe_Vbb1     "Vbb1"// Bias amplifier enable 
+        #define pe_all      "all" 
+        #define pe_on     "on" 
+        #define pe_off    "off" 
+        """
+        self.commands['enable'] = FeeSet('enable', 'e', ['all', 
+                                                         '3V3','5V','12V','24V','54V',
+                                                         'PA','LVDS',
+                                                         'Vbb0', 'Vbb1'])
         """
         //Read/calibrate supply voltages
         #define calSupplyVoltage "cv"   //calibrate voltage channel
@@ -136,13 +168,12 @@ class FeeControl(object):
         #define gv_24Vneg "24VN"
         #define gv_54Vpos "54VP"
         """
-        self.commands['Voltages'] = FeeSet('Voltages', 'v', 
-                                           ['3V3M','3V3',
-                                            '5VP','5VN','5VPpa', '5VNpa',
-                                            '12VP', '12VN', '24VN', '54VP',
-                                            'all'], 
-                                           setLetter='c')
-
+        self.commands['voltage'] = FeeSet('voltage', 'v', 
+                                          ['3V3M','3V3',
+                                           '5VP','5VN','5VPpa', '5VNpa',
+                                           '12VP', '12VN', '24VN', '54VP',
+                                           'all'], 
+                                          setLetter='c')
         """
         // Set/Get the CDS offset voltages 
         #define setCDS_OS "so"
@@ -158,9 +189,9 @@ class FeeControl(object):
         #  define co_0 "ch0" 
         #  define co_1 "ch1"
         """
-        self.commands['Offsets'] = FeeChannelSet('Offsets', 'o', 
-                                                 ['0p','1p','2p','3p',
-                                                  '0n','1n','2n','3n'])
+        self.commands['offset'] = FeeChannelSet('offset', 'o', 
+                                                ['0p','1p','2p','3p',
+                                                 '0n','1n','2n','3n'])
         """
         //load/save bias presets
 
@@ -172,20 +203,28 @@ class FeeControl(object):
         #define pb_wipe "wipe"
         #define po_offset "offset"
         """
-        self.commands['Presets'] = FeeSet('Presets', 'p', 
-                                          ["erase", "read", "expose", "wipe", "offset"],
-                                          getLetter='l')
+        self.commands['preset'] = FeeSet('preset', 'p', 
+                                         ["erase", "read", "expose", "wipe", "offset"],
+                                         getLetter='l')
 
-    def sendSetCommand(self, setName, subName, value):
+    def doSet(self, setName, subName, value):
+        try:
+            cmdSet = self.commands[system]
+        except AttributeError as e:
+            raise
+
         cmdSet = self.commands[setName]
         cmdStr = cmdSet.setVal(subName, value)
 
         return self.sendCommandStr(cmdStr)
 
-    def sendGetCommand(self, setName, subName=None):
+    def doGet(self, setName, subName=None):
         cmdSet = self.commands[setName]
         cmdStr = cmdSet.getVal(subName)
 
+        return self.sendCommandStr(cmdStr)
+
+    def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
     def sendCommandStr(self, cmdStr):
