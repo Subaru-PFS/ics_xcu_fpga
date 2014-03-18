@@ -21,7 +21,7 @@ bee_mem_file.h::
 		echo "could not find FPGA on bus, using default value!" >&2 ; \
 		cp bee_mem_file.h-in bee_mem_file.h ; \
 	else \
-	        ( echo "#define PFS_FPGA_BUSID \"$${PROBED_BUSID}\"\n" ; \
+	        ( echo "#define PFS_FPGA_BUSID \"$${PROBED_BUSID}\"" ; \
 	      	  cat bee_mem_file.h-in ;\
                 ) > bee_mem_file.h; \
 		echo "using new probed FPGA file: /sys/bus/pci/devices/$${PROBED_BUSID}/resource0" >&2 ; \
