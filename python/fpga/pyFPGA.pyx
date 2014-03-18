@@ -72,9 +72,10 @@ cdef class FPGA:
 
         pciReset()
 
-    cpdef readImage(self, int nrows=4240, int ncols=536,  
-                    doTest=False, debugLevel=1, doAmpMap=True,
-                    rowFunc=None, rowFuncArgs=None):
+    cpdef _readImage(self, int nrows=4240, int ncols=536,  
+                     doTest=False, debugLevel=1, 
+                     doAmpMap=True, 
+                     rowFunc=None, rowFuncArgs=None):
         """ Configure and read out the detector. 
 
         Parameters

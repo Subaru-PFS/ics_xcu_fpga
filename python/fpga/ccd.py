@@ -1,9 +1,11 @@
 import numpy
+import sys
+import time
+
+import astropy.io.fits as pyfits
 
 import pyFPGA
-import fee
-
-
+import SeqPath
 
 class CCD(pyFPGA.FPGA):
     """Top-level wrapper for FPGA control and readout. 
@@ -18,12 +20,67 @@ class CCD(pyFPGA.FPGA):
 
     """
     def __init__(self):
-        pass
+        self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
+                                                filePrefix='PFSA',
+                                                filePattern="%(filePrefix)s-%(seqno)08d.fits")
 
     def ampidx(self, ampid, im=None):
-        if im:
+        """ Return an ndarray mask for a single amp. 
+
+        Examples
+        --------
+
+        >>> amp1mask = ccd.ampidx(1, im)
+        >>> amp1inRow100 = im[100, amp1mask]
+        >>> amp1forFullImage = im[:, amp1mask]
+        """
+
+        if im is not None:
             ncols = im.shape[1]/self.namps
         else:
             ncols = 536
         
-        eturn numpy.arange(ncols) + ampid*ncols
+        return numpy.arange(ncols) + ampid*ncols
+
+    def writeImageFile(self, im):
+        fnames = self.fileMgr.getNextFileset()
+        pyfits.writeto(fnames[0], im)
+
+    def readImage(self, nrows=4240, ncols=536,
+                  doTest=False, debugLevel=1, 
+                  doAmpMap=True, 
+                  rowFunc=None, rowFuncArgs=None,
+                  doReset=True, doSave=True):
+                  
+        """ Configure and readout the detector; write image to disk. 
+
+        Parameters
+        ----------
+        doReset : bool, optional
+           If set False, does not PCI-reset the FPGA before starting.
+        doSave : bool , optional
+           If set False, does not save the image to disk FITS file.
+           
+        Notes
+        -----
+        The bulk of the work is done in the _readImage routine -- see that
+        documentation for most of the arguments.
+        """
+
+        if doReset:
+            self.pciReset()
+
+        t0 = time.time()
+        im = self._readImage(nrows=nrows, ncols=ncols, 
+                             doTest=doTest, debugLevel=debugLevel,
+                             doAmpMap=doAmpMap,
+                             rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
+        t1 = time.time()
+
+        if doSave:
+            self.writeImageFile(im)
+        t2 = time.time()
+
+        # sys.stderr.write("readT=%0.2f writeT=%0.2f\n" % (t1-t0, t2-t1))
+
+        return im
