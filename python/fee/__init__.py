@@ -1,2 +1,3 @@
-from feeControl import FeeControl, main
+from feeControl import FeeControl
+from feeControl import main
 

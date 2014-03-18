@@ -6,7 +6,7 @@ import numpy
 
 ext_modules=[
     Extension("pyFPGA",
-              ["ccdFPGA/pyFPGA.pyx"],
+              ["fpga/pyFPGA.pyx"],
               library_dirs=['../c'],
               libraries=['fpga'],
               include_dirs=['../c', 
