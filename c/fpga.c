@@ -64,7 +64,7 @@ uint32_t write_row_readout(uint32_t start, int ncols)
   SET_0(CCD_CRC);
   // arbitrary 4000ns -- initial states should already be present
   send_opcode(100);
-  
+
   for(i=0; i<ncols; i++) {
     // Each loop iteration here does 1 serial pixel
     // All amps are always read, so we get ncols * namps pixels
@@ -84,11 +84,13 @@ uint32_t write_row_readout(uint32_t start, int ncols)
     SET_0(CCD_S2);
     SET_0(CCD_SW);
     SET_0(CCD_IR);
-    SET_0(CCD_CNV);
     send_opcode(8);
     
     SET_0(CCD_DCR);
-    send_opcode(8);
+    send_opcode(4);
+    
+    SET_0(CCD_CNV);
+    send_opcode(4);
     
     SET_1(CCD_I_M);
     send_opcode(120);
@@ -129,7 +131,7 @@ uint32_t write_row_readout(uint32_t start, int ncols)
   SET_1(CCD_TG);
   send_opcode(1000);
   
-  SET_1(CCD_P1);
+  SET_1(CCD_P3);
   send_opcode(1000);
   
   SET_1(CCD_RG);
@@ -137,7 +139,7 @@ uint32_t write_row_readout(uint32_t start, int ncols)
   
   SET_0(CCD_DCR);
   send_opcode(2);
-  
+
   return bram_addr - 4;
 }
 
