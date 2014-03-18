@@ -41,6 +41,8 @@ class NightFilenameGen(object):
         self.seqnoFile = seqnoFile
 
         self.seqnoFileLock = threading.Lock()
+
+        self.setup()
         
     def setup(self, rootDir=None, seqnoFile=None, seqno=1):
         """ If necessary, create directories and sequence files. """
@@ -60,13 +62,11 @@ class NightFilenameGen(object):
 
     def defaultNamesFunc(self, rootDir, seqno):
         """ Returns a list of filenames. """ 
-        filename = os.path.join(rootDir, '%s-%04d.fits' % (self.filePrefix, seqno))
+
+        d = dict(filePrefix=self.filePrefix, seqno=seqno)
+        filename = os.path.join(rootDir, self.filePattern % d)
         return (filename,)
                                 
-    def genFilename(self, root, seqno):
-        filename = os.path.join(root, '%s-%04d.fits' % (self.filePrefix, seqno))
-        return filename
-
     def consumeNextSeqno(self):
         """ Return the next free sequence number. """
 
@@ -96,7 +96,7 @@ class NightFilenameGen(object):
         """ Return the next directory to use. """
 
         dirnow = time.time() + self.dayOffset
-        utday = time.stftime('%Y-%m-%d', time.gmtime(dirnow))
+        utday = time.strftime('%Y-%m-%d', time.gmtime(dirnow))
 
         dataDir = os.path.join(self.rootDir, utday)
         if not os.path.isdir(dataDir):
@@ -105,7 +105,7 @@ class NightFilenameGen(object):
 
         return dataDir
     
-    def genNextRealPath(self, cmd):
+    def genNextRealPath(self):
         """ Return the next filename to create. """
 
         dataDir = self.dirname()
@@ -114,7 +114,7 @@ class NightFilenameGen(object):
         
         return imgFiles
         
-    def genNextSimPath(self, cmd):
+    def genNextSimPath(self):
         """ Return the next filename to read. """
 
         filenames = self.namesFunc(self.simRoot, self.simSeqno)
@@ -122,11 +122,11 @@ class NightFilenameGen(object):
     
         return filenames if os.path.isfile(filenames[0]) else None
 
-    def getNextPath(self, cmd):
+    def getNextFileset(self):
         if self.simRoot:
-            return self.genNextSimPath(cmd)
+            return self.genNextSimPath()
         else:
-            return self.genNextRealPath(cmd)
+            return self.genNextRealPath()
 
 def test1():
     # def __init__(self, rootDir, seqnoFile, filePrefix='test', namesFunc=None):
