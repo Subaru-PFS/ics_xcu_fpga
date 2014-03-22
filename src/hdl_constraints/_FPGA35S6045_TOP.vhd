@@ -357,6 +357,7 @@ architecture rtl of FPGA35S6045_TOP is
 	signal rd_addr_62   : std_logic_vector(10 downto 0);
 	signal rd_be_62     : std_logic_vector(3 downto 0);
 	signal rd_data_62   : std_logic_vector(31 downto 0);
+	signal rd_data      : std_logic_vector(31 downto 0);
 	signal rd_ack_62    : std_logic;
 
 	--  Local Write Port
@@ -406,6 +407,8 @@ architecture rtl of FPGA35S6045_TOP is
 	signal fifo_wr_q		: boolean;
 	signal fifo_rd			: boolean;
 	signal fifo_data_i		: std_logic_vector(31 downto 0);
+	signal fifo_data_o		: std_logic_vector(31 downto 0);
+	signal fifo_count		: std_logic_vector(9 downto 0);
 
 	signal adc_wr_en		: std_logic;
 	signal adc_wr_data		: std_logic_vector (31 downto 0);
@@ -504,14 +507,14 @@ begin
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
 
-	ccd_adc_sck_ret		<= lvds_cn8(16);
-	-- ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
+	-- ccd_adc_sck_ret		<= lvds_cn8(16);
+	ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
-	synch_clk		<= lvds_cn8(15);
-	-- synch_clk		<= synch_out; -- XXX testing only!!
+	-- synch_clk		<= lvds_cn8(15);
+	synch_clk		<= synch_out; -- XXX testing only!!
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -705,13 +708,13 @@ begin
 			wr_en_i             => wr_req,
 			full_o              => open, -- could monitor this
 
-			rd_clk_i            => clk_77mhz,
+			rd_clk_i            => clk,
 			rd_en_i             => rd_req,
-			data_o              =>
-				register_file(R_DDR_RD_DATA).default,
+			data_o              => fifo_data_o,
+				--register_file(R_DDR_RD_DATA).default,
 			empty_o             => open, -- could monitor this
-			rd_data_count_o     =>
-				register_file(R_DDR_COUNT).default(9 downto 0)
+			rd_data_count_o     => fifo_count
+				--register_file(R_DDR_COUNT).default(9 downto 0)
 		);
 
 	---------------------------------------------------------------------------
@@ -777,18 +780,25 @@ begin
 	-- is a little endian device, PCIe is a big endian bus.
 
 	-- Register File Read
-	rd_data_62( 7 downto  0) <=
-		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(31 downto 24);
-	rd_data_62(15 downto  8) <=
-		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(23 downto 16);
-	rd_data_62(23 downto 16) <=
-		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data(15 downto  8);
-	rd_data_62(31 downto 24) <=
-		file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data( 7 downto  0);
+	process (file_q2, rd_addr_62, fifo_data_o, fifo_count)
+	begin
+		rd_data <= file_q2(TO_INTEGER(UNSIGNED(rd_addr_62))).data;
+		-- Two read-only FIFO registers are not part of the register
+		-- file, because they need to be in the 62.5MHz domain:
+		if rd_addr_62 = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_RD_DATA,11)) then
+			rd_data <= fifo_data_o;
+		end if;
+		if rd_addr_62 = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_COUNT,11)) then
+			rd_data <= (others => '0');
+			rd_data(9 downto 0) <= fifo_count;
+		end if;
+		-- Endian swap
+		rd_data_62( 7 downto  0) <= rd_data(31 downto 24);
+		rd_data_62(15 downto  8) <= rd_data(23 downto 16);
+		rd_data_62(23 downto 16) <= rd_data(15 downto  8);
+		rd_data_62(31 downto 24) <= rd_data( 7 downto  0);
+	end process;
 	
-	-- The endian swap above could go in the resynch below, but that's
-	-- just aesthetic.
-
 	-- Register File Resynchronize
 	G_REG_RESYNC: for i in 0 to REGISTER_COUNT-1 generate
 		process (clk)
@@ -831,7 +841,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00051"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00052"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -1054,26 +1064,23 @@ begin
 	-- The FIFO is normally written by the deserializer, but it can also
 	-- be written by the register block for testing purposes.  Don't try
 	-- to mix these.
+	--
+	-- Change with rev 0052: FIFO is writes are in the 77MHz domain but
+	-- FIFO reads are in the 62MHz domain.
 	-----------------------------------------------------------------------
 	
 	fifo_wr <= ((wr_en = '1') and
 		(wr_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_WR_DATA,11))));
-	fifo_rd <= ((rd_ack = '1') and (rd_ack_q = '0') and
-		(rd_addr = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_RD_DATA,11))));
 
 	process (clk_77mhz, rst77_n)
 	begin
 	if rising_edge(clk_77mhz) then
 		if (rst77_n = '0') then
 			wr_req <= '0';
-			rd_req <= '0';
-			rd_ack_q <= '0';
 			fifo_data_i <= x"0000_0000";
 			fifo_wr_q <= false;
 		else
 			wr_req <= '0';
-			rd_req <= '0';
-			rd_ack_q <= rd_ack;
 			fifo_wr_q <= fifo_wr;
 			------------------------------------------------------
 			-- Writes are triggered by writing to R_DDR_WR_DATA
@@ -1087,6 +1094,22 @@ begin
 				wr_req <= '1';
 				fifo_data_i <= adc_wr_data;
 			end if;
+		end if;
+	end if;
+	end process;
+
+	fifo_rd <= ((rd_ack_62 = '0') and (rd_ack_q = '1') and
+		(rd_addr_62 = STD_LOGIC_VECTOR(TO_UNSIGNED(R_DDR_RD_DATA,11))));
+
+	process (clk, rst_n)
+	begin
+	if rising_edge(clk) then
+		if (rst_n = '0') then
+			rd_req <= '0';
+			rd_ack_q <= '0';
+		else
+			rd_req <= '0';
+			rd_ack_q <= rd_ack_62;
 			------------------------------------------------------
 			-- Reads are triggered by reading from R_DDR_RD_DATA
 			------------------------------------------------------
