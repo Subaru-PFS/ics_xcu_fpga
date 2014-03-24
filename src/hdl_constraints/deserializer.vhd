@@ -7,25 +7,20 @@ use ieee.numeric_std.all;
 -- After the ADC is active and then goes inactive, it begins sending data
 -- to the DRAM.
 
--- Most of this module is clocked at 62.5MHz as that is the domain that the 
--- DDR interface is in.  The sck_active input is clocked from the 25MHz
--- domain, but we put it in a FIFO for a delay anyway so that is not a problem.
--- The ADC data is clocked in by the 50MHz adc_sck_i.  The way we handle the
--- domain transition between 50MHz and 62.5MHz is that we take advantage of
--- the fact that the 50MHz clock is inactive most of the time.  We wait until
--- we know it is inactive, which means the data is stable, and then we start
--- working with that data in the 62.5MHz domain.
+-- Most of this module is clocked by clk_i so that it can talk directly to the
+-- DDR interface.  The sck_active input is clocked from the 25MHz domain, but
+-- we put it in a FIFO for a delay anyway so that is not a problem.  The
+-- actual deserialization is done in the 200MHz domain, so that it gets 
+-- enough samples of the 50MHz SCK and data lines to correctly record data
+-- bits.  Data from the 200MHz domain is only used by the clk_i domain when
+-- we know it is not changing.
 
 -- In this application, we have on the order of 13us between ADC bursts, which
--- is an eternity at 62.5MHz.  We have 16 bytes of data to move to DRAM and
--- then 600 clock cycles to sit on our hands.
+-- is an eternity at any reasonably clocking speed.
 
--- This code now supports two different ways of clocking in serial data.  The
--- default way simply uses the SCK return as a clock.  The optional way uses
--- a 200MHz clock, and registers SCK as a data line along with the MISO lines.
--- The AD7686 datasheet says that MOSI changes while SCK is low, and data is
--- valid on both the rising edge and the falling edge.  The optional clocking
--- scheme works by saving a MOSI state from when SCK was high.
+-- For now, the technique of using adc_sck_i as a clock has been abandoned, 
+-- because it did not work, for unknown reasons, and the 200MHz sampling works
+-- very well and is probably more reliable.
 
 entity deserializer is
   port (
@@ -65,17 +60,15 @@ architecture rtl of deserializer is
   );
   signal state          : state_type;
 
-  -- 50MHz domain registers:
+  -- 200MHz domain registers:
   signal dat_a          : std_logic_vector(63 downto 0);
   signal dat_b          : std_logic_vector(63 downto 0);
-  -- 200MHz domain registers:
-  signal dat_a2         : std_logic_vector(63 downto 0);
-  signal dat_b2         : std_logic_vector(63 downto 0);
   signal sck_q          : std_logic_vector(3 downto 0);
   signal miso_a_q       : std_logic_vector(3 downto 0);
   signal miso_b_q       : std_logic_vector(3 downto 0);
+  signal testx          : unsigned(31 downto 0);
 
-  -- 62.5MHz domain registers:
+  -- clk_i domain registers:
   signal dat_q          : std_logic_vector(127 downto 0);
   -- active_fifo keeps a delayed record of the sck_active signal.  It is 6
   -- deep, which is overkill, but we have plenty of time and this allows for
@@ -87,38 +80,22 @@ architecture rtl of deserializer is
 
   signal crc_out        : std_logic_vector(15 downto 0);
   signal crc_count      : unsigned(2 downto 0);
-  signal testx          : unsigned(31 downto 0);
 
 begin
 
   ddr_wr_data_o <= dat_q(31 downto 0);
 
-  -- This process implements the "default" deserialization method.
-  process(adc_sck_i, rstn_i)
-  begin -- This is the only 50MHz process
-    if rising_edge(adc_sck_i) then
-      if (rstn_i = '0') then
-        testx        <= x"00000000";
-        dat_a        <= (others => '0');
-        dat_b        <= (others => '0');
-      else
-        dat_a <= dat_a(62 downto 0) & adc_miso_a_i;
-        dat_b <= dat_b(62 downto 0) & adc_miso_b_i;
-        testx <= testx + 1;
-      end if;
-    end if;
-  end process;
-
-  -- This process implements the "optional" deserialization method.
+  -- This process implements the deserialization at 200MHz.
   process(clk_200mhz_i, rstn_i)
   begin
     if rising_edge(clk_200mhz_i) then
       if (rstn_i = '0') then
-        dat_a2       <= (others => '0');
-        dat_b2       <= (others => '0');
+        dat_a        <= (others => '0');
+        dat_b        <= (others => '0');
         sck_q        <= x"0";
         miso_a_q     <= x"0";
         miso_b_q     <= x"0";
+        testx        <= x"00000000";
       else
         sck_q    <= sck_q(2 downto 0) & adc_sck_i;
         miso_a_q <= miso_a_q(2 downto 0) & adc_miso_a_i;
@@ -126,8 +103,9 @@ begin
         if (sck_q(3 downto 2) = "10") then -- sck falling edge
           -- store the mosi values from the last time slice where
           -- SCK was high.
-          dat_a2 <= dat_a2(62 downto 0) & miso_a_q(3);
-          dat_b2 <= dat_b2(62 downto 0) & miso_b_q(3);
+          dat_a <= dat_a(62 downto 0) & miso_a_q(3);
+          dat_b <= dat_b(62 downto 0) & miso_b_q(3);
+          testx <= testx + 1;
         end if;
       end if;
     end if;
@@ -157,10 +135,7 @@ begin
         case (state) is
           when s_idle =>
             bytes <= x"0";
-            -- comment out this line to use the optional clocking method:
             dat_q <= dat_b & dat_a;
-            -- comment out this line to use the default clocking method:
-            -- dat_q <= dat_b2 & dat_a2;
             -- We could assign words to dat_q with any ordering
             -- that is convenient for the CPU.
             -- test pattern overrides real data:

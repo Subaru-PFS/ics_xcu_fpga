@@ -227,8 +227,6 @@ architecture rtl of FPGA35S6045_TOP is
 			clk1_i        : in std_logic;
 			rstn1_i       : in std_logic;
 			-- Input signals
-			rd_addr_i    : in std_logic_vector(10 downto 0);
-			rd_ack_i     : in std_logic;
 			wr_addr_i    : in std_logic_vector(10 downto 0);
 			wr_be_i      : in std_logic_vector(7 downto 0);
 			wr_data_i    : in std_logic_vector(31 downto 0);
@@ -237,8 +235,6 @@ architecture rtl of FPGA35S6045_TOP is
 			clk2_i        : in std_logic;
 			rstn2_i       : in std_logic;
 			-- Output signals
-			rd_addr_o    : out std_logic_vector(10 downto 0);
-			rd_ack_o     : out std_logic;
 			wr_addr_o    : out std_logic_vector(10 downto 0);
 			wr_be_o      : out std_logic_vector(7 downto 0);
 			wr_data_o    : out std_logic_vector(31 downto 0);
@@ -366,10 +362,6 @@ architecture rtl of FPGA35S6045_TOP is
 	signal wr_data_62   : std_logic_vector(31 downto 0);
 	signal wr_en_62     : std_logic;
 	signal wr_busy_62   : std_logic := '0';	 
-
-	--  77MHz domain Read Port
-	signal rd_addr      : std_logic_vector(10 downto 0);
-	signal rd_ack       : std_logic;
 
 	--  77MHz domain Write Port
 	signal wr_addr      : std_logic_vector(10 downto 0);
@@ -755,8 +747,6 @@ begin
 			clk1_i      => clk,
 			rstn1_i     => rst_n,
 			-- Input signals
-			rd_addr_i   => rd_addr_62,
-			rd_ack_i    => rd_ack_62,
 			wr_addr_i   => wr_addr_62,
 			wr_be_i     => wr_be_62,
 			wr_data_i   => wr_data_62,
@@ -765,8 +755,6 @@ begin
 			clk2_i      => clk_77mhz,
 			rstn2_i     => rst77_n,
 			-- Output signals
-			rd_addr_o   => rd_addr,
-			rd_ack_o    => rd_ack,
 			wr_addr_o   => wr_addr,
 			wr_be_o     => wr_be,
 			wr_data_o   => wr_data,
@@ -841,7 +829,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00052"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00053"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
