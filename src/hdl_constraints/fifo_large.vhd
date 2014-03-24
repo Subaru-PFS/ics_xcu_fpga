@@ -36,7 +36,7 @@ use ieee.numeric_std.all;
 entity fifo_large is
   port (
     -- clock and reset for memory interface domain
-    clk_62mhz_i         : in  std_logic;
+    clk_i               : in  std_logic;
     rstn_i              : in  std_logic;
 
     -- DDR RAM interface
@@ -137,7 +137,7 @@ begin
       wr_en => wr_en_i,
       full => full_o,
   
-      rd_clk => clk_62mhz_i,
+      rd_clk => clk_i,
       rd_data_count => rd_count,
       dout => fifo_dout,
       rd_en => fifo_rd,
@@ -147,7 +147,7 @@ begin
   fifo_out : fifo_512x4byte
     port map (
       rst => not rstn_i,
-      wr_clk => clk_62mhz_i,
+      wr_clk => clk_i,
       wr_data_count => wr_count,
       din => fifo_din,
       wr_en => fifo_wr,
@@ -169,9 +169,9 @@ begin
     end if;
   end process;
 
-  process(clk_62mhz_i, rstn_i)
+  process(clk_i, rstn_i)
   begin
-    if rising_edge(clk_62mhz_i) then
+    if rising_edge(clk_i) then
       if (rstn_i = '0') then
         state <= s_idle;
         fifo_rd <= '0';

@@ -30,7 +30,7 @@ use ieee.numeric_std.all;
 entity deserializer is
   port (
     -- clock and reset
-    clk_62mhz_i         : in  std_logic;
+    clk_i               : in  std_logic;
     rstn_i              : in  std_logic;
     clk_200mhz_i        : in  std_logic;
 
@@ -133,9 +133,9 @@ begin
     end if;
   end process;
 
-  process(clk_62mhz_i, rstn_i)
+  process(clk_i, rstn_i)
   begin
-    if rising_edge(clk_62mhz_i) then
+    if rising_edge(clk_i) then
       if (rstn_i = '0') then
         -- flip-flop initializations
         dat_q        <= (others => '0');

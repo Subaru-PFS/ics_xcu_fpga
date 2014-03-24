@@ -284,7 +284,7 @@ architecture rtl of FPGA35S6045_TOP is
 
         component deserializer is
                 port (
-                        clk_62mhz_i         : in  std_logic;
+                        clk_i               : in  std_logic;
                         rstn_i              : in  std_logic;
                         clk_200mhz_i        : in  std_logic;
 
@@ -303,7 +303,7 @@ architecture rtl of FPGA35S6045_TOP is
 
 	component fifo_large is
 		port (
-			clk_62mhz_i         : in  std_logic;
+			clk_i         : in  std_logic;
 			rstn_i              : in  std_logic;
 
 			ddr_cmd_en_o        : out std_logic;
@@ -657,7 +657,7 @@ begin
         des_core : deserializer
                 port map (
                         -- clock and reset
-                        clk_62mhz_i         => clk_77mhz,
+                        clk_i              => clk_77mhz,
                         rstn_i              => rst77_n,
                         clk_200mhz_i        => clk_200mhz,
 
@@ -682,7 +682,7 @@ begin
 	-----------------------------------------------------------------------
 	image_fifo : fifo_large
 		port map (
-			clk_62mhz_i         => clk_77mhz,
+			clk_i               => clk_77mhz,
 			rstn_i              => rst77_n,
 
 			ddr_cmd_en_o        => c3_p0_cmd_en,
