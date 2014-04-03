@@ -38,6 +38,8 @@ entity fifo_large is
     -- clock and reset for memory interface domain
     clk_i               : in  std_logic;
     rstn_i              : in  std_logic;
+    rd_rst_i            : in  std_logic;
+    wr_rst_i            : in  std_logic;
 
     -- DDR RAM interface
     ddr_cmd_en_o        : out std_logic;
@@ -53,6 +55,10 @@ entity fifo_large is
     ddr_rd_en_o         : out std_logic;
     ddr_rd_data_i       : in  std_logic_vector(31 downto 0);
     ddr_rd_empty_i      : in  std_logic;
+
+    -- debug
+    head_o              : out std_logic_vector(23 downto 0);
+    tail_o              : out std_logic_vector(23 downto 0);
 
     -- optional DDR arbitration
     ddr_req_o           : out std_logic;
@@ -126,6 +132,8 @@ begin
   ddr_wr_en_o <= ddr_wr_en;
   ddr_cmd_bl_o <= "111111"; -- 64 word burst length
   ddr_wr_data_o <= fifo_dout;
+  head_o <= STD_LOGIC_VECTOR(head);
+  tail_o <= STD_LOGIC_VECTOR(tail);
 
   -- Internal blockram-based FIFO instantiations:
   fifo_in : fifo_512x4byte
@@ -193,12 +201,12 @@ begin
         ddr_cmd_en_o <= '0';
 
         case (state) is
-          -- There are three transactions that this state machine can execute:
-          -- fifo_in to DRAM, DRAM to fifo_out, and fifo_in to fifo_out.
-          -- The fifo_in to fifo_out is the simplest, and is accomplished 
-          -- without leaving the idle state.
-          -- fifo_in and fifo_out are 513 deep, but that is overkill so we 
-          -- only write to fifo_out if it is under 256 full.
+	  -- This state machine does one 64 word (256 byte) transaction any
+	  -- time it can.  All data starts in fifo_in, then moves to DDR RAM,
+	  -- then move to fifo_out.  This was, the DDR maintains a record of
+	  -- everything that passed through, and by doing a "read reset" and
+	  -- not a "write reset" software can read the image data repeatedly.
+	  --
           -- I saw some issues when writing to fifo_out on consecutive clocks.
           -- We certainly don't need that level of bandwidth anyway, so now I
           -- only assert fifo_wr if it is not already asserted.  Still,
@@ -208,23 +216,25 @@ begin
           when s_idle =>
             ddr_cmd_instr_o <= "001"; -- read instruction = 1
             ddr_cmd_byte_addr_o <= "0000" & STD_LOGIC_VECTOR(head) & "00";
-            if (rd_count(8 downto 7) /= "00") then
+	    if rd_rst_i = '1' then
+	      head <= x"000000";
+            end if;
+	    if wr_rst_i = '1' then
+	      tail <= x"000000";
+	      fifo_rd <= not fifo_empty and not fifo_rd;
+            end if;
+            if (rd_count(8 downto 7) /= "00" and wr_rst_i = '0') then
               -- if incoming FIFO has 64 words in it, send them to RAM
               ddr_req_o <= '1';
               if (ddr_grant_i = '1' and ddr_wr_empty_i = '1') then
                 state <= s_ddr_wr;
               end if;
-            elsif ((head /= tail) and (wr_count(8) = '0')) then
+            elsif (head /= tail and wr_count(8) = '0' and rd_rst_i = '0') then
               -- if outgoing FIFO can accept 64 words from RAM, fetch them
               ddr_req_o <= '1';
               if (ddr_grant_i = '1') then
                 state <= s_rd_cmd;
               end if;
-            elsif (head = tail and fifo_empty = '0' and wr_count(8) = '0' and
-	           fifo_wr = '0') then
-              -- skip RAM and move from one FIFO to the other
-              fifo_rd <= '1';
-              fifo_wr <= '1';
             end if;
 
           when s_ddr_wr =>

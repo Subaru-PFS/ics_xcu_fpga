@@ -299,8 +299,10 @@ architecture rtl of FPGA35S6045_TOP is
 
 	component fifo_large is
 		port (
-			clk_i         : in  std_logic;
+			clk_i               : in  std_logic;
 			rstn_i              : in  std_logic;
+			rd_rst_i            : in  std_logic;
+			wr_rst_i            : in  std_logic;
 
 			ddr_cmd_en_o        : out std_logic;
 			ddr_cmd_instr_o     : out std_logic_vector(2 downto 0);
@@ -315,6 +317,9 @@ architecture rtl of FPGA35S6045_TOP is
 			ddr_rd_en_o         : out std_logic;
 			ddr_rd_data_i       : in  std_logic_vector(31 downto 0);
 			ddr_rd_empty_i      : in  std_logic;
+
+			head_o              : out std_logic_vector(23 downto 0);
+			tail_o              : out std_logic_vector(23 downto 0);
 
 			ddr_req_o           : out std_logic;
 			ddr_grant_i         : in  std_logic;
@@ -395,9 +400,12 @@ architecture rtl of FPGA35S6045_TOP is
 	signal rd_ack_q			: std_logic;
 	signal wr_req			: std_logic;
 	signal rd_req			: std_logic;
+	signal rd_rst_q			: std_logic;
+	signal rd_rst_q2		: std_logic;
 	signal fifo_wr			: boolean;
 	signal fifo_wr_q		: boolean;
 	signal fifo_rd			: boolean;
+	signal fifo_empty		: std_logic;
 	signal fifo_data_i		: std_logic_vector(31 downto 0);
 	signal fifo_data_o		: std_logic_vector(31 downto 0);
 	signal fifo_count		: std_logic_vector(9 downto 0);
@@ -439,7 +447,7 @@ architecture rtl of FPGA35S6045_TOP is
 
 	signal sram_adr1		: std_logic_vector (17 downto 0);
 	signal sram_dat1		: std_logic_vector (31 downto 0);
-	signal br_we			: std_logic_vector (2 downto 0);
+	signal br_we			: std_logic_vector (0 downto 0);
 	signal wpu_start		: std_logic_vector (15 downto 0);
 	signal wpu_stop			: std_logic_vector (15 downto 0);
 
@@ -465,6 +473,9 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_DDR_COUNT	: natural := 16#0058#/4;
 	constant	R_DDR_STATUS	: natural := 16#005C#/4;
 
+	constant	R_HEAD		: natural := 16#0060#/4;
+	constant	R_TAIL		: natural := 16#0064#/4;
+
 	-- Custom registers:
 	constant	R_BR_RD_DATA	: natural := 16#0010#/4;
 	constant	R_BR_WR_DATA	: natural := 16#0014#/4;
@@ -473,6 +484,13 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_WPU_COUNT	: natural := 16#0024#/4;
 	constant	R_WPU_START_STOP: natural := 16#0028#/4;
 	constant	R_WPU_STATUS	: natural := 16#002C#/4;
+	
+	-- R_WPU_CTRL bits:
+	-- bit 0: 1 = enable synchronization clock
+	-- bit 1: 1 = hold WPU in reset
+	-- bit 2: 1 = enable test pattern
+	-- bit 3: 1 = reset read FIFO (software side)
+	-- bit 4: 1 = reset write FIFO (FEE side)
 
 begin
 
@@ -499,8 +517,8 @@ begin
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
 
-	-- ccd_adc_sck_ret		<= lvds_cn8(16);
-	ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
+	ccd_adc_sck_ret		<= lvds_cn8(16);
+	-- ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
@@ -600,7 +618,7 @@ begin
 			-- Port A is in the 62.5MHz domain and is accessed
 			-- by the register block.
 			clka	=> clk_77mhz,
-			wea	=> br_we(2 downto 2),
+			wea	=> br_we,
 			addra	=> register_file(R_BR_ADDR).data(16 downto 2),
 			dina	=> register_file(R_BR_WR_DATA).data,
 			douta	=> register_file(R_BR_RD_DATA).default,
@@ -614,29 +632,19 @@ begin
 			doutb	=> sram_dat1
 		);
 	
-	-- The following process block is a long winded way of saying
-	-- the following:
-	-- Any time a write is observed to the blockram write data register,
-	-- wait 2 clock cycles and then assert the blockram write enable.
-	--
-	-- br_we is 3 bits because it is a 3 bit FIFO and only the the 3rd bit
-	-- is used.  This FIFO mechanism is probably not even needed, but it
-	-- doesn't do any harm because PCIe writes will come through very 
-	-- slowly anyway.
+	-- Now that we have the pio_resynch mechanism, the br_we code has
+	-- safely been simplified.  It could probably be further simplified.
 	process (clk_77mhz, rst77_n)
 	begin
 		if rising_edge(clk_77mhz) then
 			if (rst77_n = '0') then
-				br_we <= "000";
+				br_we <= "0";
 			else
-				br_we(2) <= br_we(1);
-				br_we(1) <= br_we(0);
+				br_we <= "0";
 				if ((wr_en = '1') and (wr_addr =
 				  STD_LOGIC_VECTOR(
 				    TO_UNSIGNED(R_BR_WR_DATA,11)))) then
-					br_we(0) <= '1';
-				else
-					br_we(0) <= '0';
+					br_we <= "1";
 				end if;
 			end if;
 		end if;
@@ -676,6 +684,10 @@ begin
 		port map (
 			clk_i               => clk_77mhz,
 			rstn_i              => rst77_n,
+			rd_rst_i            => 
+                                register_file(R_WPU_CTRL).data(3),
+			wr_rst_i            => 
+                                register_file(R_WPU_CTRL).data(4),
 
 			ddr_cmd_en_o        => c3_p0_cmd_en,
 			ddr_cmd_instr_o     => c3_p0_cmd_instr,
@@ -694,6 +706,13 @@ begin
 			ddr_req_o           => open,
 			ddr_grant_i         => '1', -- nobody else can use DDR
 
+			-- These registers were just for debugging but I am
+			-- leaving them connected for now:
+			head_o              =>
+				register_file(R_HEAD).default(23 downto 0),
+			tail_o              =>
+				register_file(R_TAIL).default(23 downto 0),
+
 			wr_clk_i            => clk_77mhz,
 			wr_data_count_o     => open, -- could monitor this
 			data_i              => fifo_data_i,
@@ -703,10 +722,8 @@ begin
 			rd_clk_i            => clk,
 			rd_en_i             => rd_req,
 			data_o              => fifo_data_o,
-				--register_file(R_DDR_RD_DATA).default,
-			empty_o             => open, -- could monitor this
+			empty_o             => fifo_empty,
 			rd_data_count_o     => fifo_count
-				--register_file(R_DDR_COUNT).default(9 downto 0)
 		);
 
 	---------------------------------------------------------------------------
@@ -788,6 +805,7 @@ begin
 	end process;
 	
 	-- Register File Resynchronize
+	-- (should probably be implemented more carefully)
 	G_REG_RESYNC: for i in 0 to REGISTER_COUNT-1 generate
 		process (clk)
 		begin
@@ -829,7 +847,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00053"; -- BEE board ID
+	register_file(R_ID).default 	<= x"bee00064"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -903,6 +921,8 @@ begin
 
 	-- input 16 is the ADC SCK return.  If I want to use the falling edge
 	-- instead of the rising edge I will swap _p and _n.
+	-- Our design no longer treats this clock as a clock, but I think it
+	-- is fine to leave it as IBUFGDS
 	IBUFDS_16 : IBUFGDS
 	generic map (
 		DIFF_TERM => TRUE, -- Differential Termination
@@ -1023,6 +1043,8 @@ begin
 	register_file(R_DDR_RD_DATA).readonly <= true;
 	register_file(R_DDR_COUNT).readonly <= true;
 	register_file(R_DDR_STATUS).readonly  <= true;
+	register_file(R_HEAD).readonly  <= true;
+	register_file(R_TAIL).readonly  <= true;
 
 	-----------------------------------------------------------------------
 	-- We don't monitor this DDR information anymore, but there is no
@@ -1095,6 +1117,8 @@ begin
 		if (rst_n = '0') then
 			rd_req <= '0';
 			rd_ack_q <= '0';
+			rd_rst_q <= '0';
+			rd_rst_q2 <= '0';
 		else
 			rd_req <= '0';
 			rd_ack_q <= rd_ack_62;
@@ -1102,6 +1126,22 @@ begin
 			-- Reads are triggered by reading from R_DDR_RD_DATA
 			------------------------------------------------------
 			if (fifo_rd) then
+				rd_req <= '1';
+			end if;
+			------------------------------------------------------
+			-- Below is a hack to empty the FIFO when the user 
+			-- FIFO reset is asserted.  The same hack also exists
+			-- inside fifo_large for the other sub-FIFO.  It would
+			-- seem a lot cleaner if this little bit of logic was
+			-- also encapsulated in fifo_large, but this was is
+			-- convenient since that module has no internal 62.5MHz
+			-- registers at this time.
+			------------------------------------------------------
+			rd_rst_q <= register_file(R_WPU_CTRL).data(3);
+			rd_rst_q2 <= rd_rst_q;
+                        if rd_rst_q2 = '1'
+				and rd_req = '0'
+				and fifo_empty = '0' then
 				rd_req <= '1';
 			end if;
 		end if;
