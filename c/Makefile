@@ -1,7 +1,12 @@
 # CPL used c99 features, sorry.
 CFLAGS = -g -O1 --std=c99 -Wall
 
-all: libfpga.so test_image
+all: libfpga.so test_image reread
+
+reread: bee_mem_file.h fpga.h reread.o libfpga.so
+	$(CC) $(CFLAGS) reread.o -L. -lfpga -o reread
+
+reread.o: fpga.h
 
 test_image: bee_mem_file.h fpga.h test_image.o libfpga.so
 	$(CC) $(CFLAGS) test_image.o -L. -lfpga -o test_image

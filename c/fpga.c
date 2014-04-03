@@ -204,8 +204,9 @@ int configureForReadout(int doTest, int nrows, int ncols)
   }
     
     
-  // Reset WPU, disable synch clock
-  fpga[R_WPU_CTRL] = WPU_RST;
+  // Reset WPU and FIFO, disable synch clock
+  fpga[R_WPU_CTRL] = WPU_RST | FIFO_RD_RST | FIFO_WR_RST;
+  usleep(100); // FIFO reset signals need about 50us to work.
   // Load waveform into blockram
   end_addr = write_row_readout(0, ncols);
   // Set parameters
@@ -259,13 +260,23 @@ void usleep(long usecs)
 uint32_t readWord(void)
 {
   uint32_t word;
+  int i;
 
   if (wordsReady == 0) {
     wordsReady = fpga[R_DDR_COUNT];
     while (wordsReady == 0) {
-      usleep(5000);
+      usleep(50000);
       wordsReady = fpga[R_DDR_COUNT];
       //fprintf(stderr, "slept on line (avail=%d)\n", wordsReady);
+      /* If fpga[R_DDR_COUNT] stays at zero for 50ms, we can infer
+       * that the deserializer is done feeding it and we need to
+       * feed some words into it in order to cause those that are
+       * stuck in the FIFO to feed through.
+       */
+      if ((wordsReady == 0) && (fpga[R_WPU_STATUS] == 0)) {
+        for (i=0; i<256; i++)
+          fpga[R_DDR_WR_DATA] = 0xbeef;
+      }
     }
   }
   word = fpga[R_DDR_RD_DATA];
@@ -313,12 +324,15 @@ int readLine(int npixels, uint16_t *rowbuf,
 
   if (!requireFpga()) 
     return 0;
+#if 0 // #iffing this out because maybe we have more states now that we allow re-read.
   if (readoutState != ARMED) {
     fprintf(stderr, "FPGA must be armed for readout! (readoutState=%d)", readoutState);
     return 0;
   }
+#endif
 
   // Round up, so that we can read odd-width rows.
+  // It may be safe to assume namps is always even so npixels is always even. -- GP
   nwords = (npixels * sizeof(uint16_t) + sizeof(uint16_t)/2)/sizeof(uint32_t);
 
   readoutState = READING;
@@ -334,10 +348,14 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
   int rowPixels = ncols*namps;
   uint32_t dataCrc, fpgaCrc;
 
+  fpga[R_WPU_CTRL] |= FIFO_RD_RST;
+  usleep(100); // FIFO reset signals need about 50us to work.
+  fpga[R_WPU_CTRL] &= ~FIFO_RD_RST;
+
   fprintf(stderr, "Reading ID: 0x%08x (%d,%d*%d=%d,0x%08lx)\n", 
 	  peekWord(R_ID), 
 	  nrows, ncols, namps, rowPixels, (unsigned long)imageBuf);
-  
+
   for (int i=0; i<nrows; i++) {
     int lineBad;
     uint16_t *rowBuf = imageBuf + i*rowPixels;

@@ -24,6 +24,8 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define EN_SYNCH	(1<<0)
 #define WPU_RST		(1<<1)
 #define WPU_TEST	(1<<2)
+#define FIFO_RD_RST	(1<<3)
+#define FIFO_WR_RST	(1<<4)
 
 #define CCD_P1   (1 << 16)  // Parallel 1
 #define CCD_P2   (1 << 17)  // Parallel 2
