@@ -18,6 +18,7 @@
 *.bld
 *.cfi
 *.cmd_log
+*.gise
 *.log
 *.lso
 *.lst
