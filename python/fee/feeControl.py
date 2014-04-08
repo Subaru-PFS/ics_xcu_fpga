@@ -46,6 +46,20 @@ class FeeSet(object):
         else:
             return self._getCmdString(self.getLetter)
 
+    def ampName(self, ampNum, leg='n'):
+        """ Return the FEE controller's name for an amp (just for the so command). 
+
+        Parameters
+        ----------
+        ampNum - int
+           The 0..namps-1 index of an amp.
+        leg -- ('n','p')
+           Negative or Positive leg. 
+        """
+
+        ampNum = int(ampNum)
+        return "%d%s,ch%d" % (ampNum%4, leg, ampNum/4)
+
 class FeeChannelSet(FeeSet):
     def setVal(self, subName, channel, value):
         """ Return the command string for a 'set' function. """
