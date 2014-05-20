@@ -5,7 +5,7 @@ from cython cimport view
 from libc.stdint cimport uint16_t, uint32_t
 cimport numpy
 
-cimport pyFPGA
+# cimport pyFPGA
 
 numpy.import_array()
 
@@ -21,6 +21,12 @@ cdef extern from "fpga.h":
      int configureFpga(const char *mmapname)
      void releaseFpga()
      void pciReset()
+
+     int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt)
+     int sendOneOpcode(uint32_t states, uint16_t duration)
+
+     int resetReadout(int force)
+     int armReadout(int nrows, int ncols, int doTest)
 
      int configureForReadout(int doTest, int nrows, int ncols)
      void finishReadout()
@@ -72,11 +78,17 @@ cdef class FPGA:
 
         pciReset()
 
+    def configureReadout(self, nrows, ncols, doTest=False):
+        ret = configureForReadout(doTest, nrows, ncols)
+        if not ret:
+            raise RuntimeError("failed to configure and arm the readout")
+
+            
     cpdef _readImage(self, int nrows=4240, int ncols=536,  
                      doTest=False, debugLevel=1, 
                      doAmpMap=True, 
                      rowFunc=None, rowFuncArgs=None):
-        """ Configure and read out the detector. 
+        """ Read out the detector. Does _not_ (re-)configure the FPGA.
 
         Parameters
         ----------
@@ -116,15 +128,16 @@ cdef class FPGA:
                 print "row %04d mean=%0.2f" % (rowNum, image[rowNum].mean())
         >>> im = fpga.readImage(nrows=100, rowFunc=myRowFunc)
 
+
         """
 
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
-        cdef namps = self.namps
+        cdef int namps = self.namps
         cdef numpy.ndarray[numpy.uint16_t, ndim=2, mode="c"] image = numpy.zeros((nrows,ncols*namps), 
-                                                                                 dtype='u2')
+                                                                                 dtype='u2') + 0xdead
         cdef numpy.ndarray[numpy.uint16_t, ndim=1, mode="c"] rowImage = numpy.zeros((ncols*namps), 
-                                                                                    dtype='u2')
+                                                                                    dtype='u2') + 0xdead
         cdef uint32_t dataCrc, fpgaCrc
         cdef int row_i, col_i, amp_i
 
@@ -133,11 +146,6 @@ cdef class FPGA:
         if rowFunc and rowFuncArgs is None:
             rowFuncArgs = dict()
 
-        ret = configureForReadout(doTest, nrows, ncols)
-        if not ret:
-            sys.stderr.write("failed to configure and arm the readout\n")
-            return None
-            
         for row_i in range(nrows):
             ret = readLine(ncols*namps, &rowImage[0], &dataCrc, &fpgaCrc)
             if dataCrc != fpgaCrc:
