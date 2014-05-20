@@ -27,8 +27,8 @@ static int wordsReady;
 #define SET_1(x) output_states |= (x)
 #define SET_0(x) output_states &= ~(x)
 
-#define STATES_MASK 0xff80
-#define DURATION_MASK (0xffff & ~STATES_MASK)
+#define STATES_MASK 0xffff8000
+#define DURATION_MASK (0xffffffff & ~STATES_MASK)
 
 // sendOneOpcode(states, d) causes the given states to be driven on the outputs for d*40ns
 //
