@@ -27,6 +27,7 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define FIFO_RD_RST	(1<<3)
 #define FIFO_WR_RST	(1<<4)
 
+// No longer desirable in C.
 #define CCD_P1   (1 << 16)  // Parallel 1
 #define CCD_P2   (1 << 17)  // Parallel 2
 #define CCD_P3   (1 << 18)  // Parallel 3
@@ -59,9 +60,12 @@ extern void releaseFpga(void);
 extern void pciReset(void);
 
 extern int configureForReadout(int doTest, int nrows, int ncols);
+extern int resetReadout(int force);
+extern int armReadout(int nrows, int ncols, int doTest);
 extern void finishReadout(void);
 
-extern void sendFullOpcode(uint32_t states, uint16_t duration);
+extern int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt);
+extern int sendOneOpcode(uint32_t states, uint16_t duration);
 
 extern uint32_t readWord(void);
 extern int readRawLine(int nwords, uint32_t *rowbuf, 

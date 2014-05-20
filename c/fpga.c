@@ -27,24 +27,56 @@ static int wordsReady;
 #define SET_1(x) output_states |= (x)
 #define SET_0(x) output_states &= ~(x)
 
-// Send a single clocks + duration opcode.
-// 
-void sendFullOpcode(uint32_t states, uint16_t duration)
+#define STATES_MASK 0xff80
+#define DURATION_MASK (0xffff & ~STATES_MASK)
+
+// sendOneOpcode(states, d) causes the given states to be driven on the outputs for d*40ns
+//
+int sendOneOpcode(uint32_t states, uint16_t duration)
 {
+  if (states & DURATION_MASK) {
+      fprintf(stderr, "invalid states (0x%08x). duration=0x%08x!!\n",
+              states, duration);
+      return 0;
+  }
+
+  if (duration & STATES_MASK) {
+      fprintf(stderr, "invalid duration (0x%08x). states=0x%08x!!\n",
+              duration, states);
+      return 0;
+  }
+      
   fpga[R_BR_ADDR] = bram_addr;
   fpga[R_BR_WR_DATA] = states | duration;
   bram_addr += 4;
+
+  return 1;
+}
+
+// sendAllOpcodes(states, durations, cnt) causes the given states to be driven on the outputs for d*40ns
+//
+int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt)
+{
+  bram_addr = 0;
+  for (int i=0; i<cnt; i++) {
+    if (!sendOneOpcode(states[i], durations[i])) {
+      // I do wish I could raise an exception here!
+      fprintf(stderr, "invalid opcode %d. Aborting download!\n",
+              i);
+      readoutState = UNKNOWN;
+      return 0;
+    }
+  }
+
+  return 1;
 }
 
 // send_opcode(d) causes the output states currently stored in the global
 // output_states to be driven on the outputs for d*40ns
 static void send_opcode(unsigned int duration) 
 {
-  fpga[R_BR_ADDR] = bram_addr;
-  fpga[R_BR_WR_DATA] = output_states | duration;
-  bram_addr += 4;
+  sendOneOpcode(output_states, duration);
 }
-
 
 // write_row_readout() is a routine to write blockram with opcodes that read
 // a row of CCD pixels.
@@ -201,24 +233,42 @@ int requireFpga(void)
   return 1;
 }
 
-int configureForReadout(int doTest, int nrows, int ncols)
+int resetReadout(int force)
 {
-  uint32_t end_addr;
+  if (!requireFpga()) 
+    return 0;
+
+  if (readoutState != IDLE) {
+    if (!force) {
+      fprintf(stderr, "readoutState=%d, but need it to be %d to configure readout", readoutState, IDLE);
+      return 0;
+    } else {
+      fprintf(stderr, "readoutState=%d, forcing it to IDLE", readoutState);
+      readoutState = IDLE;
+    }
+  }
+    
+  bram_addr = 0;
+
+  // Reset WPU and FIFO, disable synch clock
+  fpga[R_WPU_CTRL] = WPU_RST | FIFO_RD_RST | FIFO_WR_RST;
+  usleep(100); // FIFO reset signals need about 50us to work.
+  
+  return 1;
+}
+
+int armReadout(int nrows, int ncols, int doTest)
+{
+  uint32_t end_addr = bram_addr-4;
 
   if (!requireFpga()) 
     return 0;
 
   if (readoutState != IDLE) {
-    fprintf(stderr, "readoutState=%d, but need it to be %d to configure readout", readoutState, IDLE);
+    fprintf(stderr, "readoutState=%d, but need it to be %d to arm readout", readoutState, IDLE);
     return 0;
   }
-    
-    
-  // Reset WPU and FIFO, disable synch clock
-  fpga[R_WPU_CTRL] = WPU_RST | FIFO_RD_RST | FIFO_WR_RST;
-  usleep(100); // FIFO reset signals need about 50us to work.
-  // Load waveform into blockram
-  end_addr = write_row_readout(0, ncols);
+
   // Set parameters
   // START_STOP register wants D-word addresses.
   fpga[R_WPU_START_STOP] = (end_addr/4) << 16;
@@ -238,6 +288,22 @@ int configureForReadout(int doTest, int nrows, int ncols)
 
   // Not sure about how necessary this is. -- CPL
   usleep(5000);
+
+  return 1;
+}
+
+int configureForReadout(int doTest, int nrows, int ncols)
+{
+  if (!resetReadout(0)) {
+    return 0;
+  }
+
+  // Load waveform into blockram
+  write_row_readout(0, ncols);
+
+  if (!armReadout(nrows, ncols, doTest)) {
+    return 0;
+  }
 
   fprintf(stderr, "Prepped ID: 0x%08x %s\n", peekWord(R_ID), doTest ? "simulating" : "");
   return 1;
