@@ -22,7 +22,7 @@ def rowProgress(row_i, image, errorMsg="OK",
 
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
-             ampList=range(8), **kwargs):
+             ampList=range(8), cols=None, **kwargs):
 
     """ Per-row callback to print basic per-amp stats.
 
@@ -43,6 +43,8 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
        over the last eveyrNRows lines.
     ampList : tuple, optional
        The amps we want stats for.
+    cols : optional
+       The columns we want to take stats over.
 
     Examples
     --------
@@ -57,8 +59,10 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     ccd = kwargs['ccd']
     nrows = image.shape[0]
     ampMasks = {}
+    if cols is None:
+        cols = numpy.arange(len(ccd.ampidx(0,image)))
     for a in ampList:
-        ampMasks[a] = ccd.ampidx(a, image)
+        ampMasks[a] = ccd.ampidx(a, image)[cols]
 
     if line > 0 and line % everyNRows == 0 or line == nrows-1 or errorMsg is not "OK":
         flatim = image[line-everyNRows:line,:]
