@@ -61,6 +61,8 @@ extern void pciReset(void);
 extern int configureForReadout(int doTest, int nrows, int ncols);
 extern void finishReadout(void);
 
+extern void sendFullOpcode(uint32_t states, uint16_t duration);
+
 extern uint32_t readWord(void);
 extern int readRawLine(int nwords, uint32_t *rowbuf, 
 		       uint32_t *calcCrc, uint32_t *fpgaCrc);

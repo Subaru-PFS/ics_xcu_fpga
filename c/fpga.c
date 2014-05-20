@@ -27,6 +27,15 @@ static int wordsReady;
 #define SET_1(x) output_states |= (x)
 #define SET_0(x) output_states &= ~(x)
 
+// Send a single clocks + duration opcode.
+// 
+void sendFullOpcode(uint32_t states, uint16_t duration)
+{
+  fpga[R_BR_ADDR] = bram_addr;
+  fpga[R_BR_WR_DATA] = states | duration;
+  bram_addr += 4;
+}
+
 // send_opcode(d) causes the output states currently stored in the global
 // output_states to be driven on the outputs for d*40ns
 static void send_opcode(unsigned int duration) 
@@ -35,6 +44,7 @@ static void send_opcode(unsigned int duration)
   fpga[R_BR_WR_DATA] = output_states | duration;
   bram_addr += 4;
 }
+
 
 // write_row_readout() is a routine to write blockram with opcodes that read
 // a row of CCD pixels.
