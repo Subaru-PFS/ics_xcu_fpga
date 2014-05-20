@@ -46,9 +46,11 @@ class CCD(pyFPGA.FPGA):
         fnames = self.fileMgr.getNextFileset()
         pyfits.writeto(fnames[0], im)
 
+
     def readImage(self, nrows=4240, ncols=536,
                   doTest=False, debugLevel=1, 
                   doAmpMap=True, 
+                  doReread=False,
                   rowFunc=None, rowFuncArgs=None,
                   doReset=True, doSave=True):
                   
@@ -60,7 +62,9 @@ class CCD(pyFPGA.FPGA):
            If set False, does not PCI-reset the FPGA before starting.
         doSave : bool , optional
            If set False, does not save the image to disk FITS file.
-           
+        doReread : bool, optional
+           If set, do not start a new exposure, but reread the one on the FPGA.
+
         Notes
         -----
         The bulk of the work is done in the _readImage routine -- see that
@@ -69,6 +73,9 @@ class CCD(pyFPGA.FPGA):
 
         if doReset:
             self.pciReset()
+
+        if not doReread:
+            self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest)
 
         t0 = time.time()
         im = self._readImage(nrows=nrows, ncols=ncols, 
@@ -81,6 +88,6 @@ class CCD(pyFPGA.FPGA):
             self.writeImageFile(im)
         t2 = time.time()
 
-        # sys.stderr.write("readT=%0.2f writeT=%0.2f\n" % (t1-t0, t2-t1))
+        sys.stderr.write("readT=%0.2f writeT=%0.2f\n" % (t1-t0, t2-t1))
 
         return im
