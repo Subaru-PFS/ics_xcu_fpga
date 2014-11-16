@@ -10,7 +10,7 @@ int read_and_print_image(int nrows, int ncols)
   uint16_t *imageBuf;
   int ret;
   
-  configureForReadout(1, nrows, ncols);
+  configureForReadout(1, 0, nrows, ncols);
 
   imageBuf = calloc(npixels, sizeof(uint16_t));
 

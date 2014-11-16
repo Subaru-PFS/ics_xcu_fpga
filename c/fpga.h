@@ -26,6 +26,7 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define WPU_TEST	(1<<2)
 #define FIFO_RD_RST	(1<<3)
 #define FIFO_WR_RST	(1<<4)
+#define WPU_18BIT	(1<<5)
 
 // No longer desirable in C.
 #define CCD_P1   (1 << 16)  // Parallel 1
@@ -59,19 +60,20 @@ extern int configureFpga(const char *mmapname);
 extern void releaseFpga(void);
 extern void pciReset(void);
 
-extern int configureForReadout(int doTest, int nrows, int ncols);
+extern int configureForReadout(int doTest, int adc18bit, int nrows, int ncols);
 extern int resetReadout(int force);
-extern int armReadout(int nrows, int ncols, int doTest);
+extern int armReadout(int nrows, int ncols, int doTest, int adc18bit);
 extern void finishReadout(void);
 
 extern int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt);
 extern int sendOneOpcode(uint32_t states, uint16_t duration);
 
 extern uint32_t readWord(void);
-extern int readRawLine(int nwords, uint32_t *rowbuf, 
-		       uint32_t *calcCrc, uint32_t *fpgaCrc);
-extern int readLine(int npixels, uint16_t *rowbuf, 
-		    uint32_t *calcCrc, uint32_t *fpgaCrc);
+extern int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc,
+		uint32_t *fpgaCrc, uint32_t *dataRow, uint32_t *fpgaRow);
+extern int readLine(int npixels, uint16_t *rowbuf,
+	     uint32_t *dataCrc, uint32_t *fpgaCrc,
+	     uint32_t *dataRow, uint32_t *fpgaRow);
 extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
 
 

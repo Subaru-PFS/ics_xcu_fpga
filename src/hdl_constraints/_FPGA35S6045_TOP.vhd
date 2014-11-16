@@ -267,6 +267,7 @@ architecture rtl of FPGA35S6045_TOP is
 			sram_dat_i	: in  std_logic_vector (31 downto 0);
 
 			wpu_rst_i	: in  std_logic;
+			adc_18bit_i	: in  std_logic;
 			start_i		: in  std_logic_vector (15 downto 0);
 			stop_i		: in  std_logic_vector (15 downto 0);
 			reps_i		: in  std_logic_vector (31 downto 0);
@@ -283,6 +284,7 @@ architecture rtl of FPGA35S6045_TOP is
                         clk_i               : in  std_logic;
                         rstn_i              : in  std_logic;
                         clk_200mhz_i        : in  std_logic;
+                        row_rst_i           : in  std_logic;
 
                         adc_miso_a_i        : in  std_logic;
                         adc_miso_b_i        : in  std_logic;
@@ -293,6 +295,7 @@ architecture rtl of FPGA35S6045_TOP is
 
                         ddr_wr_en_o         : out std_logic;
                         ddr_wr_data_o       : out std_logic_vector(31 downto 0);
+			adc_18bit_i         : in  std_logic;
                         test_pattern_i      : in  std_logic
                 );
         end component;
@@ -491,6 +494,7 @@ architecture rtl of FPGA35S6045_TOP is
 	-- bit 2: 1 = enable test pattern
 	-- bit 3: 1 = reset read FIFO (software side)
 	-- bit 4: 1 = reset write FIFO (FEE side)
+	-- bit 5: 1 = 18 bit AD7690, 0 = 16 bit AD7686
 
 begin
 
@@ -517,14 +521,16 @@ begin
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
 
+	-- if you have a working FEE, connect lvds_cn8(16)
 	ccd_adc_sck_ret		<= lvds_cn8(16);
 	-- ccd_adc_sck_ret		<= ccd_adc_sck; -- XXX testing only!!
 	ccd_adc_miso_a		<= lvds_cn8(17);
 	ccd_adc_miso_b		<= lvds_cn8(18);
 
 	-- synchronization in and out
-	-- synch_clk		<= lvds_cn8(15);
-	synch_clk		<= synch_out; -- XXX testing only!!
+	-- if you have the SYNCH_CLK physical loopback, connect lvds_cn8(15)
+	synch_clk		<= lvds_cn8(15);
+	-- synch_clk		<= synch_out; -- XXX testing only!!
 	G_SYNCH: for i in 4 to 11 generate
 		lvds_cn9(i) <= synch_out;
 	end generate;
@@ -596,6 +602,7 @@ begin
 			sram_dat_i	=> sram_dat1,
 
 			wpu_rst_i	=> register_file(R_WPU_CTRL).data(1),
+			adc_18bit_i	=> register_file(R_WPU_CTRL).data(5),
 			start_i		=> wpu_start,
 			stop_i		=> wpu_stop,
 			reps_i		=> register_file(R_WPU_COUNT).data,
@@ -657,9 +664,12 @@ begin
         des_core : deserializer
                 port map (
                         -- clock and reset
-                        clk_i              => clk_77mhz,
+                        clk_i               => clk_77mhz,
                         rstn_i              => rst77_n,
                         clk_200mhz_i        => clk_200mhz,
+                        -- input FIFO reset also resets the row counter
+                        row_rst_i           =>
+                                register_file(R_WPU_CTRL).data(4),
 
                         -- ADC lines from FEE
                         adc_miso_a_i        => ccd_adc_miso_a,
@@ -673,6 +683,8 @@ begin
                         -- DDR RAM interface
                         ddr_wr_en_o         => adc_wr_en,
                         ddr_wr_data_o       => adc_wr_data,
+			adc_18bit_i         =>
+                                register_file(R_WPU_CTRL).data(5),
                         test_pattern_i      =>
                                 register_file(R_WPU_CTRL).data(2)
                 );
@@ -847,7 +859,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"bee00064"; -- BEE board ID
+	register_file(R_ID).default 	<= x"beef0070"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register

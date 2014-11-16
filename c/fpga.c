@@ -257,7 +257,7 @@ int resetReadout(int force)
   return 1;
 }
 
-int armReadout(int nrows, int ncols, int doTest)
+int armReadout(int nrows, int ncols, int doTest, int adc18bit)
 {
   uint32_t end_addr = bram_addr-4;
 
@@ -283,7 +283,9 @@ int armReadout(int nrows, int ncols, int doTest)
   // At this point the master must again get acknowledgement that
   // all units are ready.
   // Start clock
-  fpga[R_WPU_CTRL] = EN_SYNCH | (doTest ? WPU_TEST : 0); // Optionally enable test pattern
+  fpga[R_WPU_CTRL] = EN_SYNCH |
+    (doTest ? WPU_TEST : 0) | // Optionally enable test pattern
+    (adc18bit ? WPU_18BIT : 0); // Optionally configure for 18 bit ADC
   readoutState = ARMED;
 
   // Not sure about how necessary this is. -- CPL
@@ -292,7 +294,7 @@ int armReadout(int nrows, int ncols, int doTest)
   return 1;
 }
 
-int configureForReadout(int doTest, int nrows, int ncols)
+int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
 {
   if (!resetReadout(0)) {
     return 0;
@@ -301,7 +303,7 @@ int configureForReadout(int doTest, int nrows, int ncols)
   // Load waveform into blockram
   write_row_readout(0, ncols);
 
-  if (!armReadout(nrows, ncols, doTest)) {
+  if (!armReadout(nrows, ncols, doTest, adc18bit)) {
     return 0;
   }
 
@@ -362,7 +364,8 @@ uint32_t readWord(void)
 }
 
 /* readRawLine -- read a single line of raw FPGA words. */
-int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
+int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc,
+		uint32_t *fpgaCrc, uint32_t *dataRow, uint32_t *fpgaRow)
 {
   uint32_t word, crc;
 
@@ -385,16 +388,18 @@ int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaC
   // 0xcccc is the magic upper word that indicates a CRC word. We add that
   // in instead of masking it off of the FPGA CRC so that we can keep the full
   // 32-bits of the perhaps trashed FPGA value.
+  *fpgaRow = readWord();
+  *dataRow |= 0x00050000;
   *fpgaCrc = readWord();
-  crc |= 0xcccc0000;
-  *dataCrc = crc;
+  *dataCrc = crc << 16 | 0x000a;
 
-  return (crc != *fpgaCrc);
+  return (*dataCrc != *fpgaCrc) || (*dataRow != *fpgaRow);
 }
 
 /* readLine -- read a single line of _pixels_. */
 int readLine(int npixels, uint16_t *rowbuf,
-	     uint32_t *dataCrc, uint32_t *fpgaCrc)
+	     uint32_t *dataCrc, uint32_t *fpgaCrc,
+	     uint32_t *dataRow, uint32_t *fpgaRow)
 {
   int nwords, ret;
 
@@ -412,7 +417,7 @@ int readLine(int npixels, uint16_t *rowbuf,
   nwords = (npixels * sizeof(uint16_t) + sizeof(uint16_t)/2)/sizeof(uint32_t);
 
   readoutState = READING;
-  ret = readRawLine(nwords, (uint32_t *)rowbuf, dataCrc, fpgaCrc);
+  ret = readRawLine(nwords, (uint32_t *)rowbuf, dataCrc, fpgaCrc, dataRow, fpgaRow);
   readoutState = ARMED;
 
   return ret;
@@ -422,7 +427,7 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
 {
   int badRows = 0;
   int rowPixels = ncols*namps;
-  uint32_t dataCrc, fpgaCrc;
+  uint32_t dataCrc, fpgaCrc, dataRow, fpgaRow;
 
   fpga[R_WPU_CTRL] |= FIFO_RD_RST;
   usleep(100); // FIFO reset signals need about 50us to work.
@@ -435,14 +440,15 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
   for (int i=0; i<nrows; i++) {
     int lineBad;
     uint16_t *rowBuf = imageBuf + i*rowPixels;
+    dataRow = i;
     
-    lineBad = readLine(rowPixels, rowBuf, &dataCrc, &fpgaCrc);
+    lineBad = readLine(rowPixels, rowBuf, &dataCrc, &fpgaCrc, &dataRow, &fpgaRow);
     if (lineBad) {
       badRows++;
 
       fprintf(stderr, 
-	      "row %d CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n",
-	      i, fpgaCrc, dataCrc);
+	      "Bad metadata on row %d. Expected: 0x%08x 0x%08x Received: 0x%08x 0x%08x\n",
+	      i, dataRow, dataCrc, fpgaRow, fpgaCrc);
     }
   }
 
