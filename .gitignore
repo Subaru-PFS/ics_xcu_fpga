@@ -49,3 +49,6 @@ _ngo/
 _xmsgs/
 xlnx_auto*/
 xst/
+
+#
+notebooks/.ipynb_checkpoints
