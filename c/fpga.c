@@ -307,7 +307,10 @@ int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
     return 0;
   }
 
-  fprintf(stderr, "Prepped ID: 0x%08x %s\n", peekWord(R_ID), doTest ? "simulating" : "");
+  fprintf(stderr, "Prepped ID: 0x%08x %s %s\n", 
+          peekWord(R_ID), 
+          adc18bit ? "18-bit" : "16-bit",
+          doTest ? "simulating" : "");
   return 1;
 }
 
@@ -364,8 +367,9 @@ uint32_t readWord(void)
 }
 
 /* readRawLine -- read a single line of raw FPGA words. */
-int readRawLine(int nwords, uint32_t *rowbuf, uint32_t *dataCrc,
-		uint32_t *fpgaCrc, uint32_t *dataRow, uint32_t *fpgaRow)
+int readRawLine(int nwords, uint32_t *rowbuf, 
+                uint32_t *dataCrc, uint32_t *fpgaCrc, 
+                uint32_t *dataRow, uint32_t *fpgaRow)
 {
   uint32_t word, crc;
 

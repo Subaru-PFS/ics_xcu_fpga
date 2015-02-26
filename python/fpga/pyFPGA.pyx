@@ -30,7 +30,9 @@ cdef extern from "fpga.h":
 
      int configureForReadout(int doTest, int nrows, int ncols)
      void finishReadout()
-     int readLine(int npixels, uint16_t *rowbuf, uint32_t *dataCrc, uint32_t *fpgaCrc)
+     int readLine(int npixels, uint16_t *rowbuf,
+                  uint32_t *dataCrc, uint32_t *fpgaCrc,
+                  uint32_t *dataRow, uint32_t *fpgaRow);
 
      uint32_t peekWord(uint32_t addr)
      void pokeWord(uint32_t addr, uint32_t data)
@@ -140,6 +142,7 @@ cdef class FPGA:
                                                                                     dtype='u2') + 0xdead
         cdef uint32_t dataCrc, fpgaCrc
         cdef int row_i, col_i, amp_i
+        cdef uint32_t dataRow, fpgaRow
 
         if rowFunc is None:
             rowFunc = printProgress
@@ -147,7 +150,9 @@ cdef class FPGA:
             rowFuncArgs = dict()
 
         for row_i in range(nrows):
-            ret = readLine(ncols*namps, &rowImage[0], &dataCrc, &fpgaCrc)
+            ret = readLine(ncols*namps, &rowImage[0], 
+                           &dataCrc, &fpgaCrc,
+                           &dataRow, &fpgaRow)
             if dataCrc != fpgaCrc:
                 errorMsg = ("CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n" %
                             (fpgaCrc, dataCrc))
@@ -168,6 +173,7 @@ cdef class FPGA:
                 rowFunc(row_i, image, error=errorMsg, 
                         fpgaCrc=fpgaCrc, dataCrc=dataCrc,
                         **rowFuncArgs)
+                        fpgaRow=fpgaRow, dataRow=dataRow,
 
         finishReadout()
 

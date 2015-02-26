@@ -67,7 +67,9 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     if line > 0 and line % everyNRows == 0 or line == nrows-1 or errorMsg is not "OK":
         flatim = image[line-everyNRows:line,:]
 
-        parts = ["%04d" % (line)]
+        parts = ["%04d %04d %04d" % (line, 
+                                     kwargs.get('dataRow', 9999),
+                                     kwargs.get('fpgaRow', 9999))]
         for a in ampList:
             parts.append("%8.1f" % (flatim[:,ampMasks[a]].mean()))
         for a in ampList:
