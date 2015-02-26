@@ -19,7 +19,7 @@ class CCD(pyFPGA.FPGA):
     with one (moderately complex) readImage() method.
 
     """
-    def __init__(self):
+    def __init__(self, adc18bit=True):
         self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
                                                 filePrefix='PFSA',
                                                 filePattern="%(filePrefix)s-%(seqno)08d.fits")

@@ -28,7 +28,7 @@ cdef extern from "fpga.h":
      int resetReadout(int force)
      int armReadout(int nrows, int ncols, int doTest)
 
-     int configureForReadout(int doTest, int nrows, int ncols)
+     int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
      void finishReadout()
      int readLine(int npixels, uint16_t *rowbuf,
                   uint32_t *dataCrc, uint32_t *fpgaCrc,
@@ -49,9 +49,10 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 cdef class FPGA:
-    def __cinit__(self):
+    def __cinit__(self, adc18bit=True):
         configureFpga(<const char *>0)
         self.namps = 8
+        self.adc18bit = adc18bit
 
     def __init__(self):
         """ Please use the CCD subclass instead of FPGA! """
@@ -61,7 +62,7 @@ cdef class FPGA:
         releaseFpga()
     
     def __str__(self):
-        return "FPGA(readoutState=%d,id=0x%08x)" % (readoutState, id(self))
+        return "FPGA(readoutState=%d,id=0x%08x,adc18=%s)" % (readoutState, id(self), self.adc18bit)
 
     def __repr__(self):
         return self.str()
@@ -81,7 +82,7 @@ cdef class FPGA:
         pciReset()
 
     def configureReadout(self, nrows, ncols, doTest=False):
-        ret = configureForReadout(doTest, nrows, ncols)
+        ret = configureForReadout(doTest, self.adc18bit, nrows, ncols)
         if not ret:
             raise RuntimeError("failed to configure and arm the readout")
 
@@ -141,8 +142,8 @@ cdef class FPGA:
         cdef numpy.ndarray[numpy.uint16_t, ndim=1, mode="c"] rowImage = numpy.zeros((ncols*namps), 
                                                                                     dtype='u2') + 0xdead
         cdef uint32_t dataCrc, fpgaCrc
-        cdef int row_i, col_i, amp_i
         cdef uint32_t dataRow, fpgaRow
+        cdef int row_i, col_i, amp_i
 
         if rowFunc is None:
             rowFunc = printProgress
@@ -172,8 +173,8 @@ cdef class FPGA:
             if rowFunc:
                 rowFunc(row_i, image, error=errorMsg, 
                         fpgaCrc=fpgaCrc, dataCrc=dataCrc,
-                        **rowFuncArgs)
                         fpgaRow=fpgaRow, dataRow=dataRow,
+                        **rowFuncArgs)
 
         finishReadout()
 
