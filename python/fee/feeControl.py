@@ -100,7 +100,8 @@ class FeeControl(object):
         self.status = {}
         self.devConfig = dict(port=port, baudrate=9600)
         self.devConfig['writeTimeout'] = 100 * 1.0/(self.devConfig['baudrate']/8)
-        self.EOL = '\n'
+        self.EOL = '\r'
+        self.ignoredEOL = '\n'
                               
         self.defineCommands()
 
@@ -254,17 +255,10 @@ class FeeControl(object):
         except Exception as e:
             raise
 
-        try:
-            ret = self.device.read(len(fullCmd))
-        except serial.SerialException as e:
-            raise
-        except serial.portNotOpenError as e:
-            raise
-        except Exception as e:
-            raise
-    
-        if ret != fullCmd:
-            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
+  
+        ret = self.readResponse()
+        if ret != fullCmd.strip():
+            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (cmdStr, ret))
  
         return self.readResponse()
 
@@ -294,8 +288,8 @@ class FeeControl(object):
             except Exception as e:
                 raise
 
-            if c == '\r':
-                logging.debug("ignoring CR")
+            if self.ignoredEOL is not None and c == self.ignoredEOL:
+                logging.debug("ignoring %r" % (c))
                 continue
             if c == self.EOL:
                 break
