@@ -53,5 +53,5 @@ xlnx_auto*/
 xst/
 
 # Misc
-notebooks/.ipynb_checkpoints
+/notebooks/.ipynb_checkpoints/
 .nblink.pid
