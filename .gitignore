@@ -1,6 +1,8 @@
 ################ Editors:
 *~
-#*#
+\#*\#
+.\#*\#
+.\#*
 
 ################ Languages
 *.o
@@ -50,5 +52,6 @@ _xmsgs/
 xlnx_auto*/
 xst/
 
-#
+# Misc
 notebooks/.ipynb_checkpoints
+.nblink.pid
