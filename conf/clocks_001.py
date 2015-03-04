@@ -22,9 +22,10 @@ DG  = Signal(30, 'DG', 'Drain Gate')
 
 IRQ = Signal(31, 'IRQ', 'Interrupt')
 
-signals = (P1, P2, P3, TG, S1, S2, RG, SW,
-           DCR, IR, I_M, I_P, CNV, SCK, DG,
-           IRQ, CRC)
+signals = (P1, P2, P3, TG, CRC, IRQ,
+           S1, S2, RG, SW,
+           DCR, IR, I_M, I_P, DG,
+           CNV, SCK)
 
 def standardClocks(tickTime=40e-9):
     pre = Clocks(tickTime)
