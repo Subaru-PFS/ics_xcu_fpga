@@ -87,23 +87,23 @@ uint32_t write_row_readout(uint32_t start, int ncols)
   
   // initial states:
   output_states = 0;
-  SET_0(CCD_P1);
-  SET_1(CCD_P2);
-  SET_0(CCD_P3);
-  SET_1(CCD_TG);
-  SET_1(CCD_S1);
-  SET_0(CCD_S2);
-  SET_1(CCD_RG);
-  SET_1(CCD_SW);
+  SET_0(CCD_CRC);
   SET_0(CCD_DCR);
   SET_0(CCD_IR);
+  SET_0(CCD_IRQ);
   SET_0(CCD_I_M);
   SET_0(CCD_I_P);
-  SET_1(CCD_CNV);
+  SET_0(CCD_P1);
+  SET_0(CCD_P3);
+  SET_0(CCD_S2);
   SET_0(CCD_SCK);
+  SET_1(CCD_CNV);
   SET_1(CCD_DG);
-  SET_0(CCD_IRQ);
-  SET_0(CCD_CRC);
+  SET_1(CCD_P2);
+  SET_1(CCD_RG);
+  SET_1(CCD_S1);
+  SET_1(CCD_SW);
+  SET_1(CCD_TG);
   // arbitrary 4000ns -- initial states should already be present
   send_opcode(100);
 
