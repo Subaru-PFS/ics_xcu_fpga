@@ -23,8 +23,7 @@ class Clocks(object):
     def __init__(self, tickTime=40e-9, initFrom=None):
         self.clear()
         self.tickTime = tickTime
-        if initFrom is not None:
-            self.outputAt(0, initFrom.enabled[-1])
+        self.initSet = set() if initFrom is None else initFrom.enabled[-1]
 
     def clear(self):
         self.enabled = []
@@ -52,12 +51,12 @@ class Clocks(object):
         return states, durations
 
     def signalTrace(self, signal):
-        ticks = [0]
-        transitions = [signal in self.enabled[0]]
-        lastState = transitions[0]
+        ticks = []
+        transitions = []
+        lastState = None
 
         found = lastState
-        for i in range(len(self.ticks)):
+        for i in range(len(self.enabled)):
             newState = signal in self.enabled[i]
             if newState != lastState:
                 ticks.append(self.ticks[i])
@@ -68,37 +67,48 @@ class Clocks(object):
         if not found:
             raise KeyError("signal %r not found" % (signal))
 
+        if len(self.enabled) < len(self.ticks):
+            ticks.append(self.ticks[-1])
+            transitions.append(transitions[-1])
+            
         return ticks, transitions
 
-    def genJSON(self, tickDiv=1, cutAfter=5, selectSignals=None):
+    def genJSON(self, tickDiv=1, cutAfter=5, signals=None):
         json = []
         json.append('{signal: [')
 
-        if selectSignals is None:
-            selectSignals = set()
+        if signals is None:
+            signals = set()
             for e in self.enabled:
-                selectSignals = selectSignals.union(e)
+                signals = signals.union(e)
             
-        for sig in selectSignals:
+        for sig in signals:
             json.append("{name: '%s'," % (sig.label))
-            ticks, transitions = self.signalTrace(sig)
-            trace = []
-            trace.append('%d' % (transitions[0]))
-            lastTick = ticks[0]
-            for t_i in range(1, len(ticks)):
+            ticks, states = self.signalTrace(sig)
+            trace = ''
+            lastTick = 0
+            lastState = None
+            for t_i in range(len(ticks)):
                 thisTick = ticks[t_i]
-                thisState = transitions[t_i]
+                thisState = states[t_i]
 
-                dticks = thisTick - lastTick
-                dticks /= tickDiv
-                dticks -= 1
+                dticks = (thisTick - lastTick)/tickDiv
                 if dticks > cutAfter:
-                    trace.append('.'*cutAfter)
-                    trace.append('|')
+                    trace += '.'*cutAfter
+                    trace += '|'
+                elif dticks > 0:
+                    trace += '.'*(dticks-1)
+
+                if thisState != lastState:
+                    trace += '%d' % (thisState)
                 else:
-                    trace.append('.'*dticks)
-                trace.append('%d' % (thisState))
-            json.append(" wave: '%s'}," % (''.join(trace)))
+                    trace += '.'
+                print("%s: %d tick=%d dtick=%d len=%d (%d)" % (sig.label, t_i, ticks[t_i], dticks,
+                                                               len(trace), len(trace)*tickDiv))
+                lastTick = thisTick
+                lastState = thisState
+                
+            json.append(" wave: '%s'}," % (trace))
 
         json.append("]}")
         return "\n".join(json)
@@ -133,7 +143,7 @@ class Clocks(object):
         """
 
         if len(self.enabled) == 0:
-            newSet = set()
+            newSet = self.initSet
         else:
             newSet = self.enabled[-1].copy()
 
@@ -182,7 +192,7 @@ class Clocks(object):
         """
 
         if len(self.enabled) == 0:
-            newSet = set()
+            newSet = self.initSet
         else:
             newSet = self.enabled[-1].copy()
 
