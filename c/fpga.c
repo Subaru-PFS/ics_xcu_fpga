@@ -105,7 +105,7 @@ uint32_t write_row_readout(uint32_t start, int ncols)
   SET_1(CCD_SW);
   SET_1(CCD_TG);
   // arbitrary 4000ns -- initial states should already be present
-  send_opcode(100);
+  send_opcode(120);
 
   for(i=0; i<ncols; i++) {
     // Each loop iteration here does 1 serial pixel
@@ -148,7 +148,7 @@ uint32_t write_row_readout(uint32_t start, int ncols)
     send_opcode(4);
     
     SET_1(CCD_CNV);
-    send_opcode(44);
+    send_opcode(56);
   }
   
   // parallel clocking:

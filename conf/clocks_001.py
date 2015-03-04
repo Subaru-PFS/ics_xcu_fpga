@@ -29,7 +29,7 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
 
 def standardClocks(tickTime=40e-9):
     pre = Clocks(tickTime)
-    pre.changeFor(duration=100,
+    pre.changeFor(duration=120,
                   turnOn= [P2,TG,S1,RG,SW,CNV,DG])
     
     pix = Clocks(tickTime, initFrom=pre)
@@ -64,7 +64,7 @@ def standardClocks(tickTime=40e-9):
     pix.changeFor(duration=4,
                   turnOff=[I_P])
 
-    pix.changeFor(duration=44,
+    pix.changeFor(duration=56,
                   turnOn= [CNV])
 
     post = Clocks(tickTime, initFrom=pix)
