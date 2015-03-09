@@ -102,7 +102,6 @@ class FeeControl(object):
         self.devConfig['writeTimeout'] = 100 * 1.0/(self.devConfig['baudrate']/8)
         self.EOL = '\r'
         self.ignoredEOL = '\n'
-                              
         self.defineCommands()
 
         self.setDevice(port)
@@ -320,7 +319,6 @@ class FeeControl(object):
     def ampName(self, ampNum, leg='n'):
         ampNum = int(ampNum)
         channel = ampNum/4
-        # channel = 1-channel   # New FEE has two channels transposed.
         return "%d%s,ch%d" % (ampNum%4, leg, channel)
 
     def setLevels(self, amps, levels, leg='n'):

@@ -49,7 +49,7 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None):
 # Routines to set the mean amp levels to some handy level.
 # tuneLevels() does all amps, to about 10k.
 
-def ampStats(ccd, im, cols=None):
+def ampStats(im, cols=None, ccd=None):
     rowCtr = im.shape[0]/2
     rowCnt = im.shape[0]/3
     rowim = im[rowCtr-rowCnt/2:rowCtr+rowCnt/2]
@@ -71,7 +71,7 @@ def fmtArr(a, format='%0.4f'):
 def tuneLevels(ccd, fee, amps=None, 
                statCols=None, levels=1000, gains=None, sigTol=3, 
                maxLoops=10, adjOffset=10, nrows=100, startStep=0.05,
-               sleepTime=0.3):
+               sleepTime=0.3, clockFunc=None,legs='n'):
     namps = 8
     
     if amps is None:
@@ -90,7 +90,10 @@ def tuneLevels(ccd, fee, amps=None,
 
     # We cannot yet read bias levels, so zero them first
     fee.zeroLevels(amps)
-    fee.setLevels(amps, startStep)
+    if 'n' in legs:
+        fee.setLevels(amps, startStep, leg='n')
+    if 'p' in legs:
+        fee.setLevels(amps, -startStep, leg='p')
     time.sleep(sleepTime)
 
     done = [False]*len(amps)
@@ -104,9 +107,12 @@ def tuneLevels(ccd, fee, amps=None,
     toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
 
     lastOffset = offsets * 0
-    while np.all(done) is not True and ii < maxLoops:
-        im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
-        newLevels, devs = ampStats(im, statCols)
+    while True:
+        if np.all(done) or ii > maxLoops:
+            break 
+        im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                           clockFunc=clockFunc)
+        newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
         print "means(%d): %s" % (ii, fmtArr(newLevels))
         print "devs (%d): %s" % (ii, fmtArr(devs))
         
@@ -169,15 +175,19 @@ def tuneLevels(ccd, fee, amps=None,
         ii += 1
         lastOffset = thisOffset.copy()
         # lastLevels = newLevels
-        fee.setLevels(amps, offsets[amps])
+        if 'n' in legs:
+            fee.setLevels(amps, offsets[amps], leg='n')
+        if 'p' in legs:
+            fee.setLevels(amps, -offsets[amps], leg='p')
         time.sleep(sleepTime)
         
-    im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
-    newLevels, devs = ampStats(im, statCols)
+    im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                       clockFunc=clockFunc)
+    newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
     print "means(%d): %s" % (ii, fmtArr(newLevels))
     print "devs (%d): %s" % (ii, fmtArr(devs))
 
-    return gains
+    return offsets, devs, gains
 
 def gainCurve(ccd, fee, amps=None, 
               statCols=None, nrows=200, stepSize=0.04, offLimit=0.2, sleepTime=0.5):
