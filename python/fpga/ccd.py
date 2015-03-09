@@ -52,7 +52,7 @@ class CCD(pyFPGA.FPGA):
                   doAmpMap=True, 
                   doReread=False,
                   rowFunc=None, rowFuncArgs=None,
-                  doReset=True, doSave=True):
+                  doReset=True, doSave=True, clockFunc=None):
                   
         """ Configure and readout the detector; write image to disk. 
 
@@ -75,7 +75,7 @@ class CCD(pyFPGA.FPGA):
             self.pciReset()
 
         if not doReread:
-            self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest)
+            self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest, clockFunc=clockFunc)
 
         t0 = time.time()
         im = self._readImage(nrows=nrows, ncols=ncols, 

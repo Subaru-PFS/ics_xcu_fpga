@@ -41,14 +41,14 @@ class Clocks(object):
             raise RuntimeError("the duration of the final opcode state must be known.")
 
         states = numpy.zeros(len(self.enabled), dtype='u4')
-        durations = numpy.zeros(len(self.enabled), dtype='u4')
+        durations = numpy.zeros(len(self.enabled), dtype='u2')
 
         for i in range(len(self.enabled)):
             duration = self.ticks[i+1] - self.ticks[i]
             states[i] = self.stateMask(self.enabled[i])
             durations[i] = duration
 
-        return states, durations
+        return durations, states
 
     def signalTrace(self, signal):
         ticks = []
@@ -217,16 +217,16 @@ def genRowClocks(ncols, clocksFunc):
     pre, pix, post = clocksFunc()
 
     ticks, opcodes = pre.genClocks()
-    ticksList.append(ticks)
-    opcodesList.append(opcodes)
+    ticksList.extend(ticks)
+    opcodesList.extend(opcodes)
 
     ticks, opcodes = pix.genClocks()
     for i in range(ncols):
-        ticksList.append(ticks)
-        opcodesList.append(opcodes)
+        ticksList.extend(ticks)
+        opcodesList.extend(opcodes)
 
     ticks, opcodes = post.genClocks()
-    ticksList.append(ticks)
-    opcodesList.append(opcodes)
+    ticksList.extend(ticks)
+    opcodesList.extend(opcodes)
 
     return ticksList, opcodesList

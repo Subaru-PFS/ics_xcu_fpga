@@ -1,6 +1,9 @@
 import sys
 import cython
 import numpy
+
+import clocks
+
 from cython cimport view
 from libc.stdint cimport uint16_t, uint32_t
 cimport numpy
@@ -26,7 +29,7 @@ cdef extern from "fpga.h":
      int sendOneOpcode(uint32_t states, uint16_t duration)
 
      int resetReadout(int force)
-     int armReadout(int nrows, int ncols, int doTest)
+     int armReadout(int nrows, int ncols, int doTest, int ard18bit)
 
      int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
      void finishReadout()
@@ -81,12 +84,24 @@ cdef class FPGA:
 
         pciReset()
 
-    def configureReadout(self, nrows, ncols, doTest=False):
-        ret = configureForReadout(doTest, self.adc18bit, nrows, ncols)
-        if not ret:
-            raise RuntimeError("failed to configure and arm the readout")
+    def configureReadout(self, nrows, ncols, doTest=False, clockFunc=None):
+        if clockFunc is None:
+            ret = configureForReadout(doTest, self.adc18bit, nrows, ncols)
+            if not ret:
+                raise RuntimeError("failed to configure and arm the readout")
+        else:
+            if not resetReadout(0):
+                raise RuntimeError("failed to reset for readout")
 
-            
+            ticks, opcodes = clocks.genRowClocks(ncols, clockFunc)
+            for i in range(len(ticks)):
+                ret = sendOneOpcode(opcodes[i], ticks[i])
+                if not ret:
+                    raise RuntimeError("failed to send opcode %d" % (i))
+
+            if not armReadout(nrows, ncols, doTest, self.adc18bit):
+                raise RuntimeError("failed to arm for readout)")
+
     cpdef _readImage(self, int nrows=4240, int ncols=536,  
                      doTest=False, debugLevel=1, 
                      doAmpMap=True, 
