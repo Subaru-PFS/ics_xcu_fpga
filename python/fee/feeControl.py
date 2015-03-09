@@ -130,9 +130,15 @@ class FeeControl(object):
         """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
 
         print self.sendCommandStr('se,all,on')
+        print self.sendCommandStr('se,Clks,on')
         print self.sendCommandStr('lp,read')
-        #self.setEnable('all','on')
-        #self.getPreset('read')
+
+    def powerDown(self):
+        """ Bring the FEE down to a sane and stable idle. """
+
+        print self.sendCommandStr('se,all,off')
+        print self.sendCommandStr('se,Clks,off')
+
 
     def fetchAll(self):
         return self.sendCommandStr('gr')
@@ -311,6 +317,29 @@ class FeeControl(object):
     def getAll(self):
         pass
 
+    def ampName(self, ampNum, leg='n'):
+        ampNum = int(ampNum)
+        channel = ampNum/4
+        # channel = 1-channel   # New FEE has two channels transposed.
+        return "%d%s,ch%d" % (ampNum%4, leg, channel)
+
+    def setLevels(self, amps, levels, leg='n'):
+        if len(amps) != len(levels):
+            raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
+        for i, a in enumerate(amps):
+            cmd = 'so,%s,%0.5f' % (self.ampName(a, leg=leg), 
+                                   levels[i])
+            self.raw(cmd)
+            # print "set level with: %s" % (cmd)
+
+    def zeroLevels(self, amps=None):
+        if amps is None:
+            amps = range(8)
+        levels = [0.0] * len(amps)
+    
+        self.setLevels(amps, levels, leg='p')
+        self.setLevels(amps, levels, leg='n')
+    
 
 def main(argv=None):
     if argv is None:
