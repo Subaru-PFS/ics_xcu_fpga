@@ -100,7 +100,7 @@ def argPeaks(arr):
         
     return idx[::-1]
 
-def topPeriods(arr, topN=0, pixtime=1.344e-5):
+def topPeriods(arr, topN=0, pixtime=1.392e-5):
     """ Return the identifiable spectral peaks, ordered by strength. 
     
     Parameters
