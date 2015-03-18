@@ -1,4 +1,5 @@
-import numpy
+import logging
+import numpy as np
 
 class Signal(object):
     def __init__(self, bit, label, description):
@@ -20,10 +21,12 @@ class Clocks(object):
     signals to set high or low, and the low 15 being the number of clocks to sustain. 
     """
 
-    def __init__(self, tickTime=40e-9, initFrom=None):
+    def __init__(self, tickTime=40e-9, initFrom=None, logLevel=logging.INFO):
         self.clear()
         self.tickTime = tickTime
         self.initSet = set() if initFrom is None else initFrom.enabled[-1]
+        self.logLevel = logLevel
+        self.logger = logging.getLogger()
 
     def clear(self):
         self.enabled = []
@@ -40,8 +43,8 @@ class Clocks(object):
         if len(self.ticks) != len(self.enabled)+1:
             raise RuntimeError("the duration of the final opcode state must be known.")
 
-        states = numpy.zeros(len(self.enabled), dtype='u4')
-        durations = numpy.zeros(len(self.enabled), dtype='u2')
+        states = np.zeros(len(self.enabled), dtype='u4')
+        durations = np.zeros(len(self.enabled), dtype='u2')
 
         for i in range(len(self.enabled)):
             duration = self.ticks[i+1] - self.ticks[i]
@@ -103,8 +106,9 @@ class Clocks(object):
                     trace += '%d' % (thisState)
                 else:
                     trace += '.'
-                print("%s: %d tick=%d dtick=%d len=%d (%d)" % (sig.label, t_i, ticks[t_i], dticks,
-                                                               len(trace), len(trace)*tickDiv))
+                self.logger.debug("%s: %d tick=%d dtick=%d len=%d (%d)",
+                                  sig.label, t_i, ticks[t_i], dticks,
+                                  len(trace), len(trace)*tickDiv)
                 lastTick = thisTick
                 lastState = thisState
                 
@@ -154,11 +158,12 @@ class Clocks(object):
         newSet.difference_update(turnOff)
         newSet.update(turnOn)
         
-        print "  %04x: %08x -> %08x on=%08x, off=%08x" % (at,
-                                                          self.stateMask(thisSet), 
-                                                          self.stateMask(newSet),
-                                                          self.stateMask(turnOn), 
-                                                          self.stateMask(turnOff))
+        self.logger.debug("  %04x: %08x -> %08x on=%08x, off=%08x",
+                          at,
+                          self.stateMask(thisSet), 
+                          self.stateMask(newSet),
+                          self.stateMask(turnOn), 
+                          self.stateMask(turnOff))
         self.outputAt(at, newSet)
         
 
@@ -203,11 +208,12 @@ class Clocks(object):
         newSet.difference_update(turnOff)
         newSet.update(turnOn)
         
-        print "  %04x: %08x -> %08x on=%08x, off=%08x" % (duration,
-                                                          self.stateMask(thisSet), 
-                                                          self.stateMask(newSet),
-                                                          self.stateMask(turnOn), 
-                                                          self.stateMask(turnOff))
+        self.logger.debug("  %04x: %08x -> %08x on=%08x, off=%08x",
+                          duration,
+                          self.stateMask(thisSet), 
+                          self.stateMask(newSet),
+                          self.stateMask(turnOn), 
+                          self.stateMask(turnOff))
         self.outputFor(duration, newSet)
         
 def genRowClocks(ncols, clocksFunc):
@@ -229,4 +235,6 @@ def genRowClocks(ncols, clocksFunc):
     ticksList.extend(ticks)
     opcodesList.extend(opcodes)
 
-    return ticksList, opcodesList
+    return (np.array(ticksList, dtype='u2'), 
+            np.array(opcodesList, dtype='u4'))
+
