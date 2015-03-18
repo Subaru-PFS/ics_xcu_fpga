@@ -96,17 +96,19 @@ def tuneLevels(ccd, fee, amps=None,
         fee.setLevels(amps, -startStep, leg='p')
     time.sleep(sleepTime)
 
-    done = [False]*len(amps)
+    done = np.zeros(namps, dtype='i1')
     offsets = startStep.copy()
     lastLevels = np.zeros(namps, dtype='f4')
 
     ii = 0
-    argDict = dict(everyNRows=50, ampList=amps, ccd=ccd)
+    argDict = dict(everyNRows=nrows, ampList=amps, ccd=ccd)
 
     # Clear any accumulated charge
-    toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
+    toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                         clockFunc=clockFunc)
 
     lastOffset = offsets * 0
+    offLimit = 0.199
     while True:
         if np.all(done) or ii > maxLoops:
             break 
@@ -124,11 +126,14 @@ def tuneLevels(ccd, fee, amps=None,
             stddev = devs[a]
             g = gains[a]
 
-            if mean == 0:
+            if mean == 0 or mean > 50000:
+                # We are not in range yet. Keep adding the starting step.
+                print "%d %d: out of range: %0.2f" % (ii, a, mean)
                 thisOffset[a] = startStep[a]
+                
             elif last <= 0:
                 # We don't have two levels yet. Bump and remeasure.
-                print "%d: have one, need two" % (ii)
+                print "%d %d: have one, need two" % (ii, a)
                 thisOffset[a] = startStep[a]
                 lastLevels[a] = mean
             else:
@@ -144,25 +149,26 @@ def tuneLevels(ccd, fee, amps=None,
                 dOffset = lastOffset[a]
                 if dOffset != 0.0:
                     lastGain = dLevel/dOffset
-                    print "%d,%d: dLevel/dOffset=gain %g/%g = %g vs. %s" % (a_i, a, dLevel, dOffset, lastGain, gains[a])
-                    if gains[a] == 0.0:
-                        gains[a] = lastGain
+                    gains[a] = lastGain
                 else:
                     lastGain = gains[a]
+                # print "%d,%d: dLevel/dOffset=gain %g/%g = %g vs. %s" % (a_i, a, dLevel, dOffset, lastGain, gains[a])
                     
                 stillWant = levels[a]-mean
                 thisOffset[a] = stillWant/gains[a]
+                if np.fabs(thisOffset[a] + offsets[a]) >= offLimit:
+                    thisOffset[a] = startStep[a]
                 lastLevels[a] = mean
-                print "%d,%d level,mean,want,offset %g %g %g %g" % (a_i, a, levels[a], mean, stillWant, thisOffset[a])
+                print("%d,%d level,mean,want,offset,doffset %g %g %g %g %g" % 
+                      (a_i, a, levels[a], mean, stillWant, thisOffset[a], dOffset))
 
-        offLimit = 0.2
         offsets += thisOffset
         if np.any(np.fabs(offsets) >= offLimit):
-            print "!!!!!!!! WARNING: railed offsets !!!!!!!"
+            print("!!!!!!!! WARNING: railed offsets !!!!!!!: %s" % (np.fabs(offsets) >= offLimit))
             offsets[offsets < -offLimit] = -offLimit
             offsets[offsets > offLimit] = offLimit
-            done[offsets >= offLimit] = True
-            done[offsets <= -offLimit] = True
+            #done[offsets >= offLimit] = True
+            #done[offsets <= -offLimit] = True
             
         print 
         print "amps: %s" % (amps)
