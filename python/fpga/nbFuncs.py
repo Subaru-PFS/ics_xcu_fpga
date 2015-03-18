@@ -110,8 +110,8 @@ def tuneLevels(ccd, fee, amps=None,
     while True:
         if np.all(done) or ii > maxLoops:
             break 
-        im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
-                           clockFunc=clockFunc)
+        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                                  clockFunc=clockFunc)
         newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
         print "means(%d): %s" % (ii, fmtArr(newLevels))
         print "devs (%d): %s" % (ii, fmtArr(devs))
@@ -181,7 +181,7 @@ def tuneLevels(ccd, fee, amps=None,
             fee.setLevels(amps, -offsets[amps], leg='p')
         time.sleep(sleepTime)
         
-    im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+    im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
                        clockFunc=clockFunc)
     newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
     print "means(%d): %s" % (ii, fmtArr(newLevels))
@@ -217,7 +217,7 @@ def gainCurve(ccd, fee, amps=None,
         fee.setLevels(amps, [offset]*namps)
         time.sleep(sleepTime)
 
-        im = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
+        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
         newLevels, devs = ampStats(im, statCols)
         print "means(%d): %s" % (offset, fmtArr(newLevels))
         print "devs (%d): %s" % (offset, fmtArr(devs))

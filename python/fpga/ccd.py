@@ -45,6 +45,7 @@ class CCD(pyFPGA.FPGA):
     def writeImageFile(self, im):
         fnames = self.fileMgr.getNextFileset()
         pyfits.writeto(fnames[0], im)
+        return fnames
 
 
     def readImage(self, nrows=4240, ncols=536,
@@ -85,9 +86,12 @@ class CCD(pyFPGA.FPGA):
         t1 = time.time()
 
         if doSave:
-            self.writeImageFile(im)
+            files = self.writeImageFile(im)
+        else:
+            files = []
         t2 = time.time()
 
         sys.stderr.write("readT=%0.2f writeT=%0.2f\n" % (t1-t0, t2-t1))
 
-        return im
+        return im, files
+
