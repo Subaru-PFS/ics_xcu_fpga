@@ -22,7 +22,8 @@ def rowProgress(row_i, image, errorMsg="OK",
 
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
-             ampList=range(8), cols=None, **kwargs):
+             ampList=range(8), cols=None, 
+             lineDetail=False, **kwargs):
 
     """ Per-row callback to print basic per-amp stats.
 
@@ -45,6 +46,8 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
        The amps we want stats for.
     cols : optional
        The columns we want to take stats over.
+    lineDetail : bool, optional
+       If True, print line info from the FPGA.
 
     Examples
     --------
@@ -67,13 +70,16 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     if line > 0 and line % everyNRows == 0 or line == nrows-1 or errorMsg is not "OK":
         flatim = image[line-everyNRows:line,:]
 
-        parts = ["%04d %04d %04d" % (line, 
-                                     kwargs.get('dataRow', 9999),
-                                     kwargs.get('fpgaRow', 9999))]
+        parts = ["%04d" % line]
+        if lineDetail:
+            parts.append("%04d %04d" % (
+                kwargs.get('dataRow', 9999),
+                kwargs.get('fpgaRow', 9999)))
+
         for a in ampList:
-            parts.append("%8.1f" % (flatim[:,ampMasks[a]].mean()))
+            parts.append("%0.1f" % (flatim[:,ampMasks[a]].mean()))
         for a in ampList:
-            parts.append("%5.2f" % (flatim[:,ampMasks[a]].std()))
+            parts.append("%0.2f" % (flatim[:,ampMasks[a]].std()))
         parts.append(errorMsg)
 
         print(' '.join(parts))
