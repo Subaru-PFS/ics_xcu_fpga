@@ -5,12 +5,22 @@ import matplotlib.pyplot as plt
 
 import ccdFuncs
 
-# A cell with some routines and variables I want handy.
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
     return arr - np.mean(arr)
 
-def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None):
+def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
+    medpix = np.median(im[prows])
+
+    f1 = plt.figure(figsize=(figWidth,figWidth/4))
+    for prow in prows:
+        plt.plot(im[prow], scaley=pixRange is None)
+        if pixRange is not None:
+            plt.axis([None, None, medpix-pixRange, medpix+pixRange])
+    plt.title('%s rows %s, all amps, clipped to %0.2f +/- %s' % (imName, prows, medpix, pixRange))
+    plt.show()
+
+def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None):
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
     The per-amp plots are offset by their mean value, and plotted plotOffset pixels apart.
@@ -39,12 +49,44 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None):
         cols = np.arange(imcols)
 
     if fig is None:
-        fig = plt.figure(figsize=(10,6))
+        fig = plt.figure()
+    if figWidth is not None:
+        fig.set_figwidth(figWidth)
+
     yoff = 0
     for a in amps:
         seg = normed(im[row, cols + a*imcols])
         plt.plot(cols, seg+yoff, '-+')
         yoff += plotOffset
+
+    plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
+                                                  cols[0],cols[-1]))
+
+def rawAmpGrid(im, ccd, cols=None, rows=None, fig=None, figWidth=None):
+    if fig is None:
+        fig = plt.figure('amp_images')
+    fig.clf()
+    if figWidth is not None:
+        fig.set_figwidth(figWidth)
+
+    if cols is None:
+        cols = slice(0,-1)
+    if rows is None:
+        rows = slice(0,-1)
+
+    fig.subplots_adjust(hspace=0.01, wspace=0.05)
+    r = 2
+    c = 4
+    for a in range(8):
+        ampIm = im[rows, ccd.ampidx(a, im)[cols]]
+        p = fig.add_subplot(r, c, a+1)
+        p.xaxis.set_visible(False)
+        p.yaxis.set_visible(False)
+
+        pp = p.imshow(ampIm-ampIm.mean())
+        plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
+
+    return fig
 
 # Routines to set the mean amp levels to some handy level.
 # tuneLevels() does all amps, to about 10k.
