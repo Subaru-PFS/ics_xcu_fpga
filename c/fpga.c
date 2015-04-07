@@ -285,7 +285,8 @@ int armReadout(int nrows, int ncols, int doTest, int adc18bit)
   // Start clock
   fpga[R_WPU_CTRL] = EN_SYNCH |
     (doTest ? WPU_TEST : 0) | // Optionally enable test pattern
-    (adc18bit ? WPU_18BIT : 0); // Optionally configure for 18 bit ADC
+    (adc18bit ? WPU_18BIT : 0) | // Optionally configure for 18 bit ADC
+    ((adc18bit > 1) ? WPU_18LOWBITS : 0); // Optionally configure for low-bits of 18 bit ADC
   readoutState = ARMED;
 
   // Not sure about how necessary this is. -- CPL
@@ -307,9 +308,10 @@ int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
     return 0;
   }
 
-  fprintf(stderr, "Prepped ID: 0x%08x %s %s\n", 
+  fprintf(stderr, "Prepped ID: 0x%08x %s(%s) %s\n", 
           peekWord(R_ID), 
           adc18bit ? "18-bit" : "16-bit",
+          (adc18bit>1) ? "low" : "normal",
           doTest ? "simulating" : "");
   return 1;
 }

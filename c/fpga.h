@@ -27,6 +27,7 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define FIFO_RD_RST	(1<<3)
 #define FIFO_WR_RST	(1<<4)
 #define WPU_18BIT	(1<<5)
+#define WPU_18LOWBITS	(1<<6)
 
 // No longer desirable in C.
 #define CCD_P1   (1 << 16)  // Parallel 1

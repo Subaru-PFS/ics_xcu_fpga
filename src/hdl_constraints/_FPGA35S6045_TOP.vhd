@@ -296,6 +296,7 @@ architecture rtl of FPGA35S6045_TOP is
                         ddr_wr_en_o         : out std_logic;
                         ddr_wr_data_o       : out std_logic_vector(31 downto 0);
 			adc_18bit_i         : in  std_logic;
+			adc_18lowbits_i	    : in  std_logic;
                         test_pattern_i      : in  std_logic
                 );
         end component;
@@ -495,6 +496,7 @@ architecture rtl of FPGA35S6045_TOP is
 	-- bit 3: 1 = reset read FIFO (software side)
 	-- bit 4: 1 = reset write FIFO (FEE side)
 	-- bit 5: 1 = 18 bit AD7690, 0 = 16 bit AD7686
+	-- bit 6: 1 = Given AD7690, drop 2*MSB; 0 = drop MSB,LSB
 
 begin
 
@@ -685,6 +687,8 @@ begin
                         ddr_wr_data_o       => adc_wr_data,
 			adc_18bit_i         =>
                                 register_file(R_WPU_CTRL).data(5),
+			adc_18lowbits_i         =>
+                                register_file(R_WPU_CTRL).data(6),
                         test_pattern_i      =>
                                 register_file(R_WPU_CTRL).data(2)
                 );
@@ -859,7 +863,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"beef0070"; -- BEE board ID
+	register_file(R_ID).default 	<= x"beefa070"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register

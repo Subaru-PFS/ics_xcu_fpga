@@ -48,6 +48,10 @@ entity deserializer is
     -- adc_18bit = 1 means serial data from 18 bit AD7690
     -- adc_18bit = 0 means serial data from 16 bit AD7686
     adc_18bit_i         : in  std_logic;
+    -- adc_18lowbits = 1 means drop 2*MSB
+    -- adc_18lowbits = 0 means drop MSB,LSB
+    adc_18lowbits_i         : in  std_logic;
+
     -- test_pattern = 1 means ignore MISO lines and return test pattern
     test_pattern_i      : in  std_logic
   );
@@ -154,19 +158,32 @@ begin
             dat_q <= dat_b(63 downto 0) & dat_a(63 downto 0);
             -- 18 bit ADC version:
             if (adc_18bit_i = '1') then
-              -- We want to discard the MSB and LSB from each 18 bit word.
-              -- The MSB is thrown out because it is the sign bit and we assume
-              -- we don't get negative voltages.  The LSB is thrown out because
-              -- we only need 16 bits of data.  Actual negative voltages will
-              -- show up as large positive voltages.
-              dat_q(15 downto 0) <= dat_a(16 downto 1);
-              dat_q(31 downto 16) <= dat_a(34 downto 19);
-              dat_q(47 downto 32) <= dat_a(52 downto 37);
-              dat_q(63 downto 48) <= dat_a(70 downto 55);
-              dat_q(79 downto 64) <= dat_b(16 downto 1);
-              dat_q(95 downto 80) <= dat_b(34 downto 19);
-              dat_q(111 downto 96) <= dat_b(52 downto 37);
-              dat_q(127 downto 112) <= dat_b(70 downto 55);
+              if (adc_18lowbits_i = '0') then
+                -- We want to discard the MSB and LSB from each 18 bit word.
+                -- The MSB is thrown out because it is the sign bit and we assume
+                -- we don't get negative voltages.  The LSB is thrown out because
+                -- we only need 16 bits of data.  Actual negative voltages will
+                -- show up as large positive voltages.
+                dat_q(15 downto 0) <= dat_a(16 downto 1);
+                dat_q(31 downto 16) <= dat_a(34 downto 19);
+                dat_q(47 downto 32) <= dat_a(52 downto 37);
+                dat_q(63 downto 48) <= dat_a(70 downto 55);
+                dat_q(79 downto 64) <= dat_b(16 downto 1);
+                dat_q(95 downto 80) <= dat_b(34 downto 19);
+                dat_q(111 downto 96) <= dat_b(52 downto 37);
+                dat_q(127 downto 112) <= dat_b(70 downto 55);
+              else    
+                -- We want to discard two MSBs from each 18 bit word.
+                -- Actual negative voltages will show up as large positive voltages.
+                dat_q(15 downto 0) <= dat_a(15 downto 0);
+                dat_q(31 downto 16) <= dat_a(33 downto 18);
+                dat_q(47 downto 32) <= dat_a(51 downto 36);
+                dat_q(63 downto 48) <= dat_a(69 downto 54);
+                dat_q(79 downto 64) <= dat_b(15 downto 0);
+                dat_q(95 downto 80) <= dat_b(33 downto 18);
+                dat_q(111 downto 96) <= dat_b(51 downto 36);
+                dat_q(127 downto 112) <= dat_b(69 downto 54);
+              end if;
               -- If we want negative voltages to be written as zeros or some
               -- other special warning value, we could stick that 
               -- transformation here.
