@@ -123,6 +123,7 @@ class Clocks(object):
         for s in signals:
             traces[s] = []
         
+        transitionTicks = set()
         for sig in signals:
             ticks, states = self.signalTrace(sig)
             trace = ''
@@ -133,13 +134,17 @@ class Clocks(object):
                 thisState = states[t_i]
 
                 dticks = (thisTick - lastTick)/tickDiv
-                assert (thisTick <= 0 or dticks > 0), "dticks for %s at slot %s, tick %s to %s is non-positive!" % (sig, t_i, lastTick, thisTick)
-                assert (dticks == int(dticks)), "dticks for %s at slot %s, tick %s to %s is non-integer!" % (sig, t_i, lastTick, thisTick)
+                assert (thisTick <= 0 or dticks > 0), ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
+                                                       (sig, t_i, lastTick, thisTick))
+                assert (dticks == int(dticks)), ("dticks for %s at slot %s, tick %s to %s is non-integer!" % 
+                                                 (sig, t_i, lastTick, thisTick))
                     
                 trace += '.'*(dticks-1)
 
                 if thisState != lastState:
                     trace += '%d' % (thisState)
+                    if thisTick >= 0:
+                        transitionTicks.add(thisTick)
                 else:
                     trace += '.'
                 self.logger.debug("%s: %d tick=%d dtick=%d len=%d (%d)",
@@ -148,6 +153,9 @@ class Clocks(object):
                 lastTick = thisTick
                 lastState = thisState
             traces[sig] = trace
+        transitionTicks.add(ticks[-1])
+        transitionTicks = sorted(transitionTicks)
+        self.logger.info("transitions at: %s" % (transitionTicks))
 
         # Collapse long runs with '|'
         #    find next epos from spos where any trace is not '.'
@@ -190,6 +198,31 @@ class Clocks(object):
         json = []
         json.append('{signal: [')
 
+        # mark transitions
+        edges = []
+        label_n = 0
+        transitionLabels = ['.']
+        traceLen = len(traces[list(signals)[0]])
+        for c_i in range(1, traceLen):
+            isTransition = any([traces[sig][c_i] in '01' for sig in traces.keys()])
+            if c_i == traceLen-1:
+                isTransition = True
+            thisName = chr(ord('a')+(label_n))
+            if isTransition:
+                self.logger.info(" trans %d(%s) at %d/%d" % (label_n, thisName, c_i, traceLen))
+                transitionLabels.append(thisName)
+                edges.append("'%s%s'" % (thisName, thisName.upper()))
+                # edges.append("'%s %d'" % (thisName, transitionTicks[label_n]))
+                edges.append("'%s %d'" % (thisName.upper(), transitionTicks[label_n] * 40))
+                label_n += 1
+            else:
+                transitionLabels.append('.')
+
+        transitionLabels = ''.join(transitionLabels)
+        self.logger.info("transitionLabels: %s %s" % (transitionLabels, transitionTicks))
+
+        json.append("{node: '%s'}," % (transitionLabels))
+
         group = None
         for sig in self.orderForPlot(signals):
             if sig.group != group:
@@ -202,34 +235,31 @@ class Clocks(object):
             json.append("{name: '%s'," % (sig.label))
             json.append(" wave: '%s'}," % (traces[sig]))
 
-        if len(cutSpans) > 0:
+        if False and len(cutSpans) > 0:
             nodes = traces[(list(signals))[0]].replace('0','.').replace('1','.')
-            edges = 'edge: ['
             cut_n = 0
             while True:
                 cut_i = nodes.find('|')
                 if cut_i == -1:
                     break
-                cutChars = chr(ord('a')+(2*cut_n)) + chr(ord('b')+(2*cut_n))
+                cutChars = chr(ord('a')+(2*label_n)) + chr(ord('b')+(2*label_n))
                 nodes = nodes[:cut_i] + cutChars + nodes[cut_i+2:]
 
                 cutLen = cutSpans[cut_n][1] - cutSpans[cut_n][0]
-                edges = edges + ("'%s-%s %d'," % (cutChars[0], cutChars[1], cutLen))
+                #edges.append("'%s-%s %d'" % (cutChars[0], cutChars[1], cutLen))
                 cut_n += 1
-            edges = edges + "],"
 
         if group is not None:
             json.append("],")
 
-        if len(cutSpans) > 0:
-            json.append("{},")
+        json.append("{},")
+        if False and len(cutSpans) > 0:
             json.append("{node: '%s'}," % (nodes))
 
+        json.append("{node: '%s'}," % (transitionLabels.upper()))
         json.append("],")
 
-        if len(cutSpans) > 0:
-            json.append(edges)
-
+        json.append("edge: [" + ",".join(edges) + "],")
         json.append("foot: {tick:-1},")
         json.append("}")
         return "\n".join(json), cutSpans
