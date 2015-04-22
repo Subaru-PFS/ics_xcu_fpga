@@ -125,11 +125,11 @@ begin
           -- This is tricky here, but this starting value of 259 gives you
           -- 65 pulses on tap 1.  x"104" or x"105" would also work, with 
           -- an added 5ns or 10ns delay.
-          sck_timer <= x"103";
+          sck_timer <= x"104";
           if (adc_18bit_q = '1') then
             -- For the AD7690, we want 8 extra pulses, so the initial counter
             -- value is higher by 32.
-            sck_timer <= x"123";
+            sck_timer <= x"124";
           end if;
         end if;
       end if;
