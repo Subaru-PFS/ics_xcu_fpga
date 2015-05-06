@@ -27,10 +27,14 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
            DCR, IR, I_M, I_P, DG,
            CNV, SCK)
 
-def standardClocks(tickTime=40e-9):
+def standardClocks(tickTime=40e-9, invertSW=False):
     pre = Clocks(tickTime)
-    pre.changeFor(duration=120,
-                  turnOn= [P2,TG,S1,RG,SW,CNV,DG])
+    if invertSW:
+        pre.changeFor(duration=120,
+                      turnOn= [P2,TG,S1,RG,CNV,DG])
+    else:
+        pre.changeFor(duration=120,
+                      turnOn= [P2,TG,S1,RG,SW,CNV,DG])
     
     pix = Clocks(tickTime, initFrom=pre)
     pix.changeFor(duration=24,
@@ -41,9 +45,14 @@ def standardClocks(tickTime=40e-9):
                   turnOff=[SCK],
                   turnOn= [RG])
 
-    pix.changeFor(duration=8,
-                  turnOff=[S2,SW,IR],
-                  turnOn= [S1])
+    if invertSW:
+        pix.changeFor(duration=8,
+                      turnOff=[S2,IR],
+                      turnOn= [S1,SW])
+    else:
+        pix.changeFor(duration=8,
+                      turnOff=[S2,SW,IR],
+                      turnOn= [S1])
 
     pix.changeFor(duration=4,
                   turnOff=[DCR])
@@ -54,9 +63,13 @@ def standardClocks(tickTime=40e-9):
     pix.changeFor(duration=120,
                   turnOn= [I_M])
 
-    pix.changeFor(duration=8,
-                  turnOff=[I_M],
-                  turnOn= [SW])
+    if invertSW:
+        pix.changeFor(duration=8,
+                      turnOff=[I_M,SW])
+    else:
+        pix.changeFor(duration=8,
+                      turnOff=[I_M],
+                      turnOn= [SW])
 
     pix.changeFor(duration=120,
                   turnOn=[I_P])
