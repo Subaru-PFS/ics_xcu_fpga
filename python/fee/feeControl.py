@@ -130,8 +130,8 @@ class FeeControl(object):
         """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
 
         print self.sendCommandStr('se,all,on')
-        print self.sendCommandStr('se,Clks,on')
         print self.sendCommandStr('lp,read')
+        print self.sendCommandStr('se,Clks,on')
 
     def powerDown(self):
         """ Bring the FEE down to a sane and stable idle. """
@@ -192,13 +192,13 @@ class FeeControl(object):
         self.commands['voltage'] = FeeSet('voltage', 'v', 
                                           ['3V3M','3V3',
                                            '5VP','5VN','5VPpa', '5VNpa',
-                                           '12VP', '12VN', '24VN', '54VP',
-                                           'all'], 
+                                           '12VP', '12VN', '24VN', '54VP'],
                                           setLetter='c')
         """
         // Set/Get the CDS offset voltages 
         #define setCDS_OS "so"
         #define getCDS_OS "go"
+        #define getCDS_OS "ro"
         # define co_0pos "0p" 
         # define co_0neg "0n" 
         # define co_1pos "1p" 
@@ -212,27 +212,62 @@ class FeeControl(object):
         """
         self.commands['offset'] = FeeChannelSet('offset', 'o', 
                                                 ['0p','1p','2p','3p',
-                                                 '0n','1n','2n','3n'])
+                                                 '0n','1n','2n','3n'],
+                                                getLetter='r')
+        """
+        // Set/get the clock Bias Voltages
+        #define setClockBias "sb" // COMMAND
+        #define getClockBias "gb" 
+        #define rdClockBias  "rb" // reads the actual voltage 
+        #define cb_Ppos      "Pp" // PARAMETER 1
+        #define cb_Pneg      "Pn"
+        #define cb_DGpos     "DGp"
+        #define cb_DGneg     "DGn"
+        #define cb_Spos      "Sp"
+        #define cb_Sneg      "Sn"
+        #define cb_SWpos     "SWp" // Summing Well
+        #define cb_SWneg     "SWn"
+        #define cb_RGpos     "RGp" // Reset Gate
+        #define cb_RGneg     "RGn"
+        #define cb_OG        "OG"
+        #define cb_RD        "RD"
+        #define cb_OD        "OD"
+        #define cb_BB        "BB"
+        #   define cb_0         "ch0" // PARAMETER 2
+        #   define cb_1         "ch1"
+        """
+        self.commands['bias'] = FeeChannelSet('bias', 'b', 
+                                              ['Pp','Pn',
+                                               'DGp', 'DGn',
+                                               'Sp', 'Sn',
+                                               'SWp', 'SWn',
+                                               'RGp', 'RGn',
+                                               'OG', 'RD', 'OD', 'BB'],
+                                              getLetter='r')
+
         """
         //load/save bias presets
 
         #define loadDACPresets "lp"
         #define saveDACPresets "sp"
-        #define pb_erase "erase"
-        #define pb_read "read"
-        #define pb_expose "expose"
-        #define pb_wipe "wipe"
-        #define po_offset "offset"
+        #define pb_erase       "erase"
+        #define pb_read        "read"
+        #define pb_expose      "expose"
+        #define pb_wipe        "wipe"
+        #define pb_biasTest1   "BT1"
+        #define pb_offset      "offset"
+        #define pb_osTest1     "0T1"
         """
         self.commands['preset'] = FeeSet('preset', 'p', 
-                                         ["erase", "read", "expose", "wipe", "offset"],
+                                         ["erase", "read", "expose", "wipe", "offset", 
+                                          "BT1", "OT1"],
                                          getLetter='l')
 
-    def doSet(self, setName, subName, value):
+    def allKeys(self, setName):
         try:
-            cmdSet = self.commands[system]
+            cmdSet = self.commands[setName]
         except AttributeError as e:
-            raise
+            raise e
 
         return cmdSet.subs
 
@@ -272,11 +307,11 @@ class FeeControl(object):
         try:
             self.device.write(fullCmd)
         except serial.writeTimeoutError as e:
-            raise e
+            raise
         except serial.SerialException as e:
-            raise e
+            raise
         except Exception as e:
-            raise e
+            raise
 
   
         ret = self.readResponse()
