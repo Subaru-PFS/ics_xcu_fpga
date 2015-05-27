@@ -73,7 +73,7 @@ class FeeChannelSet(FeeSet):
         if channel not in (0,1):
             raise RuntimeError("Channel must be 0 or 1 %s(%s)!" % (self.name, subName))
             
-        return self._getCmdString(self.setLetter, subName, channel, value)
+        return self._getCmdString(self.setLetter, subName, 'ch%d' % channel, value)
 
     def getVal(self, subName, channel):
         """ Return the command string for a 'get' function. """
@@ -88,7 +88,7 @@ class FeeChannelSet(FeeSet):
             raise RuntimeError("Cannot get unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                          self.subs))
 
-        return self._getCmdString(self.getLetter, subName, channel)
+        return self._getCmdString(self.getLetter, subName, 'ch%d' % channel)
 
 
 class FeeControl(object):
@@ -234,14 +234,31 @@ class FeeControl(object):
         except AttributeError as e:
             raise
 
-        cmdSet = self.commands[setName]
-        cmdStr = cmdSet.setVal(subName, value)
+        return cmdSet.subs
+
+    def doSet(self, setName, subName, value, channel=None):
+        try:
+            cmdSet = self.commands[setName]
+        except AttributeError as e:
+            raise e
+
+        if channel is not None:
+            cmdStr = cmdSet.setVal(subName, value, channel)
+        else:
+            cmdStr = cmdSet.setVal(subName, value)
 
         return self.sendCommandStr(cmdStr)
 
-    def doGet(self, setName, subName=None):
-        cmdSet = self.commands[setName]
-        cmdStr = cmdSet.getVal(subName)
+    def doGet(self, setName, subName=None, channel=None):
+        try:
+            cmdSet = self.commands[setName]
+        except AttributeError as e:
+            raise e
+
+        if channel is not None:
+            cmdStr = cmdSet.getVal(subName, channel)
+        else:
+            cmdStr = cmdSet.getVal(subName)
 
         return self.sendCommandStr(cmdStr)
 
@@ -255,11 +272,11 @@ class FeeControl(object):
         try:
             self.device.write(fullCmd)
         except serial.writeTimeoutError as e:
-            raise
+            raise e
         except serial.SerialException as e:
-            raise
+            raise e
         except Exception as e:
-            raise
+            raise e
 
   
         ret = self.readResponse()
