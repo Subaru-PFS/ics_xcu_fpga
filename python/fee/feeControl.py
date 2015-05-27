@@ -344,8 +344,8 @@ class FeeControl(object):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
-            cmd = 'so,%s,%0.4f' % (self.ampName(a, leg=leg), 
-                                   levels[i])
+            cmd = 'so,%s,%4d' % (self.ampName(a, leg=leg), 
+                                 levels[i])
             ret = self.raw(cmd)
             if ret != 'SUCCESS':
                 logging.info("raw received :%r:" % (ret))
