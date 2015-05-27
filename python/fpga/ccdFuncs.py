@@ -17,7 +17,7 @@ def rowProgress(row_i, image, errorMsg="OK",
 
     nrows, ncols = image.shape
 
-    if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
+    if (everyNRows is not None and (row_i%everyNRows == 0 or row_i == nrows-1)) or errorMsg is not "OK":
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 
@@ -63,12 +63,12 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     nrows = image.shape[0]
     ampMasks = {}
     if cols is None:
-        cols = numpy.arange(len(ccd.ampidx(0,image)))
+        cols = slice(0,(len(ccd.ampidx(0,image))))
     for a in ampList:
         ampMasks[a] = ccd.ampidx(a, image)[cols]
 
-    if line > 0 and line % everyNRows == 0 or line == nrows-1 or errorMsg is not "OK":
-        flatim = image[line-everyNRows:line,:]
+    if (everyNRows is not None and (line > 0 and line % everyNRows == 0 or line == nrows-1)) or errorMsg is not "OK":
+        imRow = image[line]
 
         parts = ["%04d" % line]
         if lineDetail:
@@ -77,9 +77,9 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
                 kwargs.get('fpgaRow', 9999)))
 
         for a in ampList:
-            parts.append("%0.1f" % (flatim[:,ampMasks[a]].mean()))
+            parts.append("%0.1f" % (imRow[ampMasks[a]].mean()))
         for a in ampList:
-            parts.append("%0.2f" % (flatim[:,ampMasks[a]].std()))
+            parts.append("%0.2f" % (imRow[ampMasks[a]].std()))
         parts.append(errorMsg)
 
         print(' '.join(parts))

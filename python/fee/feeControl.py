@@ -4,6 +4,7 @@ import argparse
 import logging
 import serial
 import sys
+import time
 
 class FeeSet(object):
     def __init__(self, name, letter, subs=(), setLetter='s', getLetter='g'):
@@ -297,6 +298,7 @@ class FeeControl(object):
                 logging.debug("ignoring %r" % (c))
                 continue
             if c == self.EOL:
+                # if response.startswith('X')
                 break
             response += c
                 
@@ -321,23 +323,37 @@ class FeeControl(object):
         channel = ampNum/4
         return "%d%s,ch%d" % (ampNum%4, leg, channel)
 
-    def setLevels(self, amps, levels, leg='n'):
+    def setLevels(self, amps, levels, leg='n', pause=0.0):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
-            cmd = 'so,%s,%0.5f' % (self.ampName(a, leg=leg), 
+            cmd = 'so,%s,%0.4f' % (self.ampName(a, leg=leg), 
                                    levels[i])
-            self.raw(cmd)
+            ret = self.raw(cmd)
+            if ret != 'SUCCESS':
+                logging.info("raw received :%r:" % (ret))
+            else:
+                logging.debug("raw received :%r:" % (ret))
+            if not ret.endswith('SUCCESS'):
+                raise RuntimeError('setLevels command %s returned: %s' % (cmd, ret))
+            if pause > 0:
+                time.sleep(pause)
             # print "set level with: %s" % (cmd)
 
-    def zeroLevels(self, amps=None):
+    def zeroLevels(self, amps=None, leg=True):
         if amps is None:
             amps = range(8)
         levels = [0.0] * len(amps)
+
+        if leg is True:
+            legs = ('n','p')
+        else:
+            legs = leg,
     
-        self.setLevels(amps, levels, leg='p')
-        self.setLevels(amps, levels, leg='n')
-    
+        if 'p' in legs:
+            self.setLevels(amps, levels, leg='p')
+        if 'n' in legs:
+            self.setLevels(amps, levels, leg='n')
 
 def main(argv=None):
     if argv is None:
