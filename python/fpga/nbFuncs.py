@@ -7,7 +7,7 @@ import ccdFuncs
 
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
-    return arr - np.mean(arr)
+    return arr - np.median(arr)
 
 def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     medpix = np.median(im[prows])
@@ -20,7 +20,7 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.title('%s rows %s, all amps, clipped to %0.2f +/- %s' % (imName, prows, medpix, pixRange))
     plt.show()
 
-def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None):
+def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, peaks=None):
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
     The per-amp plots are offset by their mean value, and plotted plotOffset pixels apart.
@@ -55,14 +55,69 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 
     yoff = 0
     for a in amps:
-        seg = normed(im[row, cols + a*imcols])
+        normedIm = normed(im[:, cols + a*imcols])
+        seg = normedIm[row]
         plt.plot(cols, seg+yoff, '-+')
+
+        if peaks is not None:
+            for ii in range(-3,4):
+                print "%d: %s" % (ii, np.round(np.mean(normedIm[:, peaks+ii]), 3))
+
+        print 
         yoff += plotOffset
 
     plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
                                                   cols[0],cols[-1]))
 
-def rawAmpGrid(im, ccd, cols=None, rows=None, fig=None, figWidth=None):
+def rawAmpGrid(im, ccd, cols=None, rows=None, 
+               showFfts=False,
+               fig=None, figWidth=None):
+    if fig is None:
+        fig = plt.figure('amp_hists', figsize=(figWidth, figWidth*2), tight_layout=True)
+    fig.clf()
+
+    #if figWidth is not None:
+    #    fig.set_figwidth(figWidth*2)
+
+    if cols is None:
+        cols = slice(0,-1)
+    if rows is None:
+        rows = slice(0,-1)
+
+    fig.subplots_adjust(hspace=0.1, wspace=0.05)
+    if showFfts:
+        r = 8
+        c = 2
+    else:
+        r = 4
+        c = 2
+        
+    for a in range(8):
+        ampIm = im[rows, ccd.ampidx(a, im)[cols]]
+
+        if showFfts:
+            p = fig.add_subplot(r, c, 2*a + 1)
+        else:
+            p = fig.add_subplot(r, c, a + 1)
+
+        p.xaxis.set_visible(False)
+        p.yaxis.set_visible(False)
+        pp = p.imshow(ampIm-np.median(ampIm), aspect='equal')
+        plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
+
+        if showFfts:
+            p = fig.add_subplot(r, c, 2*a + 2)
+            p.xaxis.set_visible(False)
+            p.yaxis.set_visible(False)
+            
+            normArr = ampIm - ampIm.mean()
+            yhat = np.log10(np.absolute(np.fft.fft(normArr)))
+            p.imshow(yhat, aspect='equal')
+            plt.title('amp %d fft' % (a))
+
+    return fig
+
+def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=None):
     if fig is None:
         fig = plt.figure('amp_images')
     fig.clf()
@@ -74,76 +129,103 @@ def rawAmpGrid(im, ccd, cols=None, rows=None, fig=None, figWidth=None):
     if rows is None:
         rows = slice(0,-1)
 
-    fig.subplots_adjust(hspace=0.01, wspace=0.05)
+    #fig.subplots_adjust(hspace=0.1, wspace=0.01)
     r = 2
     c = 4
+    hists = []
+    means, devs = ampStats(im, ccd=ccd, rows=rows, cols=cols)
     for a in range(8):
-        ampIm = im[rows, ccd.ampidx(a, im)[cols]]
+        ampIm = im[rows, ccd.ampidx(a, im)[cols]].flatten()
+        #ampIm -= np.round(np.mean(ampIm))
+        ampIm -= np.median(ampIm)
         p = fig.add_subplot(r, c, a+1)
-        p.xaxis.set_visible(False)
+        #p.xaxis.set_visible(False)
         p.yaxis.set_visible(False)
 
-        pp = p.imshow(ampIm-ampIm.mean())
-        plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
+        ph = p.hist(ampIm, bins=np.arange(histRange)-(histRange/2.0 - 0.5), normed=False)
 
-    return fig
+        p.annotate("s=%0.2f" % (devs[a]), xy=(0.65, 0.85), xycoords="axes fraction")
+        p.annotate("amp %d,%d" % (a/4, a%4), xy=(0.05, 0.85), xycoords="axes fraction")
+        hists.append(ph)
+        #plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
+
+    return fig, hists
 
 # Routines to set the mean amp levels to some handy level.
 # tuneLevels() does all amps, to about 10k.
 
-def ampStats(im, cols=None, ccd=None):
-    rowCtr = im.shape[0]/2
-    rowCnt = im.shape[0]/3
-    rowim = im[rowCtr-rowCnt/2:rowCtr+rowCnt/2]
+def ampStats(im, cols=None, rows=None, ccd=None):
     if cols is None:
         cols = np.arange(im.shape[1]/ccd.namps)
+    if rows is None:
+        rows = np.arange(im.shape[0])
         
+    rowim = im[rows]
     means = []
     devs = []
     for a in np.arange(8):
-        ampCols = ccd.ampidx(a)[cols]
+        ampCols = ccd.ampidx(a, im=im)[cols]
         means.append(rowim[:, ampCols].mean())
         devs.append(rowim[:, ampCols].std())
 
     return np.array(means), np.array(devs)
 
 def fmtArr(a, format='%0.4f'):
-    return [format % i for i in a]
+    return "[" + " ".join([format % i for i in a]) + "]"
 
 def tuneLevels(ccd, fee, amps=None, 
-               statCols=None, levels=1000, gains=None, sigTol=3, 
-               maxLoops=10, adjOffset=10, nrows=100, startStep=0.05,
-               sleepTime=0.3, clockFunc=None,legs='n'):
-    namps = 8
+               statCols=None, levels=1000, useGains=None, sigTol=3, 
+               maxLoops=10, adjOffset=10, nrows=100, 
+               startOffset=None, startStep=0.05,
+               sleepTime=0.5, clockFunc=None,legs='n',
+               doZero=True, doUnwrap=65000):
+    nAllAmps = 8
     
     if amps is None:
-        amps = range(namps)
+        amps = range(nAllAmps)
     if isinstance(amps, int):
         amps = [amps]
+
+    namps = len(amps)
     if isinstance(levels, (int, float)):
-        levels = np.zeros(namps, dtype='f4') + levels
+        levels = np.zeros(nAllAmps, dtype='f4') + levels
+
     if isinstance(startStep, (int, float)):
-        startStep = np.zeros(namps, dtype='f4') + startStep
-    if gains is None:
-        gains = np.zeros(namps)
-        
+        startStep = np.zeros(nAllAmps, dtype='f4') + startStep
+
+    if startOffset is None:
+        startOffset = startStep.copy()
+    elif isinstance(startOffset, (int, float)):
+        startOffset = np.zeros(nAllAmps, dtype='f4') + startOffset
+
+    if useGains is None:
+        gains = np.zeros(nAllAmps)
+    else:
+        gains = useGains 
+
+    if doUnwrap is True:
+        doUnwrap = 64000
+
     levels[np.arange(namps)%2 == 0] += adjOffset
     levels[np.arange(namps)%2 == 1] -= adjOffset
 
     # We cannot yet read bias levels, so zero them first
-    fee.zeroLevels(amps)
+    offsets = np.zeros(nAllAmps)
+    offsets[amps] = startOffset.copy()
+    if doZero:
+        fee.zeroOffsets(amps)
     if 'n' in legs:
-        fee.setLevels(amps, startStep, leg='n')
+        fee.setOffsets(amps, offsets[amps], leg='n')
     if 'p' in legs:
-        fee.setLevels(amps, -startStep, leg='p')
+        fee.setOffsets(amps, -offsets[amps], leg='p')
     time.sleep(sleepTime)
 
-    done = np.zeros(namps, dtype='i1')
-    offsets = startStep.copy()
-    lastLevels = np.zeros(namps, dtype='f4')
+    done = np.ones(nAllAmps, dtype='i1')
+    done[amps] = False
+    lastLevels = np.zeros(nAllAmps, dtype='f4')
 
     ii = 0
-    argDict = dict(everyNRows=nrows, ampList=amps, ccd=ccd)
+    argDict = dict(everyNRows=None, ampList=amps, ccd=ccd)
 
     # Clear any accumulated charge
     toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
@@ -151,58 +233,71 @@ def tuneLevels(ccd, fee, amps=None,
 
     lastOffset = offsets * 0
     offLimit = 0.199
+    print
+    print "amps: %s" % (amps)
+    print
     while True:
-        if np.all(done) or ii > maxLoops:
-            break 
-        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
-                                  clockFunc=clockFunc)
+        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, 
+                                  doSave=False, clockFunc=clockFunc)
+
+        if doUnwrap:
+            im = im.astype('i4')
+            hi = im > doUnwrap
+            if hi.sum() > 0:
+                print "!!!! unwrapping %d pixels !!!!" % (hi.sum())
+                im[hi] -= 65535
+
         newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
+        print "====== read %d" % (ii)
+        print "offs (%d): %s" % (ii, fmtArr(offsets[amps]))
         print "means(%d): %s" % (ii, fmtArr(newLevels))
         print "devs (%d): %s" % (ii, fmtArr(devs))
-        
+        print "done(%d of %d)   : %s" % (ii, maxLoops, done)
+
+        if np.all(done) or ii > maxLoops:
+            break 
+
         thisOffset = offsets * 0
         for a_i in range(len(amps)):
             a = amps[a_i]
             mean = newLevels[a]
             last = lastLevels[a]
             stddev = devs[a]
-            g = gains[a]
 
-            if mean == 0 or mean > 50000:
+            if mean == 0 or mean > doUnwrap:
                 # We are not in range yet. Keep adding the starting step.
-                print "%d %d: out of range: %0.2f" % (ii, a, mean)
+                #print "%d %d: out of range: %0.2f" % (ii, a, mean)
                 thisOffset[a] = startStep[a]
                 
-            elif last <= 0:
+            # Close enough? Stop.
+            elif np.fabs(levels[a]-mean) < sigTol*stddev:
+                done[a_i] = True
+                continue
+                    
+            elif last <= 0 and useGains is None:
                 # We don't have two levels yet. Bump and remeasure.
-                print "%d %d: have one, need two" % (ii, a)
+                #print "%d %d: have one, need two" % (ii, a)
                 thisOffset[a] = startStep[a]
                 lastLevels[a] = mean
             else:
-                # Have two levels. 
-                dLevel = mean - last
+                if useGains is None:
+                    # Have two levels. 
+                    dLevel = mean - last
 
-                # Close enough? Stop.
-                if np.fabs(levels[a]-mean) < sigTol*stddev:
-                    done[a_i] = True
-                    continue
-                    
-                # Remeasure gain and apply.
-                dOffset = lastOffset[a]
-                if dOffset != 0.0:
-                    lastGain = dLevel/dOffset
-                    gains[a] = lastGain
-                else:
-                    lastGain = gains[a]
+                    # Remeasure gain and apply.
+                    dOffset = lastOffset[a]
+                    if dOffset != 0.0:
+                        gains[a] = dLevel/dOffset
+
                 # print "%d,%d: dLevel/dOffset=gain %g/%g = %g vs. %s" % (a_i, a, dLevel, dOffset, lastGain, gains[a])
                     
                 stillWant = levels[a]-mean
                 thisOffset[a] = stillWant/gains[a]
                 if np.fabs(thisOffset[a] + offsets[a]) >= offLimit:
                     thisOffset[a] = startStep[a]
-                lastLevels[a] = mean
-                print("%d,%d level,mean,want,offset,doffset %g %g %g %g %g" % 
-                      (a_i, a, levels[a], mean, stillWant, thisOffset[a], dOffset))
+                lastLevels[a] = mean  
+                #print("%d,%d level,mean,want,offset,doffset %g %g %g %g %g" % 
+                #      (a_i, a, levels[a], mean, stillWant, thisOffset[a], dOffset))
 
         offsets += thisOffset
         if np.any(np.fabs(offsets) >= offLimit):
@@ -213,92 +308,88 @@ def tuneLevels(ccd, fee, amps=None,
             #done[offsets <= -offLimit] = True
             
         print 
-        print "amps: %s" % (amps)
         print "offs!(%d): %s" % (ii, fmtArr(offsets[amps]))
         print "doffs(%d): %s" % (ii, fmtArr(thisOffset[amps]))
         print "gains(%d): %s" % (ii, fmtArr(gains[amps]))
-        print "done(%d of %d)   : %s" % (ii, maxLoops, done)
         print
         
         ii += 1
+        
         lastOffset = thisOffset.copy()
         # lastLevels = newLevels
         if 'n' in legs:
-            fee.setLevels(amps, offsets[amps], leg='n')
+            fee.setOffsets(amps, offsets[amps], leg='n')
         if 'p' in legs:
-            fee.setLevels(amps, -offsets[amps], leg='p')
+            fee.setOffsets(amps, -offsets[amps], leg='p')
         time.sleep(sleepTime)
         
-    im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
-                       clockFunc=clockFunc)
-    newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
-    print "means(%d): %s" % (ii, fmtArr(newLevels))
-    print "devs (%d): %s" % (ii, fmtArr(devs))
-
     return offsets, devs, gains
 
 def gainCurve(ccd, fee, amps=None, 
-              statCols=None, nrows=200, stepSize=0.04, offLimit=0.2, sleepTime=0.5):
-    namps = 8
+              statCols=None, nrows=200, 
+              doUnwrap=False, leg='n',
+              stepSize=19.9*2, offLimit=199, sleepTime=0.1):
     
     if amps is None:
-        amps = range(namps)
+        amps = np.arange(namps)
     if isinstance(amps, int):
-        amps = [amps]
+        amps = np.zeros(8, dtype='i2') + amps
 
-    done = [False]*len(amps)
+    namps = len(amps)
+
     offsets = []
     levels = []
 
-    argDict = dict(everyNRows=50, ampList=amps, ccd=ccd)
+    argDict = dict(everyNRows=100, ampList=amps, ccd=ccd)
 
     # We cannot yet read bias levels, so zero them first
-    fee.zeroLevels(amps)
+    fee.zeroOffsets(amps)
     time.sleep(sleepTime)
     
     # Clear any accumulated charge
     toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
 
     offset = 0.0
-    while not np.all(done) and np.fabs(offset) <= offLimit:
+    while np.fabs(offset) <= offLimit:
         offsets.append(offset)
-        fee.setLevels(amps, [offset]*namps)
+        fee.setOffsets(amps, [offset]*namps, leg=leg)
         time.sleep(sleepTime)
 
         im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
-        newLevels, devs = ampStats(im, statCols)
-        print "means(%d): %s" % (offset, fmtArr(newLevels))
-        print "devs (%d): %s" % (offset, fmtArr(devs))
-        
+        if doUnwrap is not False:
+            im = im.astype('i4')
+            hi_w = im > doUnwrap
+            if hi_w.sum() > 0:
+                print "!!!! unwraping %d pixels !!!!" % (hi_w.sum())
+                im[hi_w] -= 65535
+
+        newLevels, devs = ampStats(im, statCols, ccd=ccd)
+        print "means(%0.3f): %s" % (offset, fmtArr(newLevels))
+        print "devs (%0.3f): %s" % (offset, fmtArr(devs))
+        print
+
         levels.append(newLevels.copy())
         offset += stepSize
-        
-        if np.any(np.fabs(offsets) >= offLimit):
-            print "!!!!!!!! WARNING: railed offsets !!!!!!!"
-            offsets[offsets < -offLimit] = -offLimit
-            offsets[offsets > offLimit] = offLimit
-            done[offsets >= offLimit] = True
-            done[offsets <= -offLimit] = True
-            
-        print 
-        print "done(%g/%g)   : %s" % (offset, offLimit, done)
-        print
         
     return offsets, levels
         
 
-def plotGains(ccd, offsets, levels):
+def plotGains(offsets, levels, amps=None):
     offs = offsets[1:]
     la = np.array(levels[1:])
-    fig = plt.figure('levels')
-    fig.clf()
-    p = fig.add_subplot(111)
+    fig = plt.figure()
+    p1 = fig.add_subplot(121)
+    p2 = fig.add_subplot(122)
+    
+    if amps is None:
+        amps = range(len(offsets))
 
     fitgains = []
-    for a in range(ccd.namps):
+    for a in amps:
         fit = np.polyfit(offs, la[:,a], 1)
         ev = np.polyval(fit, offs)
-        p.plot(offs, la[:,a]-ev, '+-')
+        p1.plot(offs, la[:,a], '+-')
+        p2.plot(offs, la[:,a]-ev, '+-')
         print "%d: %s" % (a, fit)
         fitgains.append(fit)
     
