@@ -300,10 +300,79 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendCommandStr(self, cmdStr):
-        fullCmd = "~%s%s" % (cmdStr, self.EOL)
+    def sendImage(self, path, verbose=True, doWait=True):
+        """ Download an image file. """
 
-        logging.debug("sending command :%r:" % (fullCmd))
+        eol = chr(0x0a)
+        ack = chr(0x06)
+        nak = chr(0x15)
+        lineNumber = 1
+        maxRetries = 5
+
+        if doWait:
+            self.device.timeout = 15
+            ret = self.device.readline()
+            retline = ret.strip()
+            isBootLoader = 'Bootloader' in retline
+            if not isBootLoader:
+                raise RuntimeError("not at bootloader prompt")
+            isBlank = retline[-1] == 'B'
+            self.logger.warn('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
+            if not isBlank:
+                self.device.write('*')
+        else:
+            self.device.write('*')
+
+        ret = self.device.readline()
+        self.logger.warn('at bootloader *, got %r' % (ret))
+
+        with open(path, 'rU') as hexfile:
+            lines = hexfile.readlines()
+            t0 = time.time()
+            self.logger.info('sending image file %s, %d lines' % (path, len(lines)))
+            for l in lines:
+                l = l.strip()
+                if l[0] == ';':
+                    continue
+                retries = 0
+                while True:
+                    if verbose and retries > 0:
+                        self.logger.warn('resending line %d; try %d' % (lineNumber, 
+                                                                        retries))
+                    fullLine = l+eol
+                    if verbose and lineNumber%100 == 1:
+                        self.logger.info('sending line %d / %d', lineNumber, len(lines))
+                    self.logger.debug("sending command :%r:", fullLine)
+                    self.device.write(fullLine)
+                    retline = self.device.read(size=len(l)+2)
+
+                    if l != retline[:len(l)]:
+                        self.logger.warn("command echo mismatch. sent :%r: rcvd :%r:" % (l, retline))
+                    ret = retline[-1]
+                    lineNumber += 1
+                    if ret == ack or l == ':00000001FF':
+                        break
+                    if ret != nak:
+                        raise RuntimeError("unexpected response (%r) after sending line %d" %
+                                           (ret, lineNumber-1))
+                    retries += 1
+                    if retries >= maxRetries:
+                        raise RuntimeError("too many retries (%d) on line %d" %
+                                           (retries, lineNumber-1))
+
+            t1 = time.time()
+            self.logger.info('sent image file %s in %0.2f seconds' % (path, t1-t0))
+
+
+    def sendCommandStr(self, cmdStr, noTilde=False, EOL=None):
+        if EOL is None:
+            EOL = self.EOL
+        if noTilde:
+            fullCmd = "%s%s" % (cmdStr, EOL)
+        else:
+            fullCmd = "~%s%s" % (cmdStr, EOL)
+
+        self.logger.debug("sending command :%r:" % (fullCmd))
         try:
             self.device.write(fullCmd)
         except serial.writeTimeoutError as e:
@@ -320,7 +389,7 @@ class FeeControl(object):
  
         return self.readResponse()
 
-    def readResponse(self):
+    def readResponse(self, EOL=None):
         """ Read a single response line, up to the next self.EOL.
 
         Returns
@@ -333,12 +402,15 @@ class FeeControl(object):
         Ignores CRs
         """
 
+        if EOL is None:
+            EOL = self.EOL
+
         response = ""
 
         while True:
             try:
                 c = self.device.read(size=1)
-                # logging.debug("received char :%r:" % (c))
+                # self.logger.debug("received char :%r:" % (c))
             except serial.SerialException as e:
                 raise
             except serial.portNotOpenError as e:
