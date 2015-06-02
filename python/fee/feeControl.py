@@ -29,7 +29,7 @@ class FeeSet(object):
             raise RuntimeError("Cannot set unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                          self.subs))
         if value:
-            return self._getCmdString(self.setLetter, subName, value)
+            return self._getCmdString(self.setLetter, subName, str(value))
         else:
             return self._getCmdString(self.setLetter, subName)
 
@@ -47,7 +47,7 @@ class FeeSet(object):
         else:
             return self._getCmdString(self.getLetter)
 
-    def ampName(self, ampNum, leg='n'):
+    def _ampName(self, ampNum, leg='n'):
         """ Return the FEE controller's name for an amp (just for the so command). 
 
         Parameters
@@ -71,9 +71,9 @@ class FeeChannelSet(FeeSet):
             raise RuntimeError("Cannot set unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                          self.subs))
         if channel not in (0,1):
-            raise RuntimeError("Channel must be 0 or 1 %s(%s)!" % (self.name, subName))
+            raise RuntimeError("Channel must be 0 or 1 (%s) for %s(%s)!" % (channel, self.name, subName))
             
-        return self._getCmdString(self.setLetter, subName, 'ch%d' % channel, value)
+        return self._getCmdString(self.setLetter, subName, 'ch%d' % (channel), str(value))
 
     def getVal(self, subName, channel):
         """ Return the command string for a 'get' function. """
@@ -82,17 +82,17 @@ class FeeChannelSet(FeeSet):
             raise RuntimeError("Cannot get %s(%s)!" % (self.name, subName))
 
         if channel not in (0,1):
-            raise RuntimeError("Channel must be 0 or 1 %s(%s)!" % (self.name, subName))
+            raise RuntimeError("Channel must be 0 or 1 (%s) for %s(%s)!" % (channel, self.name, subName))
             
         if subName not in self.subs:
             raise RuntimeError("Cannot get unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                          self.subs))
 
-        return self._getCmdString(self.getLetter, subName, 'ch%d' % channel)
+        return self._getCmdString(self.getLetter, subName, 'ch%d' % (channel))
 
 
 class FeeControl(object):
-    def __init__(self, port=None, logLevel=logging.DEBUG):
+    def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None):
         if port is None:
             port = '/dev/ttyS0'
         self.logger = logging.getLogger()
@@ -101,18 +101,22 @@ class FeeControl(object):
         self.status = {}
         self.devConfig = dict(port=port, baudrate=9600)
         self.devConfig['writeTimeout'] = 100 * 1.0/(self.devConfig['baudrate']/8)
+        self.devConfig['timeout'] = 0.5
         self.EOL = '\r'
         self.ignoredEOL = '\n'
         self.defineCommands()
 
         self.setDevice(port)
 
+        if sendImage is not None:
+            self.sendImage(sendImage)
+
     def setDevice(self, devName):
         """ """
         self.devName = devName
         self.connectToDevice()
 
-    def connectToDevice(self, noCheck=False):
+    def connectToDevice(self):
         """ Establish a new connection to the FEE. Any old conection is closed. By default the revision is fetched. """
 
         if self.device:
@@ -122,23 +126,28 @@ class FeeControl(object):
         if self.devName:
             self.device = serial.Serial(**self.devConfig)
     
-        if not noCheck:
-            ret = self.fetchAll()
-            print "connected to FEE, revision %s" % (ret)
-    
-    def powerUp(self):
+    def powerUp(self, preset='BT1'):
         """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
 
+        rev = self.sendCommandStr('~gr')
+        serial = self.sendCommandStr('~gs')
+        self.status['revision'] = rev
+        self.status['serial'] = serial
+
+        print "FEE revision: %s" % rev
+        print "FEE serial: %s" % serial
         print self.sendCommandStr('se,all,on')
-        print self.sendCommandStr('lp,read')
+        print self.sendCommandStr('lp,%s' % (preset))
         print self.sendCommandStr('se,Clks,on')
+
+        # Send a sprurious read, do paper over a device error on the first read.
+        self.sendCommandStr('ro,0p,ch0')
 
     def powerDown(self):
         """ Bring the FEE down to a sane and stable idle. """
 
-        print self.sendCommandStr('se,all,off')
         print self.sendCommandStr('se,Clks,off')
-
+        print self.sendCommandStr('se,all,off')
 
     def fetchAll(self):
         return self.sendCommandStr('gr')
@@ -278,7 +287,7 @@ class FeeControl(object):
             raise e
 
         if channel is not None:
-            cmdStr = cmdSet.setVal(subName, value, channel)
+            cmdStr = cmdSet.setVal(subName, channel, value)
         else:
             cmdStr = cmdSet.setVal(subName, value)
 
@@ -419,14 +428,14 @@ class FeeControl(object):
                 raise
 
             if self.ignoredEOL is not None and c == self.ignoredEOL:
-                logging.debug("ignoring %r" % (c))
+                self.logger.debug("ignoring %r" % (c))
                 continue
-            if c == self.EOL:
+            if c == EOL:
                 # if response.startswith('X')
                 break
             response += c
                 
-        logging.debug("received :%s:" % (response))
+        self.logger.debug("received :%s:" % (response))
         return response
 
     def setRaw(self, cmdStr):
