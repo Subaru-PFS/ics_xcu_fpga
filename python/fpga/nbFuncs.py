@@ -176,7 +176,7 @@ def fmtArr(a, format='%0.4f'):
 def tuneLevels(ccd, fee, amps=None, 
                statCols=None, levels=1000, useGains=None, sigTol=3, 
                maxLoops=10, adjOffset=10, nrows=100, 
-               startOffset=None, startStep=0.05,
+               startOffset=None, startStep=10,
                sleepTime=0.5, clockFunc=None,legs='n',
                doZero=True, doUnwrap=65000):
     nAllAmps = 8
@@ -204,7 +204,7 @@ def tuneLevels(ccd, fee, amps=None,
         gains = useGains 
 
     if doUnwrap is True:
-        doUnwrap = 64000
+        doUnwrap = 65000
 
     levels[np.arange(namps)%2 == 0] += adjOffset
     levels[np.arange(namps)%2 == 1] -= adjOffset
@@ -232,7 +232,7 @@ def tuneLevels(ccd, fee, amps=None,
                          clockFunc=clockFunc)
 
     lastOffset = offsets * 0
-    offLimit = 0.199
+    offLimit = 199
     print
     print "amps: %s" % (amps)
     print
@@ -266,7 +266,7 @@ def tuneLevels(ccd, fee, amps=None,
 
             if mean == 0 or mean > doUnwrap:
                 # We are not in range yet. Keep adding the starting step.
-                #print "%d %d: out of range: %0.2f" % (ii, a, mean)
+                # print "%d %d: out of range: %0.2f" % (ii, a, mean)
                 thisOffset[a] = startStep[a]
                 
             # Close enough? Stop.
@@ -276,7 +276,7 @@ def tuneLevels(ccd, fee, amps=None,
                     
             elif last <= 0 and useGains is None:
                 # We don't have two levels yet. Bump and remeasure.
-                #print "%d %d: have one, need two" % (ii, a)
+                # print "%d %d: have one, need two" % (ii, a)
                 thisOffset[a] = startStep[a]
                 lastLevels[a] = mean
             else:
@@ -296,16 +296,16 @@ def tuneLevels(ccd, fee, amps=None,
                 if np.fabs(thisOffset[a] + offsets[a]) >= offLimit:
                     thisOffset[a] = startStep[a]
                 lastLevels[a] = mean  
-                #print("%d,%d level,mean,want,offset,doffset %g %g %g %g %g" % 
-                #      (a_i, a, levels[a], mean, stillWant, thisOffset[a], dOffset))
+                # print("%d,%d level,mean,want,offset,doffset %g %g %g %g %g" % 
+                #       (a_i, a, levels[a], mean, stillWant, thisOffset[a], dOffset))
 
         offsets += thisOffset
         if np.any(np.fabs(offsets) >= offLimit):
             print("!!!!!!!! WARNING: railed offsets !!!!!!!: %s" % (np.fabs(offsets) >= offLimit))
             offsets[offsets < -offLimit] = -offLimit
             offsets[offsets > offLimit] = offLimit
-            #done[offsets >= offLimit] = True
-            #done[offsets <= -offLimit] = True
+            # done[offsets >= offLimit] = True
+            # done[offsets <= -offLimit] = True
             
         print 
         print "offs!(%d): %s" % (ii, fmtArr(offsets[amps]))

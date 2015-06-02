@@ -17,7 +17,6 @@ class FeeSet(object):
     def _getCmdString(self, cmdLetter, *parts):
         allParts = ["%s%s" % (cmdLetter, self.letter)]
         allParts.extend(parts)
-        #print "%r : %r : %r : %r" % (cmdLetter, self.letter, parts, allParts)
         return ','.join(allParts)
 
     def setVal(self, subName, value):
@@ -466,10 +465,7 @@ class FeeControl(object):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
             ampName, channel = self.ampParts(a, leg=leg)
-            ret = self.doSet('offset', ampName, levels[i], channel=channel)
-            #cmd = 'so,%s,%4d' % (self.ampName(a, leg=leg), 
-            #                     levels[i])
-            #ret = self.raw(cmd)
+            ret = self.doSet('offset', ampName, round(levels[i],2), channel=channel)
             if ret != 'SUCCESS':
                 self.logger.info("raw received :%r:" % (ret))
             else:
@@ -478,7 +474,7 @@ class FeeControl(object):
                 raise RuntimeError('setLevels command %s returned: %s' % (cmd, ret))
             if pause > 0:
                 time.sleep(pause)
-            # print "set level with: %s" % (cmd)
+
 
     def zeroOffsets(self, amps=None, leg=True):
         if amps is None:
