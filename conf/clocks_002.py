@@ -100,7 +100,7 @@ def standardClocks(tickTime=40e-9, invertSW=False):
                    turnOn= [P2,TG])
 
     post.changeFor(duration=1000,
-                   turnOn= [P3])
+                   turnOff=[P3])
 
     post.changeFor(duration=50,
                    turnOn= [RG])
