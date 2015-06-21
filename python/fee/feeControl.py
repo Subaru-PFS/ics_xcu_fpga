@@ -323,7 +323,7 @@ class FeeControl(object):
             retline = ret.strip()
             isBootLoader = 'Bootloader' in retline
             if not isBootLoader:
-                raise RuntimeError("not at bootloader prompt")
+                raise RuntimeError("not at bootloader prompt (%s)" % (retline))
             isBlank = retline[-1] == 'B'
             self.logger.warn('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
             if not isBlank:
@@ -332,8 +332,12 @@ class FeeControl(object):
             self.device.write('*')
 
         ret = self.device.readline()
-        self.logger.warn('at bootloader *, got %r' % (ret))
+        ret = ret.strip()
+        if not ret.startswith('*Waiting for Data...'):
+            self.logger.warn('at bootloader *, got %r' % (ret))
+            ret = self.device.readline()
 
+        self.device.timeout = self.devConfig['timeout']
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
             t0 = time.time()
@@ -353,6 +357,7 @@ class FeeControl(object):
                     self.logger.debug("sending command :%r:", fullLine)
                     self.device.write(fullLine)
                     retline = self.device.read(size=len(l)+2)
+                    retline = retline.translate(None, '\x11\x13')
 
                     if l != retline[:len(l)]:
                         self.logger.warn("command echo mismatch. sent :%r: rcvd :%r:" % (l, retline))
@@ -361,8 +366,8 @@ class FeeControl(object):
                     if ret == ack or l == ':00000001FF':
                         break
                     if ret != nak:
-                        raise RuntimeError("unexpected response (%r) after sending line %d" %
-                                           (ret, lineNumber-1))
+                        raise RuntimeError("unexpected response (%r in %r) after sending line %d" %
+                                           (ret, retline, lineNumber-1))
                     retries += 1
                     if retries >= maxRetries:
                         raise RuntimeError("too many retries (%d) on line %d" %
