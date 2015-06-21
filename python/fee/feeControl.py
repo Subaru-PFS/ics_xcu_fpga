@@ -6,13 +6,19 @@ import serial
 import sys
 import time
 
+from collections import OrderedDict
+
 class FeeSet(object):
-    def __init__(self, name, letter, subs=(), setLetter='s', getLetter='g'):
+    channels = []
+
+    def __init__(self, name, letter, subs=(), setLetter='s', readLetter='r', getLetter='g'):
         self.name = name
         self.letter = letter
         self.subs = subs
         self.setLetter = setLetter
+        self.readLetter = readLetter
         self.getLetter = getLetter
+
 
     def _getCmdString(self, cmdLetter, *parts):
         allParts = ["%s%s" % (cmdLetter, self.letter)]
@@ -32,19 +38,29 @@ class FeeSet(object):
         else:
             return self._getCmdString(self.setLetter, subName)
 
-    def getVal(self, subName):
+    def _getVal(self, subName, letter):
         """ Return the command string for a 'get' function. """
 
-        if not self.getLetter:
+        if not letter:
             raise RuntimeError("Cannot get %s(%s)!" % (self.name, subName))
 
         if subName:
             if subName not in self.subs:
                 raise RuntimeError("Cannot get unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                              self.subs))
-            return self._getCmdString(self.getLetter, subName)
+            return self._getCmdString(letter, subName)
         else:
-            return self._getCmdString(self.getLetter)
+            return self._getCmdString(letter)
+
+    def getVal(self, subName):
+        """ Return the command string for a 'get' function. """
+
+        return self._getVal(subName, self.getLetter)
+
+    def readVal(self, subName):
+        """ Return the command string for a 'read' function. """
+
+        return self._getVal(subName, self.readLetter)
 
     def _ampName(self, ampNum, leg='n'):
         """ Return the FEE controller's name for an amp (just for the so command). 
@@ -61,6 +77,8 @@ class FeeSet(object):
         return "%d%s,ch%d" % (ampNum%4, leg, ampNum/4)
 
 class FeeChannelSet(FeeSet):
+    channels = [0,1]
+
     def setVal(self, subName, channel, value):
         """ Return the command string for a 'set' function. """
 
@@ -74,10 +92,10 @@ class FeeChannelSet(FeeSet):
             
         return self._getCmdString(self.setLetter, subName, 'ch%d' % (channel), str(value))
 
-    def getVal(self, subName, channel):
+    def _getVal(self, subName, channel, letter):
         """ Return the command string for a 'get' function. """
 
-        if not self.getLetter:
+        if not letter:
             raise RuntimeError("Cannot get %s(%s)!" % (self.name, subName))
 
         if channel not in (0,1):
@@ -87,8 +105,17 @@ class FeeChannelSet(FeeSet):
             raise RuntimeError("Cannot get unknown %s (%s). Valid=%s" % (self.name, subName,
                                                                          self.subs))
 
-        return self._getCmdString(self.getLetter, subName, 'ch%d' % (channel))
+        return self._getCmdString(letter, subName, 'ch%d' % (channel))
 
+    def getVal(self, subName, channel):
+        """ Return the command string for a 'get' function. """
+
+        return self._getVal(subName, channel, self.getLetter)
+
+    def readVal(self, subName, channel):
+        """ Return the command string for a 'read' function. """
+
+        return self._getVal(subName, channel, self.readLetter)
 
 class FeeControl(object):
     def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None):
@@ -97,12 +124,13 @@ class FeeControl(object):
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
-        self.status = {}
-        self.devConfig = dict(port=port, baudrate=9600)
-        self.devConfig['writeTimeout'] = 100 * 1.0/(self.devConfig['baudrate']/8)
-        self.devConfig['timeout'] = 0.5
-        self.EOL = '\r'
-        self.ignoredEOL = '\n'
+        self.status = OrderedDict()
+        self.devConfig = dict(port=port, 
+                              baudrate=38400,
+                              timeout=0.5)
+        self.devConfig['writeTimeout'] = 10 * 1.0/(self.devConfig['baudrate']/8.0)
+        self.EOL = '\n'
+        self.ignoredEOL = None # '\n'
         self.defineCommands()
 
         self.setDevice(port)
@@ -128,19 +156,29 @@ class FeeControl(object):
     def powerUp(self, preset='BT1'):
         """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
 
-        rev = self.sendCommandStr('~gr')
-        serial = self.sendCommandStr('~gs')
-        self.status['revision'] = rev
-        self.status['serial'] = serial
-
-        print "FEE revision: %s" % rev
-        print "FEE serial: %s" % serial
         print self.sendCommandStr('se,all,on')
         print self.sendCommandStr('lp,%s' % (preset))
         print self.sendCommandStr('se,Clks,on')
 
-        # Send a sprurious read, do paper over a device error on the first read.
+        # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,0p,ch0')
+
+    def getAllStatus(self):
+        newStatus = OrderedDict()
+
+        for cset in self.commands.values():
+            if cset.getLetter is None:
+                continue
+            if cset.channels:
+                for chan in cset.channels:
+                    for k in cset.subs:       
+                        newStatus["%s.ch%d.%s" % (cset.name, chan, k)] = self.doGet(cset.name, k, chan)
+            else:
+                for k in cset.subs:       
+                    newStatus["%s.%s" % (cset.name, k)] = self.doGet(cset.name, k)
+
+        self.status = newStatus
+        return self.status
 
     def powerDown(self):
         """ Bring the FEE down to a sane and stable idle. """
@@ -148,9 +186,15 @@ class FeeControl(object):
         print self.sendCommandStr('se,Clks,off')
         print self.sendCommandStr('se,all,off')
 
-    def fetchAll(self):
-        return self.sendCommandStr('gr')
+    def printStatus(self):
+        for k, v in self.status.iteritems():
+            print k, ': ', v
 
+    def setSerial(self, serialType, serial):
+        if serialType not in ('ADC', 'PA0'):
+            raise RuntimeError("unknown serial number type: %s" % (serialType))
+        print self.sendCommandStr('ss,%s,%s' % (serialType, serial))
+        
     def _defineFullCommand(self, cmdSet):
         """ For a passed commandset, create methods to set&get values."""
 
@@ -159,8 +203,9 @@ class FeeControl(object):
     def defineCommands(self):
         self.commands = {}
 
-        # Read from file....
-        self.commands['revision'] = FeeSet('revision', 'r', setLetter=None)
+        self.commands['revision'] = FeeSet('revision', 'r', ['FEE'], 
+                                           setLetter=None)
+        self.commands['serial'] = FeeSet('serial', 's', ['FEE', 'ADC', 'PA0'])
 
         """
         #define setPowerEn   "se" // must include 0 or 1 for off or on 
@@ -181,7 +226,8 @@ class FeeControl(object):
         self.commands['enable'] = FeeSet('enable', 'e', ['all', 
                                                          '3V3','5V','12V','24V','54V',
                                                          'PA','LVDS',
-                                                         'Vbb0', 'Vbb1'])
+                                                         'Vbb0', 'Vbb1'], 
+                                         getLetter=None)
         """
         //Read/calibrate supply voltages
         #define calSupplyVoltage "cv"   //calibrate voltage channel
@@ -201,7 +247,7 @@ class FeeControl(object):
                                           ['3V3M','3V3',
                                            '5VP','5VN','5VPpa', '5VNpa',
                                            '12VP', '12VN', '24VN', '54VP'],
-                                          setLetter='c')
+                                          setLetter='c', getLetter='r')
         """
         // Set/Get the CDS offset voltages 
         #define setCDS_OS "so"
@@ -268,8 +314,8 @@ class FeeControl(object):
         """
         self.commands['preset'] = FeeSet('preset', 'p', 
                                          ["erase", "read", "expose", "wipe", "offset", 
-                                          "BT1", "OT1"],
-                                         getLetter='l')
+                                          "BT1"],
+                                         getLetter=None)
 
     def allKeys(self, setName):
         try:
@@ -452,9 +498,6 @@ class FeeControl(object):
         
         return self.sendCommandStr(cmdStr)
 
-    def getAll(self):
-        pass
-
     def _ampName(self, ampNum, leg='n'):
         ampNum = int(ampNum)
         channel = ampNum/4
@@ -517,13 +560,13 @@ def main(argv=None):
 
     logLevel = logging.DEBUG if args.debug else logging.WARN
 
-    if not (args.raw):
-        parser.print_help()
-        parser.exit(1)
-
     fee = FeeControl(logLevel=logLevel)
-    for rawCmd in args.raw:
-        print fee.getRaw(rawCmd)
+    if args.raw:
+        for rawCmd in args.raw:
+            print fee.getRaw(rawCmd)
+    else:
+        fee.getAllStatus()
+        fee.printStatus()
     
 if __name__ == "__main__":
     main()

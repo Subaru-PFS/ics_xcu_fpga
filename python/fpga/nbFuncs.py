@@ -20,7 +20,9 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.title('%s rows %s, all amps, clipped to %0.2f +/- %s' % (imName, prows, medpix, pixRange))
     plt.show()
 
-def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, peaks=None):
+def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, 
+             peaks=None, clipPeaks=True):
+
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
     The per-amp plots are offset by their mean value, and plotted plotOffset pixels apart.
@@ -66,6 +68,8 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
         print 
         yoff += plotOffset
 
+    plt.axis([None, None, -plotOffset, yoff+plotOffset])
+
     plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
                                                   cols[0],cols[-1]))
 
@@ -102,7 +106,10 @@ def rawAmpGrid(im, ccd, cols=None, rows=None,
 
         p.xaxis.set_visible(False)
         p.yaxis.set_visible(False)
-        pp = p.imshow(ampIm-np.median(ampIm), aspect='equal')
+        nAmpIm = ampIm - np.median(ampIm)
+        ai_std = np.std(nAmpIm)
+        pp = p.imshow(nAmpIm, aspect='equal')
+        pp.set_clim(-3*ai_std, 3*ai_std)
         plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
 
         if showFfts:
@@ -112,7 +119,10 @@ def rawAmpGrid(im, ccd, cols=None, rows=None,
             
             normArr = ampIm - ampIm.mean()
             yhat = np.log10(np.absolute(np.fft.fft(normArr)))
-            p.imshow(yhat, aspect='equal')
+            yh_mean = np.mean(yhat)
+            yh_std = np.std(yhat)
+            fp = p.imshow(yhat, aspect='equal')
+            fp.set_clim(yh_mean-3*yh_std, yh_mean+3*yh_std)
             plt.title('amp %d fft' % (a))
 
     return fig
