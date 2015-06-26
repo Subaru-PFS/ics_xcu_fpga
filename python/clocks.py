@@ -164,7 +164,6 @@ class Clocks(object):
         spos = 0
         opos = 0
         cutSpans = []
-        orig = traces.copy()
         while spos < len(trace):
             # set spos = next spos where all traces are '.'
             next_s_matches = [re.search('[.]', traces[sig][spos:]) for sig in signals]
@@ -187,7 +186,7 @@ class Clocks(object):
             # if epos - spos >= cutAfter, replace with '|'
             opos += epos - spos
             if epos - spos >= cutAfter:
-                logging.debug('trimming %d to %d', spos, epos)
+                logging.info('trimming %d to %d', spos, epos)
                 for sig in signals:
                     ts = traces[sig]
                     traces[sig] = ts[:spos] + '|' + ts[epos:]
@@ -196,29 +195,48 @@ class Clocks(object):
                 spos = epos
                 
         json = []
-        json.append('{signal: [')
+        json.append('{')
+        json.append('head: {text: "ns from start"},')
+        json.append('signal: [')
+
+        # Patch up cut ends
+        if traces[list(signals)[0]][-1] == '|':
+            logging.info('patching cut ends')
+            for sig in signals:
+                ts = traces[sig]
+                traces[sig] = ts + '.'
 
         # mark transitions
         edges = []
         label_n = 0
         transitionLabels = ['.']
+        otherLabels = ['.']
         traceLen = len(traces[list(signals)[0]])
         for c_i in range(1, traceLen):
             isTransition = any([traces[sig][c_i] in '01' for sig in traces.keys()])
             if c_i == traceLen-1:
                 isTransition = True
-            thisName = chr(ord('a')+(label_n))
+            thisName = chr(ord('A')+label_n)
+            otherName = chr(ord('Z')-label_n)
             if isTransition:
                 self.logger.info(" trans %d(%s) at %d/%d" % (label_n, thisName, c_i, traceLen))
                 transitionLabels.append(thisName)
-                edges.append("'%s%s'" % (thisName, thisName.upper()))
+                otherLabels.append(otherName)
+                edges.append("'%s%s'" % (thisName, otherName))
                 # edges.append("'%s %d'" % (thisName, transitionTicks[label_n]))
-                edges.append("'%s %d'" % (thisName.upper(), transitionTicks[label_n] * 40))
+                if label_n == 0:
+                    dt = 0
+                else:
+                    dt = transitionTicks[label_n] - transitionTicks[label_n-1]
+                edges.append("'%s %d'" % (otherName, dt * 40))
+                edges.append("'%s %d'" % (thisName, transitionTicks[label_n] * 40))
                 label_n += 1
             else:
                 transitionLabels.append('.')
+                otherLabels.append('.')
 
         transitionLabels = ''.join(transitionLabels)
+        otherLabels = ''.join(otherLabels)
         self.logger.info("transitionLabels: %s %s" % (transitionLabels, transitionTicks))
 
         json.append("{node: '%s'}," % (transitionLabels))
@@ -235,32 +253,16 @@ class Clocks(object):
             json.append("{name: '%s'," % (sig.label))
             json.append(" wave: '%s'}," % (traces[sig]))
 
-        if False and len(cutSpans) > 0:
-            nodes = traces[(list(signals))[0]].replace('0','.').replace('1','.')
-            cut_n = 0
-            while True:
-                cut_i = nodes.find('|')
-                if cut_i == -1:
-                    break
-                cutChars = chr(ord('a')+(2*label_n)) + chr(ord('b')+(2*label_n))
-                nodes = nodes[:cut_i] + cutChars + nodes[cut_i+2:]
-
-                cutLen = cutSpans[cut_n][1] - cutSpans[cut_n][0]
-                #edges.append("'%s-%s %d'" % (cutChars[0], cutChars[1], cutLen))
-                cut_n += 1
-
         if group is not None:
             json.append("],")
 
         json.append("{},")
-        if False and len(cutSpans) > 0:
-            json.append("{node: '%s'}," % (nodes))
 
-        json.append("{node: '%s'}," % (transitionLabels.upper()))
+        json.append("{node: '%s'}," % (otherLabels))
         json.append("],")
 
         json.append("edge: [" + ",".join(edges) + "],")
-        json.append("foot: {tick:-1},")
+        json.append('foot: {text: "ns from previous transition"},')
         json.append("}")
         return "\n".join(json), cutSpans
 
