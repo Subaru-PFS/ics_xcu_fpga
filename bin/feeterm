@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
+# Utility for talking directly to the FEE's serial port.
+
 DEV=/dev/ttyS0
-python -m serial.tools.miniterm "$@" $DEV
+SPEED="--baud=38400"
+python -m serial.tools.miniterm $SPEED "$@" $DEV
 
 
