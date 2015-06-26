@@ -27,7 +27,7 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
            DCR, IR, I_M, I_P, DG,
            CNV, SCK)
 
-def standardClocks(tickTime=40e-9, invertSW=False):
+def clocks(tickTime=40e-9, invertSW=False):
     pre = Clocks(tickTime)
     if invertSW:
         pre.changeFor(duration=120,
@@ -109,3 +109,25 @@ def standardClocks(tickTime=40e-9, invertSW=False):
                    turnOff= [DCR])
 
     return pre, pix, post
+
+def invertClocks():
+    """ Return a clock generator for the dummy CCDs. 
+
+    Notes
+    -----
+    
+    Dummy CCDs have opposite polarity from the real ones. We 
+    change SW's polarity to adapt.
+    """
+
+    from functools import partial
+
+    return partial(clocks, invertSW=True)
+
+def standardClocks():
+    """ Return a clock generator for the operational CCDs. """
+
+    from functools import partial
+
+    return partial(clocks, invertSW=False)
+
