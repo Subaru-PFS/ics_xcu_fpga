@@ -8,17 +8,21 @@ import time
 
 from collections import OrderedDict
 
+import astropy.io.fits as fits
+
 class FeeSet(object):
     channels = []
 
-    def __init__(self, name, letter, subs=(), setLetter='s', readLetter='r', getLetter='g'):
+    def __init__(self, name, letter, subs=(), 
+                 setLetter='s', readLetter='r', getLetter='g',
+                 converter=None):
         self.name = name
         self.letter = letter
         self.subs = subs
         self.setLetter = setLetter
         self.readLetter = readLetter
         self.getLetter = getLetter
-
+        self.converter = converter if converter is not None else str
 
     def _getCmdString(self, cmdLetter, *parts):
         allParts = ["%s%s" % (cmdLetter, self.letter)]
@@ -130,7 +134,7 @@ class FeeControl(object):
                               timeout=0.5)
         self.devConfig['writeTimeout'] = 10 * 1.0/(self.devConfig['baudrate']/8.0)
         self.EOL = '\n'
-        self.ignoredEOL = None # '\n'
+        self.ignoredEOL = '\r'
         self.defineCommands()
 
         self.setDevice(port)
@@ -161,7 +165,7 @@ class FeeControl(object):
         print self.sendCommandStr('se,Clks,on')
 
         # Send a spurious read, to paper over a device error on the first read.
-        self.sendCommandStr('ro,0p,ch0')
+        self.sendCommandStr('ro,2p,ch1')
 
     def getAllStatus(self):
         newStatus = OrderedDict()
@@ -189,6 +193,14 @@ class FeeControl(object):
     def printStatus(self):
         for k, v in self.status.iteritems():
             print k, ': ', v
+
+    def statusAsCards(self):
+        cards = []
+        for k,v in self.status.iteritems():
+            c = fits.Card('HIERARCH %s' % (k), v)
+            cards.append(c)
+
+        return cards
 
     def setSerial(self, serialType, serial):
         if serialType not in ('ADC', 'PA0'):
@@ -247,6 +259,7 @@ class FeeControl(object):
                                           ['3V3M','3V3',
                                            '5VP','5VN','5VPpa', '5VNpa',
                                            '12VP', '12VN', '24VN', '54VP'],
+                                          converter=float,
                                           setLetter='c', getLetter='r')
         """
         // Set/Get the CDS offset voltages 
@@ -267,6 +280,7 @@ class FeeControl(object):
         self.commands['offset'] = FeeChannelSet('offset', 'o', 
                                                 ['0p','1p','2p','3p',
                                                  '0n','1n','2n','3n'],
+                                                converter=float,
                                                 getLetter='r')
         """
         // Set/get the clock Bias Voltages
@@ -297,6 +311,7 @@ class FeeControl(object):
                                                'SWp', 'SWn',
                                                'RGp', 'RGn',
                                                'OG', 'RD', 'OD', 'BB'],
+                                              converter=float,
                                               getLetter='r')
 
         """
@@ -349,7 +364,7 @@ class FeeControl(object):
         else:
             cmdStr = cmdSet.getVal(subName)
 
-        return self.sendCommandStr(cmdStr)
+        return cmdSet.converter(self.sendCommandStr(cmdStr))
 
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
@@ -383,6 +398,8 @@ class FeeControl(object):
             self.logger.warn('at bootloader *, got %r' % (ret))
             ret = self.device.readline()
 
+        logLevel = self.logger.level
+        self.logger.setLevel(logging.INFO)
         self.device.timeout = self.devConfig['timeout']
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
@@ -422,6 +439,7 @@ class FeeControl(object):
             t1 = time.time()
             self.logger.info('sent image file %s in %0.2f seconds' % (path, t1-t0))
 
+        self.logger.setLevel(logLevel)
 
     def sendCommandStr(self, cmdStr, noTilde=False, EOL=None):
         if EOL is None:

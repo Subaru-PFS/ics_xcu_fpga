@@ -42,18 +42,29 @@ class CCD(pyFPGA.FPGA):
         
         return numpy.arange(ncols) + ampid*ncols
 
-    def writeImageFile(self, im):
-        fnames = self.fileMgr.getNextFileset()
-        pyfits.writeto(fnames[0], im)
-        return fnames
+    def writeImageFile(self, im, 
+                       comment=None, addCards=None):
 
+        fnames = self.fileMgr.getNextFileset()
+
+        hdr = pyfits.Header()
+        if comment is not None:
+            hdr.add_comment(comment)
+        if addCards is not None:
+            for card in addCards:
+                hdr.append(card)
+        hdu = pyfits.PrimaryHDU(data=im, header=hdr)
+        hdu.writeto(fnames[0])
+        return fnames
 
     def readImage(self, nrows=4240, ncols=536,
                   doTest=False, debugLevel=1, 
                   doAmpMap=True, 
                   doReread=False,
                   rowFunc=None, rowFuncArgs=None,
-                  doReset=True, doSave=True, clockFunc=None):
+                  doReset=True, doSave=True, 
+                  comment=None, addCards=None,
+                  clockFunc=None):
                   
         """ Configure and readout the detector; write image to disk. 
 
@@ -86,7 +97,7 @@ class CCD(pyFPGA.FPGA):
         t1 = time.time()
 
         if doSave:
-            files = self.writeImageFile(im)
+            files = self.writeImageFile(im, comment=comment, addCards=addCards)
         else:
             files = []
         t2 = time.time()
