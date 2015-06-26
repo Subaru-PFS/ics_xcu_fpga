@@ -37,7 +37,7 @@ def standardClocks(tickTime=40e-9, invertSW=False):
                       turnOn= [P2,TG,S1,RG,SW,CNV,DG])
     
     pix = Clocks(tickTime, initFrom=pre)
-    pix.changeFor(duration=24,
+    pix.changeFor(duration=16,
                   turnOff=[S1,RG],
                   turnOn= [S2,DCR,IR,SCK])
 
