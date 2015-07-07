@@ -134,10 +134,12 @@ class Clocks(object):
                 thisState = states[t_i]
 
                 dticks = (thisTick - lastTick)/tickDiv
+                dticks_f = (thisTick - lastTick)/float(tickDiv)
                 assert (thisTick <= 0 or dticks > 0), ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
                                                        (sig, t_i, lastTick, thisTick))
-                assert (dticks == int(dticks)), ("dticks for %s at slot %s, tick %s to %s is non-integer!" % 
-                                                 (sig, t_i, lastTick, thisTick))
+                assert (lastTick < 0 or dticks == dticks_f), \
+                    ("dticks (%s) for %s at slot %s, tick %s to %s by %s is non-integer!" % 
+                     (dticks_f, sig, t_i, lastTick, thisTick, tickDiv))
                     
                 trace += '.'*(dticks-1)
 
