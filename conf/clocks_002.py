@@ -41,18 +41,20 @@ def clocks(tickTime=40e-9, invertSW=False):
                   turnOff=[S1,RG],
                   turnOn= [S2,DCR,IR,SCK])
 
-    pix.changeFor(duration=8,
+    pix.changeFor(duration=4,
                   turnOff=[SCK],
                   turnOn= [RG])
 
     if invertSW:
-        pix.changeFor(duration=8,
-                      turnOff=[S2,IR],
-                      turnOn= [S1,SW])
+        pix.changeFor(duration=4,
+                      turnOn= [SW])
     else:
-        pix.changeFor(duration=8,
-                      turnOff=[S2,SW,IR],
-                      turnOn= [S1])
+        pix.changeFor(duration=4,
+                      turnOff=[SW])
+
+    pix.changeFor(duration=8,
+                  turnOff=[S2,IR],
+                  turnOn= [S1])
 
     pix.changeFor(duration=4,
                   turnOff=[DCR])
@@ -63,12 +65,14 @@ def clocks(tickTime=40e-9, invertSW=False):
     pix.changeFor(duration=120,
                   turnOn= [I_M])
 
+    pix.changeFor(duration=2,
+                  turnOff=[I_M])
+
     if invertSW:
-        pix.changeFor(duration=8,
-                      turnOff=[I_M,SW])
+        pix.changeFor(duration=6,
+                      turnOff=[SW])
     else:
-        pix.changeFor(duration=8,
-                      turnOff=[I_M],
+        pix.changeFor(duration=6,
                       turnOn= [SW])
 
     pix.changeFor(duration=120,
