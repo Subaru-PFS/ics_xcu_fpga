@@ -163,23 +163,34 @@ class FeeControl(object):
         print self.sendCommandStr('se,all,on')
         print self.sendCommandStr('lp,%s' % (preset))
         print self.sendCommandStr('se,Clks,on')
+        print self.sendCommandStr('se,Vbb0,on')
+        print self.sendCommandStr('se,Vbb1,on')
 
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
+
+    def getCommandStatus(self, cset):
+        status = OrderedDict()
+
+        if cset.getLetter is None:
+            return status
+
+        if cset.channels:
+            for chan in cset.channels:
+                for k in cset.subs:       
+                    status["%s.ch%d.%s" % (cset.name, chan, k)] = self.doGet(cset.name, k, chan)
+        else:
+            for k in cset.subs:       
+                status["%s.%s" % (cset.name, k)] = self.doGet(cset.name, k)
+
+        return status
 
     def getAllStatus(self):
         newStatus = OrderedDict()
 
         for cset in self.commands.values():
-            if cset.getLetter is None:
-                continue
-            if cset.channels:
-                for chan in cset.channels:
-                    for k in cset.subs:       
-                        newStatus["%s.ch%d.%s" % (cset.name, chan, k)] = self.doGet(cset.name, k, chan)
-            else:
-                for k in cset.subs:       
-                    newStatus["%s.%s" % (cset.name, k)] = self.doGet(cset.name, k)
+            cmdStatus = self.getCommandStatus(cset)
+            newStatus.update(cmdStatus)
 
         self.status = newStatus
         return self.status
@@ -330,7 +341,8 @@ class FeeControl(object):
         self.commands['preset'] = FeeSet('preset', 'p', 
                                          ["erase", "read", "expose", "wipe", "offset", 
                                           "BT1"],
-                                         getLetter=None)
+                                         getLetter=None,
+                                         setLetter='l')
 
     def allKeys(self, setName):
         try:
@@ -526,6 +538,9 @@ class FeeControl(object):
         channel = ampNum/4
         return "%d%s" % (ampNum%4, leg), channel
 
+    def setMode(self, newMode):
+        self.doSet('bias', newMode)
+
     def setOffsets(self, amps, levels, leg='n', pause=0.0):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
@@ -537,7 +552,7 @@ class FeeControl(object):
             else:
                 self.logger.debug("raw received :%r:" % (ret))
             if not ret.endswith('SUCCESS'):
-                raise RuntimeError('setLevels command %s returned: %s' % (cmd, ret))
+                raise RuntimeError('setLevels command returned: %s' % (ret))
             if pause > 0:
                 time.sleep(pause)
 
