@@ -29,28 +29,19 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
 
 def clocks(tickTime=40e-9, invertSW=False):
     pre = Clocks(tickTime)
-    if invertSW:
-        pre.changeFor(duration=120,
-                      turnOn= [P2,TG,S1,RG,CNV,DG])
-    else:
-        pre.changeFor(duration=120,
-                      turnOn= [P2,TG,S1,RG,SW,CNV,DG])
+    pre.changeFor(duration=120,
+                  turnOn= [P2,TG,S1,CNV,DG])
     
     pix = Clocks(tickTime, initFrom=pre)
     pix.changeFor(duration=16,
-                  turnOff=[S1,RG],
-                  turnOn= [S2,DCR,IR,SCK])
+                  turnOff=[S1],
+                  turnOn= [S2,RG,DCR,IR,SCK])
 
     pix.changeFor(duration=4,
-                  turnOff=[SCK],
-                  turnOn= [RG])
+                  turnOff=[SCK,RG])
 
-    if invertSW:
-        pix.changeFor(duration=4,
-                      turnOn= [SW])
-    else:
-        pix.changeFor(duration=4,
-                      turnOff=[SW])
+    pix.changeFor(duration=4,
+                  turnOn= [SW])
 
     pix.changeFor(duration=8,
                   turnOff=[S2,IR],
@@ -68,12 +59,8 @@ def clocks(tickTime=40e-9, invertSW=False):
     pix.changeFor(duration=2,
                   turnOff=[I_M])
 
-    if invertSW:
-        pix.changeFor(duration=6,
-                      turnOff=[SW])
-    else:
-        pix.changeFor(duration=6,
-                      turnOn= [SW])
+    pix.changeFor(duration=6,
+                  turnOff=[SW])
 
     pix.changeFor(duration=120,
                   turnOn=[I_P])
@@ -86,8 +73,7 @@ def clocks(tickTime=40e-9, invertSW=False):
 
     post = Clocks(tickTime, initFrom=pix)
     post.changeFor(duration=1000,
-                   turnOff=[RG],
-                   turnOn= [P1,DCR])
+                   turnOn= [P1,RG,DCR])
 
     post.changeFor(duration=1000,
                    turnOff=[P2,TG],
@@ -107,7 +93,7 @@ def clocks(tickTime=40e-9, invertSW=False):
                    turnOff=[P3])
 
     post.changeFor(duration=50,
-                   turnOn= [RG])
+                   turnOff=[RG])
 
     post.changeFor(duration=2,
                    turnOff= [DCR])
