@@ -30,7 +30,7 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
 def clocks(tickTime=40e-9, invertSW=False):
     pre = Clocks(tickTime)
     pre.changeFor(duration=120,
-                  turnOn= [P2,TG,S1,CNV,DG])
+                  turnOn= [P1,P3,S1,CNV,DG])
     
     pix = Clocks(tickTime, initFrom=pre)
     pix.changeFor(duration=16,
@@ -73,24 +73,23 @@ def clocks(tickTime=40e-9, invertSW=False):
 
     post = Clocks(tickTime, initFrom=pix)
     post.changeFor(duration=1000,
-                   turnOn= [P1,RG,DCR])
+                   turnOff=[P1],
+                   turnOn= [RG,DCR])
 
     post.changeFor(duration=1000,
-                   turnOff=[P2,TG],
-                   turnOn= [CRC])
+                   turnOn= [P2,TG,CRC])
 
     post.changeFor(duration=1000,
-                   turnOff=[CRC],
-                   turnOn= [P3])
+                   turnOff=[P3,CRC])
 
     post.changeFor(duration=1000,
-                   turnOff=[P1])
+                   turnOn=[P1])
 
     post.changeFor(duration=1000,
-                   turnOn= [P2,TG])
+                   turnOff=[P2,TG])
 
     post.changeFor(duration=1000,
-                   turnOff=[P3])
+                   turnOn=[P3])
 
     post.changeFor(duration=50,
                    turnOff=[RG])
