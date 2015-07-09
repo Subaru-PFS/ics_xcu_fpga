@@ -5,30 +5,60 @@ import numpy as np
 
 import visa
 
+import clocks
+
+def qstr(s):
+    if len(s) > 2 and s[0] in '"\'' and s[-1] in '"\'':
+        return s[1:-2]
+    else:
+        return s
+
+def xfloat(s):
+    try:
+        return float(s)
+    except:
+        return np.nan
+
+def xint(s):
+    try:
+        return int(s)
+    except:
+        return None
+
+            
 channelKeys = (
-    ('scale', float),
-    ('position', float),
-    ('coupling', str),
-    ('invert', int),
-    ('label', str),
-    ('volts', float),
-    ('offset', float),
+    ('scale', xfloat),
+    ('position', xfloat),
+    ('coupling', qstr),
+    ('invert', xint),
+    ('label', qstr),
+    ('volts', xfloat),
+    ('offset', xfloat),
 )
 
 waveformKeys = (
-    ('encdg', str),
-    ('xincr', float),
-    ('xzero', float),
-    ('xunit', str),
-    ('ymult', float),
-    ('yoff', float),
-    ('yzero', float),
-    ('yunit', str),
+    ('encdg', qstr),
+    ('xincr', xfloat),
+    ('xzero', xfloat),
+    ('xunit', qstr),
+    ('ymult', xfloat),
+    ('yoff', xfloat),
+    ('yzero', xfloat),
+    ('yunit', qstr),
+)
 
+acqKeys = (
 )
 
 triggerKeys = (
-    ('mode', str),
+    ('a:mode', qstr),
+    ('a:type', qstr),
+    ('a:edge:source', qstr),
+    ('a:edge:coupling', qstr),
+    ('a:edge:slope', qstr),
+    ('a:level', xfloat),
+    ('a:holdoff', xfloat),
+    ('a:holdoff:time', xfloat),
 )
 
 class KVSet(object):
@@ -37,6 +67,7 @@ class KVSet(object):
 
 class PfsCpo(object):
     modes = {'sample', 'average', 'envelope'}
+    waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
     def __init__(self, host='10.1.1.52'):
         self.logger = logging.getLogger()
@@ -90,21 +121,54 @@ class PfsCpo(object):
     def setupTransfers(self):
         self.write('data:resolution full')
 
+    def setLabel(self, channel, label):
+        if isinstance(channel, basestring):
+            channel = channel[-1]
+        self.write('ch%d:label "%s"' % (channel, label))
+
+    def setLabels(self, labels, comment=None):
+        if len(labels) != 4:
+            raise RuntimeError("Can only set exactly four channel labels (not %d)" %
+                               (len(labels)))
+        for i, l in enumerate(labels):
+            self.setLabel(i+1, l)
+            
     def setAcqMode(self, numAvg=1, single=True):
         if numAvg <= 1:
             self.write('acq:mode sample')
+            self.write('acq:numavg 1')
             self.dataWidth = 1
         else:
-            self.write('acq:numavg %d' % (numAvg))
             self.write('acq:mode average')
+            self.write('acq:numavg %d' % (numAvg))
             self.dataWidth = 2
 
         if single:
             self.write('acq:stopAfter seq')
         else:
             self.write('acq:stopAfter runstop')
-
         
+    def setEdgeTrigger(self, source='ch1', coupling='dc', slope='rise', 
+                       level=None, holdoff='900e-9'):
+
+        if level is None:
+            raise RuntimeError("must specify a trigger level")
+
+        self.write('trig:a:type edge')
+        self.write('trig:a:edge:source %s' % (source))
+        self.write('trig:a:edge:coupling %s' % (coupling))
+        self.write('trig:a:edge:slope %s' % (slope))
+        self.write('trig:a:level %s' % (level))
+        self.write('trig:a:holdoff:time %s' % (holdoff))
+
+    def setSampling(self, scale='1e-6', pos=50, triggerPos=50, 
+                    delayMode='on', delayTime=0):
+        self.write('horiz:delay:mode %s' % (delayMode))
+        self.write('horiz:delay:time %s' % (delayTime))
+        self.write('horiz:scale %s' % (scale))
+        self.write('horiz:pos %s' % (pos))
+        self.write('horiz:trigger:pos %s' % (triggerPos))
+
     def query(self, qstr, verbose=logging.INFO):
         self.logger.debug('query send: %s', qstr)
         ret = self.scope.query(qstr)
