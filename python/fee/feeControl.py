@@ -163,8 +163,6 @@ class FeeControl(object):
         print self.sendCommandStr('se,all,on')
         print self.sendCommandStr('lp,%s' % (preset))
         print self.sendCommandStr('se,Clks,on')
-        print self.sendCommandStr('se,Vbb0,on')
-        print self.sendCommandStr('se,Vbb1,on')
 
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
@@ -298,16 +296,16 @@ class FeeControl(object):
         #define setClockBias "sb" // COMMAND
         #define getClockBias "gb" 
         #define rdClockBias  "rb" // reads the actual voltage 
-        #define cb_Ppos      "Pp" // PARAMETER 1
-        #define cb_Pneg      "Pn"
-        #define cb_DGpos     "DGp"
-        #define cb_DGneg     "DGn"
-        #define cb_Spos      "Sp"
-        #define cb_Sneg      "Sn"
-        #define cb_SWpos     "SWp" // Summing Well
-        #define cb_SWneg     "SWn"
-        #define cb_RGpos     "RGp" // Reset Gate
-        #define cb_RGneg     "RGn"
+        #define cb_Ppos      "P_on" // PARAMETER 1
+        #define cb_Pneg      "P_off"
+        #define cb_DGpos     "DG_on"
+        #define cb_DGneg     "DG_off"
+        #define cb_Spos      "S_on"
+        #define cb_Sneg      "S_off"
+        #define cb_SWpos     "SW_on" // Summing Well
+        #define cb_SWneg     "SW_off"
+        #define cb_RGpos     "RG_on" // Reset Gate
+        #define cb_RGneg     "RG_off"
         #define cb_OG        "OG"
         #define cb_RD        "RD"
         #define cb_OD        "OD"
@@ -316,11 +314,11 @@ class FeeControl(object):
         #   define cb_1         "ch1"
         """
         self.commands['bias'] = FeeChannelSet('bias', 'b', 
-                                              ['Pp','Pn',
-                                               'DGp', 'DGn',
-                                               'Sp', 'Sn',
-                                               'SWp', 'SWn',
-                                               'RGp', 'RGn',
+                                              ['P_on','P_off',
+                                               'DG_on', 'DG_off',
+                                               'S_on', 'S_off',
+                                               'SW_on', 'SW_off',
+                                               'RG_on', 'RG_off',
                                                'OG', 'RD', 'OD', 'BB'],
                                               converter=float,
                                               getLetter='r')
