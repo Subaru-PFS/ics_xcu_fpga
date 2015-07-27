@@ -114,6 +114,15 @@ class NightFilenameGen(object):
         
         return imgFiles
         
+    def genNextSet(self):
+        """ Return the next seqno and filename to create. """
+
+        dataDir = self.dirname()
+        seqno = self.consumeNextSeqno()
+        imgFiles = self.namesFunc(dataDir, seqno)
+        
+        return seqno, imgFiles[0]
+        
     def genNextSimPath(self):
         """ Return the next filename to read. """
 

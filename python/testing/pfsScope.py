@@ -225,6 +225,45 @@ class PfsCpo(object):
 
         return keys
 
+    def busyWait(self, timeout=30.0, loopTime=0.25, debug=False):
+        t1 = t0 = time.time()
+        
+        while (t1-t0 < timeout):
+            busy = self.query('busy?')
+            t1 = time.time()
+            if debug:
+                self.logger.warn("busy after %0.4fs %s" % (t1-t0, busy))
+            if int(busy) == 0:
+                return
+            if t1-t0 > timeout:
+                raise RuntimeError('timeout waiting for operation end')
+
+    def runTest(self, test, debug=False):
+        startLevel = self.logger.level
+
+        self.logger.info('running test %s', test.testName)
+        test.setup()
+
+        self.logger.info('starting test %s (timer=%s)', test.testName, self.triggerAfter)
+
+        self.scope.write('acq:state run')
+        if self.triggerAfter is not None:
+            time.sleep(self.triggerAfter)
+            self.scope.write('trigger force')
+
+        self.logger.info('waiting for end of test %s', test.testName)
+        self.busyWait()
+
+        self.logger.info('fetching data for test %s', test.testName)
+
+        self.logger.setLevel(20)
+        test.fetchData()
+        self.logger.setLevel(startLevel)
+    
+        self.logger.info('finished test %s', test.testName)
+
+        return test
+        
     def getWaveform(self, channel=None, getEnvelope=False):
         self.setChannel(channel)
         if getEnvelope:
