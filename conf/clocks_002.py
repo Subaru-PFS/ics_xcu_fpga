@@ -99,24 +99,3 @@ def clocks(tickTime=40e-9, invertSW=False):
 
     return pre, pix, post
 
-def invertClocks():
-    """ Return a clock generator for the dummy CCDs. 
-
-    Notes
-    -----
-    
-    Dummy CCDs have opposite polarity from the real ones. We 
-    change SW's polarity to adapt.
-    """
-
-    from functools import partial
-
-    return partial(clocks, invertSW=True)
-
-def standardClocks():
-    """ Return a clock generator for the operational CCDs. """
-
-    from functools import partial
-
-    return partial(clocks, invertSW=False)
-
