@@ -27,7 +27,7 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
            DCR, IR, I_M, I_P, DG,
            CNV, SCK)
 
-def clocks(tickTime=40e-9, invertSW=False):
+def readClocks(tickTime=40e-9):
     pre = Clocks(tickTime)
     pre.changeFor(duration=120,
                   turnOn= [P1,P3,S1,CNV,DG])
@@ -47,10 +47,10 @@ def clocks(tickTime=40e-9, invertSW=False):
                   turnOff=[S2,IR],
                   turnOn= [S1])
 
-    pix.changeFor(duration=4,
+    pix.changeFor(duration=6,
                   turnOff=[DCR])
 
-    pix.changeFor(duration=4,
+    pix.changeFor(duration=2,
                   turnOff=[CNV])
 
     pix.changeFor(duration=120,
