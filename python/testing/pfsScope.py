@@ -77,7 +77,7 @@ class PfsCpo(object):
         self.settings = None
 
         self.mode = 'sample'
-        self.trigger = None
+        self.triggerAfter = None
 
         self.connect()
 
@@ -148,20 +148,26 @@ class PfsCpo(object):
         else:
             self.write('acq:stopAfter runstop')
         
+    def setManualTrigger(self, after=None):
+        self.write('trig:a:edge:source ext')
+        self.triggerAfter = after
+
     def setEdgeTrigger(self, source='ch1', coupling='dc', slope='rise', 
-                       level=None, holdoff='900e-9'):
+                       level=None, holdoff='900e-9', after=None):
 
         if level is None:
             raise RuntimeError("must specify a trigger level")
+
+        self.triggerAfter = None
 
         self.write('trig:a:type edge')
         self.write('trig:a:edge:source %s' % (source))
         self.write('trig:a:edge:coupling %s' % (coupling))
         self.write('trig:a:edge:slope %s' % (slope))
-        self.write('trig:a:level %s' % (level))
         self.write('trig:a:holdoff:time %s' % (holdoff))
+        self.write('trig:a:level %s' % (level))
 
-    def setSampling(self, scale='1e-6', pos=50, triggerPos=50, 
+    def setSampling(self, scale='1e-6', pos=50, triggerPos=20, 
                     delayMode='on', delayTime=0):
         self.write('horiz:delay:mode %s' % (delayMode))
         self.write('horiz:delay:time %s' % (delayTime))
