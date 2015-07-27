@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import inspect
 import logging
 import serial
 import sys
@@ -9,6 +10,56 @@ import time
 from collections import OrderedDict
 
 import astropy.io.fits as fits
+
+class ModePreset(object):
+    def __init__(self, name):
+        self.name = name
+        self.presets = None
+
+    def __str__(self):
+        return ("ModePreset(name=%s, %s)" %
+                (self.name,
+                 None if self.presets is None else ', '.join(["%s=%s" % (k,v) for k,v in self.presets.iteritems()])))
+
+    def define(self, preload=None, force=False, 
+               P_off =None, P_on =None,
+               S_off =None, S_on =None,
+               DG_off=None, DG_on=None,
+               SW_off=None, SW_on=None,
+               RG_off=None, RG_on=None,
+               OG=None,
+               RD=None,
+               OD=None,
+               BB=None):
+
+        if self.presets is not None and not force:
+            raise RuntimeError("Mode preset values can only be defined once.")
+
+        argValues = inspect.getargvalues(inspect.currentframe())
+
+        if preload is not None:
+            self.presets = preload.presets.copy()
+        else:
+            self.presets = OrderedDict()
+
+        for k in argValues.args:
+            if k in ('self', 'force', 'preload'):
+                continue
+            v = argValues.locals[k]
+            if v is not None:
+                self.presets[k] = v
+            else:
+                if preload is None:
+                    raise RuntimeError("All voltages must be defined for non-preloaded modes")
+
+    def saveToFee(self, fee, channels=(0,1)):
+        if False and self.preload:
+            fee.sendCommandStr('lp,%s' % (self.name))
+        for ch in channels:
+            for k, v in self.presets.iteritems():
+                if v is not None:
+                    fee.doSet('bias', k, v, ch)
+        fee.sendCommandStr('sp,%s' % (self.name))
 
 class FeeSet(object):
     channels = []
@@ -135,9 +186,14 @@ class FeeControl(object):
         self.devConfig['writeTimeout'] = 10 * 1.0/(self.devConfig['baudrate']/8.0)
         self.EOL = '\n'
         self.ignoredEOL = '\r'
+
+        self.lockConfig()
         self.defineCommands()
 
         self.setDevice(port)
+
+        self.activeMode = None
+        self.defineModes()
 
         if sendImage is not None:
             self.sendImage(sendImage)
@@ -157,7 +213,7 @@ class FeeControl(object):
         if self.devName:
             self.device = serial.Serial(**self.devConfig)
     
-    def powerUp(self, preset='BT1'):
+    def powerUp(self, preset='erase'):
         """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
 
         print self.sendCommandStr('se,all,on')
@@ -211,15 +267,63 @@ class FeeControl(object):
 
         return cards
 
+    def lockConfig(self):
+        self.logger.warn('locking firmware configuration')
+        self.lockedConfig = True
+
+    def unlockConfig(self):
+        self.logger.warn('unlocking firmware configuration')
+        self.lockedConfig = False
+
     def setSerial(self, serialType, serial):
         if serialType not in ('ADC', 'PA0'):
             raise RuntimeError("unknown serial number type: %s" % (serialType))
+
+        if self.lockedConfig:
+            raise RuntimeError("FEE configuration is locked!")
+            
         print self.sendCommandStr('ss,%s,%s' % (serialType, serial))
         
     def _defineFullCommand(self, cmdSet):
         """ For a passed commandset, create methods to set&get values."""
 
         self.commands[cmdSet.name] = cmdSet
+
+    def defineModes(self):
+        self.presets = OrderedDict()
+
+        self.presets['erase'] = m = ModePreset('erase')
+        m.define(OG=6.0, RD=-12.0, OD=-5.0, BB=0.2,
+                 P_off = 6.0, P_on = 6.0,
+                 S_off = 6.0, S_on = 6.0,
+                 DG_off= 6.0, DG_on= 6.0,
+                 SW_off= 6.0, SW_on= 6.0,
+                 RG_off= 6.0, RG_on= 6.0)
+
+        self.presets['read'] = m = ModePreset('read')
+        m.define(OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0,
+                 P_off = 3.0, P_on = -5.0,
+                 S_off = 3.0, S_on = -6.0,
+                 DG_off= 5.0, DG_on= -5.0,
+                 SW_off= 5.0, SW_on= -6.0,
+                 RG_off= 2.0, RG_on= -7.5)
+
+        self.presets['expose'] = m = ModePreset('expose')
+        m.define(preload=self.presets['read'], 
+                 OG=-4.5, RD=-5.0, OD=-5.0, BB=45.0)
+
+        self.presets['wipe'] = m = ModePreset('wipe')
+        m.define(preload=self.presets['read'], 
+                 OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0)
+
+    def saveModesToFee(self, modes=None):
+        if isinstance(modes, basestring):
+            modes = modes,
+        if modes is None:
+            modes = self.presets.keys()
+        for m in modes:
+            p = self.presets[m]
+            p.saveToFee(self)
 
     def defineCommands(self):
         self.commands = {}
@@ -505,10 +609,13 @@ class FeeControl(object):
             except Exception as e:
                 raise
 
+            if c == '':
+                self.logger.warn('pyserial device read(1) timed out')
+
             if self.ignoredEOL is not None and c == self.ignoredEOL:
                 self.logger.debug("ignoring %r" % (c))
                 continue
-            if c == EOL:
+            if c in (EOL, ''):
                 # if response.startswith('X')
                 break
             response += c
@@ -537,7 +644,7 @@ class FeeControl(object):
         return "%d%s" % (ampNum%4, leg), channel
 
     def setMode(self, newMode):
-        self.doSet('bias', newMode)
+        self.sendCommandStr('lp,%s' % (newMode))
 
     def setOffsets(self, amps, levels, leg='n', pause=0.0):
         if len(amps) != len(levels):
@@ -554,7 +661,6 @@ class FeeControl(object):
             if pause > 0:
                 time.sleep(pause)
 
-
     def zeroOffsets(self, amps=None, leg=True):
         if amps is None:
             amps = range(8)
@@ -569,6 +675,12 @@ class FeeControl(object):
             self.setOffsets(amps, levels, leg='p')
         if 'n' in legs:
             self.setOffsets(amps, levels, leg='n')
+
+    def setPreset(self, name):
+        vset = self.presets[name]
+        for ch in 0, 1:
+            for k, v in vset.iteritems():
+                self.doSet('bias', k, v, ch)
 
 def main(argv=None):
     if argv is None:
