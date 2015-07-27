@@ -1,6 +1,7 @@
 import logging
 import re
 import sys
+import time
 import numpy as np
 
 import visa
@@ -67,7 +68,6 @@ class KVSet(object):
 
 class PfsCpo(object):
     modes = {'sample', 'average', 'envelope'}
-    waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
     def __init__(self, host='10.1.1.52'):
         self.logger = logging.getLogger()
@@ -174,6 +174,16 @@ class PfsCpo(object):
         self.write('horiz:scale %s' % (scale))
         self.write('horiz:pos %s' % (pos))
         self.write('horiz:trigger:pos %s' % (triggerPos))
+
+    def setWaveform(self, channel, label, 
+                    scale=1.0, pos=0, offset=0,
+                    coupling='dc'):
+
+        self.write('ch%d:scale %s' % (channel, scale))
+        self.write('ch%d:pos %s' % (channel, pos))
+        self.write('ch%d:offset %s' % (channel, offset))
+        self.write('ch%d:label %s' % (channel, label))
+        self.write('ch%d:coupling %s' % (channel, coupling))
 
     def query(self, qstr, verbose=logging.INFO):
         self.logger.debug('query send: %s', qstr)
