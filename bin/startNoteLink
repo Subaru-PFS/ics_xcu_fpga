@@ -1,0 +1,14 @@
+#!/bin/bash
+
+(
+    TPID=`cat .nblink.pid`
+    kill -9 $TPID
+    sleep 1
+) 2>/dev/null
+
+ssh 10.1.1.13 "bash -l -c startNotebook"
+
+nohup ssh -L '*:4240:10.1.1.13:4240' -N -T 10.1.1.13 -v >& sshtun.log &
+echo $! > .nblink.pid
+
+

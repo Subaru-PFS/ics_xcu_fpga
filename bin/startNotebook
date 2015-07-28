@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd $ICS_XCU_FPGA_DIR/notebooks
+
+nohup ipython notebook --profile=beenotebook >& notebook.log &
+
