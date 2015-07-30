@@ -27,8 +27,12 @@ class TestRig(object):
 
         self.setScope(scope)
 
+        self.tests = []
+        
     def __str__(self):
-        return "TestRig(seqno=%s, dirName=%s)" % (self.seqno, self.dirName)
+        return "TestRig(seqno=%s, dirName=%s, %d tests)" % (self.seqno,
+                                                            self.dirName,
+                                                            len(self.tests))
 
     def setScope(self, scope):
         self.scope = scope
@@ -71,16 +75,34 @@ class OneTest(object):
                                      self.ccd,
                                      self.amp,
                                      self.revision)
+    def parseFullName(self, name):
+        m = re.search('''(?P<testName>[^-]+)-
+                         (?P<channel>[^-]+)-
+                         (?P<ccd>[^-]+)-
+                         (?P<amp>[^_]+)_
+                         (?P<revision>\d+).pck.*''',
+                      name, re.VERBOSE)
+        if not m:
+            raise RuntimeError("cannot parse %s as a %s test name" % (name,
+                                                                      self.testName))
+
+        self.channel = m['channel']
+        self.ccd = m['ccd']
+        self.amp = m['amp']
+        self.revision = m['revision']
+
     def fullPath(self):
         name = self.fullName()
         path = self.rig.dirName
-        while self.revision < 50:
+        while self.revision < 100:
             path = os.path.join(path, "%s.pck" % (name))
             if not os.path.exists(path):
                 return path
             self.revision += 1
 
-    def save(self):
+    def save(self, comment=''):
+        """ Save our test data to a properly named file. """
+        
         if self.testData is None:
             raise RuntimeError("no data to save yet")
 
@@ -90,44 +112,88 @@ class OneTest(object):
 
         return path
 
+    def load(self, path, force=False):
+        if self.testData is not None and not force:
+            raise RuntimeError("data already exists. Add force=True to overwrite.")
+
+        with open(path, "r") as f:
+            rawdata = pickle.load(f)
+
+
+        if 'version' in rawdata:
+            self.testData = rawdata
+        else:
+            self.testData = dict()
+            self.testData['waveforms'] = rawdata
+            self.testData['version'] = 1
+        
+        return path
+
     def fetchData(self):
-        self.testData = self.scope.getWaveforms()
+        self.testData = dict()
+        self.testData['version'] = 2
+        self.testData['waveforms'] = self.scope.getWaveforms()
 
     def plot(self):
         """ Default plot -- all channels, autoscaled. """
 
-        sigplot(self.testData, xscale=1.0, noWide=True, 
-                showLimits=True, title=self.label)
+        sigplot(self.testData['waveforms'], xscale=1.0, noWide=True, 
+                showLimits=True, title=self.title)
 
     @property
     def title(self):
-        return "%s: %s" % (self.testName, self.label)
+        return "Test %s, seq %d, rev %s: ch.amp=%s.%s %s" % (self.testName,
+                                                             self.rig.seqno, self.revision,
+                                                             self.channel, self.amp,
+                                                             self.label)
 
 class S0Test(OneTest):
-    def setup(self):
+    def initTest(self):
         self.testName = 'S0'
         self.label = "serial clocks, no averaging"
 
+    def setup(self):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
-        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='10e-6')
-        self.scope.setLabels(('RG','S1','S2','SW'))
+        self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
+
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1', scale=2)
+        self.scope.setWaveform(3, 'S2', scale=2)
+        self.scope.setWaveform(4, 'SW', scale=2)
     
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       noWide=False,
+                       xlim=(-0.5,8), ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
 class S1Test(OneTest):
-    def setup(self):
+    def initTest(self):
         self.testName = 'S1'
         self.label = "serial clocks, with averaging"
 
-        self.scope.setAcqMode(numAvg=256)
-        self.scope.setSampling(scale=100e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
-        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='10e-6')
-        self.scope.setLabels(('RG','S1','S2','SW'))
-    
-class V0Test(OneTest):
     def setup(self):
+        self.scope.setAcqMode(numAvg=32)
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
+        self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
+
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1', scale=2)
+        self.scope.setWaveform(3, 'S2', scale=2)
+        self.scope.setWaveform(4, 'SW', scale=2)
+    
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-0.5,8), ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
+class V0Test(OneTest):
+    def initTest(self):
         self.testName = 'V0'
         self.label = "bias voltages over an exposure."
 
+    def setup(self):
         self.scope.setWaveform(1, 'OG', scale=5)
         self.scope.setWaveform(2, 'RD', scale=5)
         self.scope.setWaveform(3, 'OD', scale=5)
