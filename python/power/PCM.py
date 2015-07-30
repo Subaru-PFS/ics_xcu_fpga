@@ -3,9 +3,12 @@ import socket
 import time
 
 class PCM(object):
+    powerPorts = ('motors', 'gauge', 'p3', 'fee', 
+                  'temps', 'bee', 'p7', 'ampSwitch')
+    
     def __init__(self, loglevel=logging.INFO, host='10.1.1.4', port=1000):
 
-        self.logger = logging.getLogger('PCM')
+        self.logger = logging.getLogger()
         self.logger.setLevel(loglevel)
 
         self.EOL = '\r\n'
@@ -13,8 +16,6 @@ class PCM(object):
         self.host = host
         self.port = port
 
-        self.powerPorts = ['motors', 'gauge', 'p3', 'fee', 
-                           'temps', 'bee', 'p7', 'ampSwitch']
 
     def start(self):
         pass
@@ -63,10 +64,10 @@ class PCM(object):
         return ret
 
     def powerOn(self, system):
-        self.powerCmd(system, turnOn=True)
+        print self.powerCmd(system, turnOn=True)
 
     def powerOff(self, system):
-        self.powerCmd(system, turnOn=False)
+        print self.powerCmd(system, turnOn=False)
 
     def parseMotorResponse(self, ret):
         if len(ret) < 3:
