@@ -173,9 +173,9 @@ class FeeChannelSet(FeeSet):
         return self._getVal(subName, channel, self.readLetter)
 
 class FeeControl(object):
-    def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None):
+    def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None, noPowerup=False):
         if port is None:
-            port = '/dev/ttyS0'
+            port = '/dev/ttyS1'
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
@@ -197,14 +197,17 @@ class FeeControl(object):
 
         if sendImage is not None:
             self.sendImage(sendImage)
-
+        else:
+            if not noPowerup:
+                self.powerUp()
+            
     def setDevice(self, devName):
         """ """
         self.devName = devName
         self.connectToDevice()
 
     def connectToDevice(self):
-        """ Establish a new connection to the FEE. Any old conection is closed. By default the revision is fetched. """
+        """ Establish a new connection to the FEE. Any old connection is closed.  """
 
         if self.device:
             self.device.close()
@@ -214,7 +217,13 @@ class FeeControl(object):
             self.device = serial.Serial(**self.devConfig)
     
     def powerUp(self, preset='erase'):
-        """ Bring the FEE up to a sane and useable configuration. Specifically: power supplies on and set for readout. """
+        """ Bring the FEE up to a sane and useable configuration. 
+
+        Specifically, and in order: 
+          1. power supplies on
+          2. mode voltage set (default=erase)
+          3. clocks enabled, but idle.
+        """
 
         print self.sendCommandStr('se,all,on')
         print self.sendCommandStr('lp,%s' % (preset))
@@ -250,7 +259,10 @@ class FeeControl(object):
         return self.status
 
     def powerDown(self):
-        """ Bring the FEE down to a sane and stable idle. """
+        """ Bring the FEE down to a sane and stable idle. 
+
+        WARNING - this currently glitches OD. Waiting for a FEE firmware fix.
+        """
 
         print self.sendCommandStr('se,Clks,off')
         print self.sendCommandStr('se,all,off')
@@ -533,7 +545,7 @@ class FeeControl(object):
                         self.logger.info('sending line %d / %d', lineNumber, len(lines))
                     self.logger.debug("sending command :%r:", fullLine)
                     self.device.write(fullLine)
-                    retline = self.device.read(size=len(l)+2)
+                    retline = self.device.read(size=len(l)+len(eol)+1)
                     retline = retline.translate(None, '\x11\x13')
 
                     if l != retline[:len(l)]:
