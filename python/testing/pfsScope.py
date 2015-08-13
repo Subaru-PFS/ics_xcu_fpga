@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import logging
 import re
 import sys
@@ -10,7 +11,7 @@ import clocks
 
 def qstr(s):
     if len(s) > 2 and s[0] in '"\'' and s[-1] in '"\'':
-        return s[1:-2]
+        return s[1:-1]
     else:
         return s
 
@@ -110,6 +111,7 @@ class PfsCpo(object):
 
     def setChannel(self, channel=None):
         if channel is not None:
+            self.write('sel:%s on' % channel)
             self.write('data:source %s' % channel)
 
         schannel = self.query('data:source?').strip()
@@ -117,6 +119,15 @@ class PfsCpo(object):
             raise RuntimeError("Failed to set channel (%s) for reading" % 
                                ('current' if channel is None else channel))
         return schannel
+
+    def setProbes(self):
+        """ set default probes. """
+
+        for channel in 1,2,3,4:
+            self.write('ch%d:coupling dc' % (channel))
+            self.write('ch%d:invert off' % (channel))
+            self.write('ch%d:probe:gain 0.1' % (channel))
+            self.write('sel:ch%d on' % (channel))
 
     def setupTransfers(self):
         self.write('data:resolution full')
@@ -160,12 +171,14 @@ class PfsCpo(object):
 
         self.triggerAfter = None
 
+        self.write('trig:a:mode normal')
         self.write('trig:a:type edge')
+        self.write('trig:a:level %s' % (level))
         self.write('trig:a:edge:source %s' % (source))
         self.write('trig:a:edge:coupling %s' % (coupling))
         self.write('trig:a:edge:slope %s' % (slope))
         self.write('trig:a:holdoff:time %s' % (holdoff))
-        self.write('trig:a:level %s' % (level))
+        self.write('trig:a:level:%s %s' % (source, level))
 
     def setSampling(self, scale='1e-6', pos=50, triggerPos=20, 
                     delayMode='on', delayTime=0):
@@ -199,6 +212,21 @@ class PfsCpo(object):
 
         return ret
 
+    def getKeySet(self, queryPrefix, keys):
+        output = OrderedDict()
+        for k, ctype in keys:
+            query = "%s:%s?" % (queryPrefix, k)
+            v = self.query(query)
+            v = v.strip()
+            #self.logger.info("%s: %s -> %s", k, ctype, v)
+            try:
+                output[k] = ctype(v)
+                #self.logger.info("%s: %s -> %s", k, v, ctype(v))
+            except:
+                output[k] = None
+                
+        return output
+    
     def getChannelShape(self, channel=None):
         channel = self.setChannel(channel)
 
@@ -206,22 +234,9 @@ class PfsCpo(object):
         self.write('WFMoutpre:byt_nr %d' % (self.dataWidth))
         self.write('WFMoutpre:bn_or msb')
 
-        keys = dict(name=channel)
-        for k, ctype in channelKeys:
-            query = "%s:%s?" % (channel, k)
-            v = self.query(query)
-            try:
-                keys[k] = ctype(v)
-            except:
-                keys[k] = None
-
-        for k, ctype in waveformKeys:
-            query = "WFMOut:%s?" % (k)
-            v = self.query(query)
-            try:
-                keys[k] = ctype(v)
-            except:
-                keys[k] = None
+        keys = OrderedDict(name=channel)
+        keys.update(self.getKeySet(channel, channelKeys))
+        keys.update(self.getKeySet('WFMOut', waveformKeys))
 
         return keys
 
@@ -248,7 +263,9 @@ class PfsCpo(object):
 
         self.scope.write('acq:state run')
         if self.triggerAfter is not None:
+            self.logger.info('waiting for end of %s sec trigger', self.triggerAfter)
             time.sleep(self.triggerAfter)
+            self.logger.info('forcing trigger')
             self.scope.write('trigger force')
 
         self.logger.info('waiting for end of test %s', test.testName)
@@ -287,12 +304,10 @@ class PfsCpo(object):
             keys['x'] = np.linspace(keys['xzero'], x1, num=len(keys['data'])) 
 
         return keys
-        
 
     def getWaveforms(self, channels=None):
         waves = dict()
         for ci in range(1,5):
-            
             channelName = "ch%d" % ci
             wave = self.getWaveform(channel=channelName)
             waves[channelName] = wave
