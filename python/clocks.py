@@ -180,7 +180,9 @@ class Clocks(object):
             
             # set epos = nearest non-dot after spos
             next_e_matches = {sig: re.search('[^.]', traces[sig][spos:]) for sig in signals}
-            next_e_pos = [next_e_matches[sig].start() if next_e_matches[sig] is not None else len(traces[sig][spos:]) for sig in signals]
+            next_e_pos = [next_e_matches[sig].start()
+                          if next_e_matches[sig] is not None
+                          else len(traces[sig][spos:]) for sig in signals]
             nextChange = min(next_e_pos)
             epos = spos + nextChange
             logging.debug('setting epos to %d = %d + %d', epos, spos, nextChange)
