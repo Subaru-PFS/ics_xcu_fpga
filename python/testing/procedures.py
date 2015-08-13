@@ -188,17 +188,17 @@ class S0Test(OneTest):
 class S1Test(OneTest):
     def initTest(self):
         self.testName = 'S1'
-        self.label = "serial clocks, with averaging"
+        self.label = "Alternate serial clocks"
 
     def setup(self):
-        self.scope.setAcqMode(numAvg=32)
+        self.scope.setAcqMode(numAvg=1)
         self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
         self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
 
         self.scope.setWaveform(1, 'RG', scale=2)
-        self.scope.setWaveform(2, 'S1', scale=2)
-        self.scope.setWaveform(3, 'S2', scale=2)
-        self.scope.setWaveform(4, 'SW', scale=2)
+        self.scope.setWaveform(2, 'S1.2', scale=2)
+        self.scope.setWaveform(3, 'S2.2', scale=2)
+        self.scope.setWaveform(4, 'OS', scale=2)
     
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
@@ -206,6 +206,111 @@ class S1Test(OneTest):
                        showLimits=True, title=self.title)        
 
 class V0Test(OneTest):
+    def initTest(self):
+        self.testName = 'V0'
+        self.label = "power up, all modes, readout, power off"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'OG', scale=5)
+        self.scope.setWaveform(2, 'RD', scale=5)
+        self.scope.setWaveform(3, 'OD', scale=5)
+        self.scope.setWaveform(4, 'BB', scale=5)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=1, pos=10, triggerPos=10, delayMode=0, delayTime=0)
+        self.scope.setEdgeTrigger(source='ch3', level=-2.5, slope='fall', holdoff='1e-9')
+
+
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1.0, 
+                       xlim=(-1,7), ylim=(-20,20), 
+                       showLimits=True, title=self.title)        
+
+class P0Test(OneTest):
+    def initTest(self):
+        self.testName = 'P0'
+        self.label = "Main parallel clocks"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'TG', scale=5)
+        self.scope.setWaveform(2, 'P1', scale=2)
+        self.scope.setWaveform(3, 'P2', scale=2)
+        self.scope.setWaveform(4, 'P3', scale=2)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+
+        self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-50,250), ylim=(-7,7), 
+                       showLimits=True, title=self.title)        
+
+class P1Test(OneTest):
+    def initTest(self):
+        self.testName = 'P1'
+        self.label = "Storage parallel clocks"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'TG', scale=5)
+        self.scope.setWaveform(2, 'P1', scale=2)
+        self.scope.setWaveform(3, 'P2', scale=2)
+        self.scope.setWaveform(4, 'P3', scale=2)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+
+        self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-50,250), ylim=(-7,7), 
+                       showLimits=True, title=self.title)        
+
+class P2Test(OneTest):
+    def initTest(self):
+        self.testName = 'P2'
+        self.label = "ISV,IG1V,IG2V"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'TG', scale=2)
+        self.scope.setWaveform(2, 'ISV', scale=2)
+        self.scope.setWaveform(3, 'IG1', scale=2)
+        self.scope.setWaveform(4, 'IG2', scale=5)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+
+        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='250e-6')
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-50,250), ylim=(-7,7), 
+                       showLimits=True, title=self.title)        
+
+class P3Test(OneTest):
+    def initTest(self):
+        self.testName = 'P3'
+        self.label = "Storage parallel clocks"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'TG', scale=2)
+        self.scope.setWaveform(2, 'ISV', scale=2)
+        self.scope.setWaveform(3, 'IG1', scale=2)
+        self.scope.setWaveform(4, 'IG2', scale=5)
+
+        self.scope.setAcqMode(numAvg=16)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+
+        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='250e-6')
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-50,250), ylim=(-7,7), 
+                       showLimits=True, title=self.title)        
+
+class xxV0Test(OneTest):
     def initTest(self):
         self.testName = 'V0'
         self.label = "bias voltages over an exposure."
@@ -216,40 +321,36 @@ class V0Test(OneTest):
         self.scope.setWaveform(3, 'OD', scale=5)
         self.scope.setWaveform(4, 'BB', scale=5)
 
-        self.scope.setSampling(scale=1, pos=50, triggerPos=20, delayMode=0, delayTime=0)
-        self.scope.setManualTrigger(after=6.0)
         self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=1, pos=20, triggerPos=10, delayMode=0, delayTime=0)
+        self.scope.setManualTrigger(after=6.0)
 
-class V1Test(OneTest):
-    def setup(self):
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1.0, 
+                       ylim=(-20,20), 
+                       showLimits=True, title=self.title)        
+
+class xxV1Test(OneTest):
+    def initTest(self):
         self.testName = 'V1'
         self.label = "slew between modes, no clocking"
 
+    def setup(self):
         self.scope.setWaveform(1, 'OG', scale=5)
         self.scope.setWaveform(2, 'RD', scale=5)
         self.scope.setWaveform(3, 'OD', scale=5)
         self.scope.setWaveform(4, 'BB', scale=5)
 
-        self.scope.setSampling(scale=1, pos=50, triggerPos=20, delayMode=0, delayTime=0)
-        self.scope.setEdgeTrigger(source='ch3', level=-8, slope='fall', holdoff='1')
         self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=1, pos=5, triggerPos=5, delayMode=0, delayTime=0)
+        self.scope.setEdgeTrigger(source='ch3', level=-8, slope='fall', holdoff='1e-9')
+
 
     def plot(self):
-        sigplot(self.testData, xscale=1.0, noWide=True, 
-                showLimits=True, title=self.label)
-        sigplot(self.testData, xscale=1.0, noWide=True, xlim=(-0.5,4.5), ylim=(-20,20), 
-                showLimits=True, title=self.label)        
+        return sigplot(self.testData['waveforms'], xscale=1.0, 
+                       xlim=(-0.5,5.0), ylim=(-20,20), 
+                       showLimits=True, title=self.title)        
 
-class P0Test(OneTest):
-    def setup(self):
-        self.testName = 'P0'
-        self.label = "Main parallel clocks"
-
-        self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
-        self.scope.setLabels(('P1','P2','P3','TG'))
-        self.scope.setEdgeTrigger(level=-4.0, slope='rise', holdoff='250e-6')
-        
 def sigplot(waves, channels=range(4), 
             ylim=None, xlim=None, 
             noWide=False, doNorm=False,
@@ -259,37 +360,51 @@ def sigplot(waves, channels=range(4),
     colors = waveColors
     
     if noWide:
-        fig, plist = plt.subplots(nrows=1, figsize=(18, 6))
+        fig, plist = plt.subplots(nrows=1, figsize=(14, 6))
         p0 = plist
     else:
-        fig, plist = plt.subplots(nrows=2, figsize=(18, 12))
+        fig, plist = plt.subplots(nrows=2, figsize=(14, 12))
         p0, p1 = plist
 
-    pslice = slice(None, None)
+
     for i in channels:
         chan = waves['ch%d' % (i+1)]
-        x = chan['x'][pslice]
-        y = chan['data'][pslice]
+        x = chan['x']
+        if xlim is not None:
+            xslice = (x >= xlim[0]) & (x <= xlim[1])
+        else:
+            xslice = slice(None, None)
+        y = chan['data']
         if doNorm:
             y -= y.mean()
-        p0.plot(x/xscale, y, 
+        p0.plot(x[xslice]/xscale, y[xslice], 
                 color=colors[i], label=chan['label'])
         if not noWide:
             p1.plot(x/xscale, y, 
                     color=colors[i], label=chan['label'])
             p1.set_xlabel('%s sec' % (xscale))
         if showLimits:
-            w = np.argmax(y)
-            p0.plot(x[w]/xscale, y[w], 'o', color=colors[i])
-            w = np.argmin(y)
-            p0.plot(x[w]/xscale, y[w], 'o', color=colors[i])
+            w = np.argmax(y[xslice])
+            p0.plot(x[xslice][w]/xscale, y[xslice][w], 'o', color=colors[i])
+            w = np.argmin(y[xslice])
+            p0.plot(x[xslice][w]/xscale, y[xslice][w], 'o', color=colors[i])
 
     if ylim is not None:
         p0.set_ylim(ylim[0], ylim[1])
     if xlim is not None:
         p0.set_xlim(xlim[0], xlim[1])
         
-    p0.legend(bbox_to_anchor=(1.1,1.0))
+    p0.legend(bbox_to_anchor=(1, 1), loc=2, borderaxespad=0.)
     p0.set_xlabel('%s sec' % (xscale))
+    p0.set_ylabel('V')
+    p0.grid()
+    
     if title:
         p0.set_title(title, loc='center')
+
+    return fig, plist
+
+def clockplot(fig, plot, waves, clocks):
+    pass
+
+
