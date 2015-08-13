@@ -84,13 +84,12 @@ class OneTest(object):
     def fullName(self):
         return "%s-%s-%s-%s_%02d" % (self.testName, 
                                      self.channel,
-                                     self.ccd,
                                      self.amp,
                                      self.revision)
     def parseFullName(self, name):
         m = re.search('''(?P<testName>[^-]+)-
                          (?P<channel>[^-]+)-
-                         (?P<ccd>[^-]+)-
+                         (?:(?P<ccd>[^-]+)-)
                          (?P<amp>[^_]+)_
                          (?P<revision>\d+).pck.*''',
                       name, re.VERBOSE)
@@ -99,7 +98,7 @@ class OneTest(object):
                                                                       self.testName))
 
         self.channel = m['channel']
-        self.ccd = m['ccd']
+        self.ccd = m['ccd'] if 'ccd' in m else None
         self.amp = m['amp']
         self.revision = m['revision']
 
