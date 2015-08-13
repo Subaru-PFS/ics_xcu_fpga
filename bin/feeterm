@@ -2,7 +2,7 @@
 
 # Utility for talking directly to the FEE's serial port.
 
-DEV=/dev/ttyS0
+DEV=/dev/ttyS1
 SPEED="--baud=38400"
 python -m serial.tools.miniterm $SPEED "$@" $DEV
 
