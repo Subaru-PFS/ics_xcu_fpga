@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import matplotlib.pyplot as plt
 import cPickle as pickle
@@ -49,12 +51,18 @@ class TestRig(object):
         seqno, dirName = self.fileMgr.genNextSet()
         self.seqno = seqno
         self.dirName = dirName
+        self.utday = os.path.split(dirName)[-2]
         os.makedirs(self.dirName, mode=02775)
-    
+
+    def registerTest(self, test):
+        self.tests.append(test)
+
+    def unregisterTest(self, test):
+        self.tests.remove(test)
+        
 class OneTest(object):
     def __init__(self, rig, channel, ccd, amp, comment=''):
-        self.testName = 'unnamed test'
-        self.label = ''
+        self.initTest()
 
         self.rig = rig
         self.channel = channel
@@ -64,6 +72,10 @@ class OneTest(object):
         self.testData = None
 
         self.revision = 1
+
+    def initTest(self):
+        self.testName = 'unnamed test'
+        self.label = ''
 
     @property
     def scope(self):
@@ -92,13 +104,18 @@ class OneTest(object):
         self.revision = m['revision']
 
     def fullPath(self):
-        name = self.fullName()
-        path = self.rig.dirName
+        dirName = self.rig.dirName
         while self.revision < 100:
-            path = os.path.join(path, "%s.pck" % (name))
+            name = self.fullName()
+            path = os.path.join(dirName, "%s.pck" % (name))
             if not os.path.exists(path):
                 return path
             self.revision += 1
+
+    def fullPathTemplate(self):
+        name = self.fullName()
+        path = self.rig.dirName
+        return os.path.join(path, name)
 
     def save(self, comment=''):
         """ Save our test data to a properly named file. """
@@ -142,10 +159,11 @@ class OneTest(object):
 
     @property
     def title(self):
-        return "Test %s, seq %d, rev %s: ch.amp=%s.%s %s" % (self.testName,
-                                                             self.rig.seqno, self.revision,
-                                                             self.channel, self.amp,
-                                                             self.label)
+        return "Test %s, run %s/%04d, rev %02d: ch.amp=%s.%s %s" % (self.testName,
+                                                                    self.rig.utday, self.rig.seqno,
+                                                                    self.revision,
+                                                                    self.channel, self.amp,
+                                                                    self.label)
 
 class S0Test(OneTest):
     def initTest(self):
