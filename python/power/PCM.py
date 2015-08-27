@@ -3,8 +3,8 @@ import socket
 import time
 
 class PCM(object):
-    powerPorts = ('motors', 'gauge', 'p3', 'fee', 
-                  'temps', 'bee', 'p7', 'ampSwitch')
+    powerPorts = ('motors', 'gauge', 'p3', 'temps',
+                  'bee', 'fee', 'interlock', 'p8')
     
     def __init__(self, loglevel=logging.INFO, host='10.1.1.4', port=1000):
 
