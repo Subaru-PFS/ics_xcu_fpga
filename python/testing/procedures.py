@@ -61,7 +61,7 @@ class TestRig(object):
         self.tests.remove(test)
         
 class OneTest(object):
-    def __init__(self, rig, channel, ccd, amp, comment=''):
+    def __init__(self, rig, channel, amp, ccd='X', comment=''):
         self.initTest()
 
         self.rig = rig
@@ -82,7 +82,7 @@ class OneTest(object):
         return self.rig.scope
 
     def fullName(self):
-        return "%s-%s-%s-%s_%02d" % (self.testName, 
+        return "%s-%s-%s_%02d" % (self.testName, 
                                      self.channel,
                                      self.amp,
                                      self.revision)
@@ -158,17 +158,17 @@ class OneTest(object):
 
     @property
     def title(self):
-        return "Test %s, run %s/%04d, rev %02d: ch.amp=%s.%s %s" % (self.testName,
-                                                                    self.rig.utday, self.rig.seqno,
-                                                                    self.revision,
-                                                                    self.channel, self.amp,
-                                                                    self.label)
+        return "Test %s, amp %s/%s run %s/%04d, rev %02d: %s" % (self.testName,
+                                                                 self.channel, self.amp,
+                                                                 self.rig.utday, self.rig.seqno,
+                                                                 self.revision,
+                                                                 self.label)
 
 class S0Test(OneTest):
     def initTest(self):
         self.testName = 'S0'
         self.label = "serial clocks, no averaging"
-
+        
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
@@ -218,7 +218,28 @@ class V0Test(OneTest):
 
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=1, pos=10, triggerPos=10, delayMode=0, delayTime=0)
-        self.scope.setEdgeTrigger(source='ch3', level=-2.5, slope='fall', holdoff='1e-9')
+        self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
+
+
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1.0, 
+                       xlim=(-1,7), ylim=(-20,20), 
+                       showLimits=True, title=self.title)        
+
+class V1Test(OneTest):
+    def initTest(self):
+        self.testName = 'V1'
+        self.label = "power up, all modes, readout, power off"
+
+    def setup(self):
+        self.scope.setWaveform(1, 'OG', scale=5)
+        self.scope.setWaveform(2, 'RD', scale=5)
+        self.scope.setWaveform(3, 'OD', scale=5)
+        self.scope.setWaveform(4, 'BB', scale=5)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=1, pos=10, triggerPos=10, delayMode=0, delayTime=0)
+        self.scope.setManualTrigger(after=3.0)
 
 
     def plot(self):
@@ -240,7 +261,7 @@ class P0Test(OneTest):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
 
-        self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        self.scope.setEdgeTrigger(level=0.0, slope='fall', holdoff='250e-6')
         
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
@@ -272,6 +293,10 @@ class P2Test(OneTest):
     def initTest(self):
         self.testName = 'P2'
         self.label = "ISV,IG1V,IG2V"
+        self.probes = (('TG',   'Misc 10'),
+                       ('ISV',  'Misc  1'),
+                       ('DG',   'Misc  2'),
+                       ('IG2V', 'Misc  3'))
 
     def setup(self):
         self.scope.setWaveform(1, 'TG', scale=2)

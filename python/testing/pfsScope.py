@@ -195,7 +195,7 @@ class PfsCpo(object):
         self.write('ch%d:scale %s' % (channel, scale))
         self.write('ch%d:pos %s' % (channel, pos))
         self.write('ch%d:offset %s' % (channel, offset))
-        self.write('ch%d:label %s' % (channel, label))
+        self.write('ch%d:label "%s"' % (channel, label))
         self.write('ch%d:coupling %s' % (channel, coupling))
 
     def query(self, qstr, verbose=logging.INFO):
