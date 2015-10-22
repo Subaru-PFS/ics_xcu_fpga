@@ -89,20 +89,15 @@ class CCD(pyFPGA.FPGA):
         if not doReread:
             self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest, clockFunc=clockFunc)
 
-        t0 = time.time()
         im = self._readImage(nrows=nrows, ncols=ncols, 
                              doTest=doTest, debugLevel=debugLevel,
                              doAmpMap=doAmpMap,
                              rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
-        t1 = time.time()
 
         if doSave:
             files = self.writeImageFile(im, comment=comment, addCards=addCards)
         else:
             files = []
-        t2 = time.time()
-
-        # sys.stderr.write("readT=%0.2f writeT=%0.2f\n" % (t1-t0, t2-t1))
 
         return im, files
 

@@ -1,4 +1,4 @@
-setupOptional(python)
+setupRequired(python)
 
 pathPrepend(PATH, ${PRODUCT_DIR}/bin)
 pathPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/c)

@@ -40,9 +40,9 @@ while True:
     dataStore[key] = val
 
     if val != lastVal or lastVal is None:
-        if key[0] in {'V','I'}:
-            printPower(key[1:])
-#            print("%0.2f %05s %s    %s" % (now, key, val, lastVal))
+        #if key[0] in {'V','I'}:
+        #    printPower(key[1:])
+        print("%0.2f %05s %s ->  %s" % (now, key, lastVal, val))
 
 
 
