@@ -337,7 +337,7 @@ def tuneLevels(ccd, fee, amps=None,
 
 def gainCurve(ccd, fee, amps=None, 
               statCols=None, nrows=200, 
-              doUnwrap=False, leg='n',
+              doUnwrap=False, leg='n', clockFunc=None,
               stepSize=19.9*2, offLimit=199, sleepTime=0.1):
     
     if amps is None:
@@ -357,7 +357,8 @@ def gainCurve(ccd, fee, amps=None,
     time.sleep(sleepTime)
     
     # Clear any accumulated charge
-    toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
+    toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                         clockFunc=clockFunc)
 
     offset = 0.0
     while np.fabs(offset) <= offLimit:
@@ -365,7 +366,8 @@ def gainCurve(ccd, fee, amps=None,
         fee.setOffsets(amps, [offset]*namps, leg=leg)
         time.sleep(sleepTime)
 
-        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
+        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
+                                  clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')
             hi_w = im > doUnwrap
