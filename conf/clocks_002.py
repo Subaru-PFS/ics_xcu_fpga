@@ -33,15 +33,15 @@ def readClocks(tickTime=40e-9):
                   turnOn= [P1,P3,S1,CNV])
     
     pix = Clocks(tickTime, initFrom=pre)
-    pix.changeFor(duration=16,
+    pix.changeFor(duration=8,
                   turnOff=[S1],
                   turnOn= [S2,RG,DCR,IR,SCK])
 
-    pix.changeFor(duration=4,
-                  turnOff=[SCK,RG])
+    pix.changeFor(duration=8,
+                  turnOn=[SW])
 
-    pix.changeFor(duration=4,
-                  turnOn= [SW])
+    pix.changeFor(duration=8,
+                  turnOff=[SCK,RG])
 
     pix.changeFor(duration=8,
                   turnOff=[S2,IR],
@@ -68,7 +68,7 @@ def readClocks(tickTime=40e-9):
     pix.changeFor(duration=4,
                   turnOff=[I_P])
 
-    pix.changeFor(duration=54,
+    pix.changeFor(duration=56,
                   turnOn= [CNV])
 
     post = Clocks(tickTime, initFrom=pix)
