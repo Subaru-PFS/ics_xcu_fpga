@@ -31,7 +31,6 @@ cdef extern from "fpga.h":
      int resetReadout(int force)
      int armReadout(int nrows, int ncols, int doTest, int ard18bit)
 
-     int configureForReadout(int doTest, int adc18bit, int nrows, int ncols)
      void finishReadout()
      int readLine(int npixels, uint16_t *rowbuf,
                   uint32_t *dataCrc, uint32_t *fpgaCrc,
@@ -86,21 +85,18 @@ cdef class FPGA:
 
     def configureReadout(self, nrows, ncols, doTest=False, clockFunc=None):
         if clockFunc is None:
-            ret = configureForReadout(doTest, self.adc18bit, nrows, ncols)
+            raise RuntimeError("Must specify clocking")
+        if not resetReadout(0):
+            raise RuntimeError("failed to reset for readout")
+
+        ticks, opcodes = clocks.genRowClocks(ncols, clockFunc)
+        for i in range(len(ticks)):
+            ret = sendOneOpcode(opcodes[i], ticks[i])
             if not ret:
-                raise RuntimeError("failed to configure and arm the readout")
-        else:
-            if not resetReadout(0):
-                raise RuntimeError("failed to reset for readout")
+                raise RuntimeError("failed to send opcode %d" % (i))
 
-            ticks, opcodes = clocks.genRowClocks(ncols, clockFunc)
-            for i in range(len(ticks)):
-                ret = sendOneOpcode(opcodes[i], ticks[i])
-                if not ret:
-                    raise RuntimeError("failed to send opcode %d" % (i))
-
-            if not armReadout(nrows, ncols, doTest, self.adc18bit):
-                raise RuntimeError("failed to arm for readout)")
+        if not armReadout(nrows, ncols, doTest, self.adc18bit):
+            raise RuntimeError("failed to arm for readout)")
 
     cpdef _readImage(self, int nrows=4240, int ncols=536,  
                      doTest=False, debugLevel=1, 

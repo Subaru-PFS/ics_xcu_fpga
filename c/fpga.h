@@ -61,7 +61,6 @@ extern int configureFpga(const char *mmapname);
 extern void releaseFpga(void);
 extern void pciReset(void);
 
-extern int configureForReadout(int doTest, int adc18bit, int nrows, int ncols);
 extern int resetReadout(int force);
 extern int armReadout(int nrows, int ncols, int doTest, int adc18bit);
 extern void finishReadout(void);
