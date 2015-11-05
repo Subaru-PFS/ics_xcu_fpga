@@ -306,12 +306,18 @@ class FeeControl(object):
         for k, v in self.status.iteritems():
             print k, ': ', v
 
-    def statusAsCards(self):
+    def statusAsCards(self, useCache=False):
+        if useCache is False:
+            self.getAllStatus()
         cards = []
         for k,v in self.status.iteritems():
             c = fits.Card('HIERARCH %s' % (k), v)
             cards.append(c)
-
+        for probe in 'FEE', 'PA', 'ccd0', 'ccd1':
+            val = self.sendCommandStr('rt,%s' % (probe))
+            c = fits.Card('HIERARCH temp.%s' % (probe), val)
+            cards.append(c)
+                    
         return cards
 
     def lockConfig(self):
