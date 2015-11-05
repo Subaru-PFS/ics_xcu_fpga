@@ -291,10 +291,7 @@ class FeeControl(object):
         return self.status
 
     def powerDown(self):
-        """ Bring the FEE down to a sane and stable idle. 
-
-        WARNING - this currently glitches OD. Waiting for a FEE firmware fix.
-        """
+        """ Bring the FEE down to a sane and stable idle. """
 
         print self.sendCommandStr('se,Clks,off')
         print self.sendCommandStr('se,all,off')
@@ -360,7 +357,10 @@ class FeeControl(object):
         m.define(preload=self.presets['read'], 
                  OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0)
 
-    def saveModesToFee(self, modes=None):
+
+    def saveModesOnFee(self, modes=None):
+        """ Save our voltage presets to the FEE. """
+        
         if isinstance(modes, basestring):
             modes = modes,
         if modes is None:
@@ -396,7 +396,7 @@ class FeeControl(object):
                                                          '3V3','5V','12V','24V','54V',
                                                          'PA','LVDS',
                                                          'Vbb0', 'Vbb1'], 
-                                         getLetter=None)
+                                         getLetter=None,)
         """
         //Read/calibrate supply voltages
         #define calSupplyVoltage "cv"   //calibrate voltage channel
@@ -678,7 +678,6 @@ class FeeControl(object):
                 self.logger.debug("ignoring %r" % (c))
                 continue
             if c in (EOL, ''):
-                # if response.startswith('X')
                 break
             response += c
                 

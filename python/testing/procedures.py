@@ -8,6 +8,7 @@ import logging
 import os
 
 from fpga import SeqPath
+from fee import feeControl
 
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
@@ -84,9 +85,9 @@ class OneTest(object):
 
     def fullName(self):
         return "%s-%s-%s_%02d" % (self.testName, 
-                                     self.channel,
-                                     self.amp,
-                                     self.revision)
+                                  self.channel,
+                                  self.amp,
+                                  self.revision)
     def parseFullName(self, name):
         m = re.search('''(?P<testName>[^-]+)-
                          (?P<channel>[^-]+)-
@@ -187,6 +188,29 @@ class S0Test(OneTest):
                        xlim=(-0.5,8), ylim=(-8,4), 
                        showLimits=True, title=self.title)        
 
+class S2Test(OneTest):
+    def initTest(self):
+        self.testName = 'S2'
+        self.label = "serial clocks, no averaging"
+        
+    def setup(self):
+        self.scope.setAcqMode(numAvg=0)
+        self.delayTime = 13.920*1e-6 * 10
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
+        self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
+
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1', scale=2)
+        self.scope.setWaveform(3, 'S2', scale=0.1, coupling='ac')
+        self.scope.setWaveform(4, 'SW', scale=2)
+    
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       noWide=False,
+                       xoffset=self.delayTime,
+                       xlim=(-0.5,15), ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
 class S1Test(OneTest):
     def initTest(self):
         self.testName = 'S1'
@@ -278,9 +302,9 @@ class P1Test(OneTest):
 
     def setup(self):
         self.scope.setWaveform(1, 'TG', scale=5)
-        self.scope.setWaveform(2, 'P1', scale=2)
-        self.scope.setWaveform(3, 'P2', scale=2)
-        self.scope.setWaveform(4, 'P3', scale=2)
+        self.scope.setWaveform(2, 'P1S', scale=2)
+        self.scope.setWaveform(3, 'P2S', scale=2)
+        self.scope.setWaveform(4, 'P3S', scale=2)
 
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
@@ -296,11 +320,17 @@ class P2Test(OneTest):
     def initTest(self):
         self.testName = 'P2'
         self.label = "ISV,IG1V,IG2V"
-        self.probes = (('TG',   'Misc 10'),
-                       ('ISV',  'Misc  1'),
-                       ('DG',   'Misc  2'),
-                       ('IG2V', 'Misc  3'))
-
+        self.probes = (('TG', 'Misc 10'),
+                       ('ISV', 'Misc 1'),
+                       ('IG1', 'Misc 2'),
+                       ('IG2', 'Misc 3'))
+        fee = feeControl.FeeControl(noConnect=True)
+        mode = fee.presets['read']
+        self.volts = dict(TG=(3.0,-5.0),
+                          ISV=(-10.0,),
+                          IG1=(5.0,),
+                          IG2=(mode.presets['P_off'], mode.presets['P_on']))
+        
     def setup(self):
         self.scope.setWaveform(1, 'TG', scale=2)
         self.scope.setWaveform(2, 'ISV', scale=2)
@@ -313,9 +343,12 @@ class P2Test(OneTest):
         self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='250e-6')
         
     def plot(self):
-        return sigplot(self.testData['waveforms'], xscale=1e-6,
-                       xlim=(-50,250), ylim=(-7,7), 
-                       showLimits=True, title=self.title)        
+        fig, plots = sigplot(self.testData['waveforms'], xscale=1e-6,
+                             xlim=(-50,250), ylim=(-7,7), 
+                             showLimits=True, title=self.title)
+        return fig, plots
+            
+            
 
 class P3Test(OneTest):
     def initTest(self):
