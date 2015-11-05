@@ -19,7 +19,8 @@ class ModePreset(object):
     def __str__(self):
         return ("ModePreset(name=%s, %s)" %
                 (self.name,
-                 None if self.presets is None else ', '.join(["%s=%s" % (k,v) for k,v in self.presets.iteritems()])))
+                 None if self.presets is None else ', '.join(["%s=%s" % (k,v)
+                                                              for k,v in self.presets.iteritems()])))
 
     def define(self, preload=None, force=False, 
                P_off =None, P_on =None,
@@ -39,7 +40,7 @@ class ModePreset(object):
 
         if preload is not None:
             self.presets = preload.presets.copy()
-        else:
+        elif self.presets is None:
             self.presets = OrderedDict()
 
         for k in argValues.args:
@@ -357,7 +358,7 @@ class FeeControl(object):
         m.define(OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0,
                  P_off = 3.0, P_on = -5.0,
                  S_off = 3.0, S_on = -6.0,
-                 DG_off= 5.0, DG_on= -5.0,
+                 DG_off= 5.0, DG_on=  5.0,
                  SW_off= 5.0, SW_on= -6.0,
                  RG_off= 2.0, RG_on= -7.5)
 
@@ -381,6 +382,25 @@ class FeeControl(object):
             p = self.presets[m]
             p.saveToFee(self)
 
+    def setVoltage(self, mode, name, value, doSet=False):
+        """ Change a single voltage in a single mode. """
+
+        if mode is not None:
+            m = self.presets[mode]
+            kws = dict(name=value, force=True)
+            print "kws: %s" % (kws)
+            m.define(**kws)
+
+            if doSet:
+                m.saveToFee(self)
+        else:
+            for ch in 0,1:
+                old = self.doGet('bias', name, ch)
+                self.doSet('bias', name, value, ch)
+                new = self.doGet('bias', name, ch)
+                self.logger.info("changed ch%d %s from %s to %s" % (ch, name, old, new))
+            
+        
     def defineCommands(self):
         self.commands = {}
 
