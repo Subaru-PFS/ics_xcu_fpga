@@ -97,8 +97,8 @@ def rawAmpGrid(im, ccd, cols=None, rows=None,
         c = 2
         
     for a in range(8):
-        ampIm = im[rows, ccd.ampidx(a, im)[cols]]
-
+        ampCols = ccd.ampidx(a, im)[cols]
+        ampIm = im[rows][:, ampCols]
         if showFfts:
             p = fig.add_subplot(r, c, 2*a + 1)
         else:
@@ -387,9 +387,9 @@ def gainCurve(ccd, fee, amps=None,
         
 
 def plotGains(offsets, levels, amps=None):
-    offs = offsets[1:]
-    la = np.array(levels[1:])
-    fig = plt.figure()
+    offs = offsets[0:]
+    la = np.array(levels[0:])
+    fig = plt.figure(figsize=(8,8))
     p1 = fig.add_subplot(121)
     p2 = fig.add_subplot(122)
     

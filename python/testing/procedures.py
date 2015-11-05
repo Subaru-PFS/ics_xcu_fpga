@@ -70,7 +70,8 @@ class OneTest(object):
         self.amp = amp
         self.comment0 = comment
         self.testData = None
-
+        self.delayTime = 0
+        
         self.revision = 1
 
     def initTest(self):
@@ -171,7 +172,8 @@ class S0Test(OneTest):
         
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
+        self.delayTime = 13.920*1e-6 * 10
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
         self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
 
         self.scope.setWaveform(1, 'RG', scale=2)
@@ -192,7 +194,8 @@ class S1Test(OneTest):
 
     def setup(self):
         self.scope.setAcqMode(numAvg=1)
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0, delayTime=200e-9)
+        self.delayTime = 13.920*1e-6 * 10
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
         self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
 
         self.scope.setWaveform(1, 'RG', scale=2)
@@ -380,6 +383,7 @@ def sigplot(waves, channels=range(4),
             ylim=None, xlim=None, 
             noWide=False, doNorm=False,
             xscale=1e-6, showLimits=False, 
+            xoffset=0,
             title=None):
     
     colors = waveColors
@@ -394,7 +398,7 @@ def sigplot(waves, channels=range(4),
 
     for i in channels:
         chan = waves['ch%d' % (i+1)]
-        x = chan['x']
+        x = chan['x'] - xoffset
         if xlim is not None:
             xslice = (x >= xlim[0]) & (x <= xlim[1])
         else:
