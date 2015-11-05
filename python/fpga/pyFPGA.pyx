@@ -1,4 +1,5 @@
 import sys
+import time
 import cython
 import numpy
 
@@ -155,16 +156,22 @@ cdef class FPGA:
         cdef uint32_t dataCrc, fpgaCrc
         cdef uint32_t dataRow, fpgaRow
         cdef int row_i, col_i, amp_i
-
+        
         if rowFunc is None:
             rowFunc = printProgress
         if rowFunc and rowFuncArgs is None:
             rowFuncArgs = dict()
 
         for row_i in range(nrows):
+            if debugLevel > 4:
+                t0 = time.time()
             ret = readLine(ncols*namps, &rowImage[0], 
                            &dataCrc, &fpgaCrc,
                            &dataRow, &fpgaRow)
+            if debugLevel > 4:
+                t1 = time.time()
+                sys.stderr.write('line %04d: %g\n' %  (row_i, t1-t0))
+                                 
             if dataCrc != fpgaCrc:
                 errorMsg = ("CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n" %
                             (fpgaCrc, dataCrc))

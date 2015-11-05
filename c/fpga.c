@@ -24,9 +24,6 @@ static uint32_t output_states;
 static uint32_t bram_addr;
 static int wordsReady;
 
-#define SET_1(x) output_states |= (x)
-#define SET_0(x) output_states &= ~(x)
-
 #define STATES_MASK 0xffff8000
 #define DURATION_MASK (0xffffffff & ~STATES_MASK)
 
@@ -220,9 +217,9 @@ uint32_t readWord(void)
   if (wordsReady == 0) {
     wordsReady = fpga[R_DDR_COUNT];
     while (wordsReady == 0) {
-      usleep(50000);
+      usleep(1000);
       wordsReady = fpga[R_DDR_COUNT];
-      //fprintf(stderr, "slept on line (avail=%d)\n", wordsReady);
+      fprintf(stderr, "slept on line (avail=%d)\n", wordsReady);
       /* If fpga[R_DDR_COUNT] stays at zero for 50ms, we can infer
        * that the deserializer is done feeding it and we need to
        * feed some words into it in order to cause those that are

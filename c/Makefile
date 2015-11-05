@@ -1,5 +1,5 @@
 # CPL used c99 features, sorry.
-CFLAGS = -g -O1 --std=c99 -Wall
+CFLAGS = -g -O3 --std=c99 -Wall
 
 all: libfpga.so reread
 
