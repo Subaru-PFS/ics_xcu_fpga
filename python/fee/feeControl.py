@@ -53,6 +53,8 @@ class ModePreset(object):
                     raise RuntimeError("All voltages must be defined for non-preloaded modes")
 
     def saveToFee(self, fee, channels=(0,1)):
+        oldTimeout = fee.device.timeout
+        fee.device.setTimeout(5.0)
         if False and self.preload:
             fee.sendCommandStr('lp,%s' % (self.name))
         for ch in channels:
@@ -180,7 +182,9 @@ class FeeChannelSet(FeeSet):
         return self._getVal(subName, channel, self.readLetter)
 
 class FeeControl(object):
-    def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None, noPowerup=False):
+    def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None,
+                 noConnect=False, noPowerup=False):
+        
         if port is None:
             port = '/dev/ttyS1'
         self.logger = logging.getLogger()
@@ -189,7 +193,7 @@ class FeeControl(object):
         self.status = OrderedDict()
         self.devConfig = dict(port=port, 
                               baudrate=38400,
-                              timeout=0.5)
+                              timeout=2.0)  # The RTD routines need > 0.5s.
         self.devConfig['writeTimeout'] = 10 * 1.0/(self.devConfig['baudrate']/8.0)
         self.EOL = '\n'
         self.ignoredEOL = '\r'
@@ -197,11 +201,13 @@ class FeeControl(object):
         self.lockConfig()
         self.defineCommands()
 
-        self.setDevice(port)
-
         self.activeMode = None
         self.defineModes()
 
+        if noConnect is True:
+            return
+        self.setDevice(port)
+        
         if sendImage is not None:
             self.sendImage(sendImage)
         else:
