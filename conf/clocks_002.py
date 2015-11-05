@@ -53,19 +53,19 @@ def readClocks(tickTime=40e-9):
     pix.changeFor(duration=2,
                   turnOff=[CNV])
 
-    pix.changeFor(duration=120,
+    pix.changeFor(duration=108,
                   turnOn= [I_M])
 
     pix.changeFor(duration=2,
                   turnOff=[I_M])
 
-    pix.changeFor(duration=6,
+    pix.changeFor(duration=18,
                   turnOff=[SW])
 
-    pix.changeFor(duration=120,
+    pix.changeFor(duration=108,
                   turnOn=[I_P])
 
-    pix.changeFor(duration=4,
+    pix.changeFor(duration=16,
                   turnOff=[I_P])
 
     pix.changeFor(duration=56,
