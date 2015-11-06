@@ -30,12 +30,15 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
 def readClocks(tickTime=40e-9):
     pre = Clocks(tickTime)
     pre.changeFor(duration=120,
-                  turnOn= [P1,P3,S1,CNV,SW])
+                  turnOn= [P1,P3,S1,CNV])
     
     pix = Clocks(tickTime, initFrom=pre)
-    pix.changeFor(duration=16,
+    pix.changeFor(duration=8,
                   turnOff=[S1],
                   turnOn= [S2,RG,DCR,IR,SCK])
+
+    pix.changeFor(duration=8,
+                  turnOn=[SW])
 
     pix.changeFor(duration=8,
                   turnOff=[SCK,RG])
@@ -50,16 +53,16 @@ def readClocks(tickTime=40e-9):
     pix.changeFor(duration=2,
                   turnOff=[CNV])
 
-    pix.changeFor(duration=104,
+    pix.changeFor(duration=108,
                   turnOn= [I_M])
 
-    pix.changeFor(duration=12,
-                  turnOff=[I_M,SW])
+    pix.changeFor(duration=2,
+                  turnOff=[I_M])
 
-    pix.changeFor(duration=16,
-                  turnOn=[SW])
+    pix.changeFor(duration=18,
+                  turnOff=[SW])
 
-    pix.changeFor(duration=104,
+    pix.changeFor(duration=108,
                   turnOn=[I_P])
 
     pix.changeFor(duration=16,
