@@ -20,7 +20,7 @@ class CCD(pyFPGA.FPGA):
 
     """
     def __init__(self, adc18bit=1, dewarID=12):
-        baseTemplate = '%(filePrefix)s%(seqno)'
+        baseTemplate = '%(filePrefix)s%(seqno)06d'
         self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
                                                 filePrefix='PFSA',
                                                 filePattern="%s%02d.fits" % (baseTemplate,
