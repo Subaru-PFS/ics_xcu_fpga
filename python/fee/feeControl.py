@@ -475,8 +475,8 @@ class FeeControl(object):
         #  define co_1 "ch1"
         """
         self.commands['offset'] = FeeChannelSet('offset', 'o', 
-                                                ['0p','1p','2p','3p',
-                                                 '0n','1n','2n','3n'],
+                                                ['0p','0n','1p','1n',
+                                                 '2p','2n','3p','3n'],
                                                 converter=float,
                                                 getLetter='r', hasAll=True)
         """
