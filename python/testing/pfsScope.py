@@ -181,12 +181,14 @@ class PfsCpo(object):
         self.write('trig:a:level:%s %s' % (source, level))
 
     def setSampling(self, scale='1e-6', pos=50, triggerPos=20, 
-                    delayMode='on', delayTime=0):
+                    delayMode='on', delayTime=0, delayUnits='s',
+                    recordLength=100000):
         self.write('horiz:delay:mode %s' % (delayMode))
-        self.write('horiz:delay:time %s' % (delayTime))
+        self.write('horiz:delay:time %s %s' % (delayTime, delayUnits))
         self.write('horiz:scale %s' % (scale))
         self.write('horiz:pos %s' % (pos))
         self.write('horiz:trigger:pos %s' % (triggerPos))
+        self.write('horiz:record %s' % (recordLength))
 
     def setWaveform(self, channel, label, 
                     scale=1.0, pos=0, offset=0,
