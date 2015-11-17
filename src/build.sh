@@ -14,7 +14,7 @@
 # The final .bit file is identical to that from the ISE, barring four bytes which feel like a timestamp.
 #
 
-ROOT="/home/pfs/ccdFPGA/src" # Just $PWD?
+ROOT=$PWD
 PROJ="FPGA35S6045_TOP"
 TARG="xc6slx45t-fgg484-2"
 

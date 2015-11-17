@@ -29,28 +29,9 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define WPU_18BIT	(1<<5)
 #define WPU_18LOWBITS	(1<<6)
 
-// No longer desirable in C.
-#define CCD_P1   (1 << 16)  // Parallel 1
-#define CCD_P2   (1 << 17)  // Parallel 2
-#define CCD_P3   (1 << 18)  // Parallel 3
-#define CCD_TG   (1 << 19)  // Transfer Gate
-#define CCD_S1   (1 << 20)  // Serial 1
-#define CCD_S2   (1 << 21)  // Serial 2
-#define CCD_RG   (1 << 22)  // Reset Gate
-#define CCD_SW   (1 << 23)  // Summing Well
-#define CCD_DCR  (1 << 24)  // DC Restore
-#define CCD_IR   (1 << 25)  // Integrate Reset
-#define CCD_I_M  (1 << 26)  // Integrate Minus
-#define CCD_I_P  (1 << 27)  // Integrate Plus
-#define CCD_CNV  (1 << 28)  // ADC Convert
-#define CCD_SCK  (1 << 29)  // ADC SCK Burst
-#define CCD_DG   (1 << 30)  // Drain Gate
-#define CCD_IRQ  (1 << 31)  // Interrupt
-#define CCD_CRC  (1 << 15)  // CRC Control
-
 // Default image size. Should probably not be here.
-#define PIX_H 4240 // number of rows
-#define PIX_W 536  // number of columns (pixels per amp)
+#define PIX_H 4224 // number of rows
+#define PIX_W 520  // number of columns (pixels per amp)
 
 #define N_AMPS 8   // number of amps. So the number of pixels in a row is N_AMPS * PIX_W
                    // This is set by the readout hardware.
@@ -77,6 +58,7 @@ extern int readLine(int npixels, uint16_t *rowbuf,
 extern int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf);
 
 
+extern volatile uint32_t *fpgaAddr(void);
 extern uint32_t peekWord(uint32_t addr);
 extern void pokeWord(uint32_t addr, uint32_t data);
 extern int fifoRead(int nBlocks);
