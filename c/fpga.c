@@ -330,7 +330,12 @@ int readImage(int nrows, int ncols, int namps, uint16_t *imageBuf)
   finishReadout();
   return badRows;
 }
- 
+
+volatile uint32_t *fpgaAddr(void)
+{
+  return fpga;
+}
+
 uint32_t peekWord(uint32_t addr)
 {
   uint32_t intdat = (fpga[addr]);

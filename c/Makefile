@@ -8,6 +8,11 @@ reread: bee_mem_file.h fpga.h reread.o libfpga.so
 
 reread.o: fpga.h
 
+peekpoke: bee_mem_file.h fpga.h peekpoke.o libfpga.so
+	$(CC) $(CFLAGS) peekpoke.o -L. -lfpga -o peekpoke
+
+peekpoke.o: fpga.h
+
 test_image: bee_mem_file.h fpga.h test_image.o libfpga.so
 	$(CC) $(CFLAGS) test_image.o -L. -lfpga -o test_image
 
