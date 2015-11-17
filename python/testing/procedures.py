@@ -62,7 +62,7 @@ class TestRig(object):
         self.tests.remove(test)
         
 class OneTest(object):
-    def __init__(self, rig, channel, amp, ccd='X', comment=''):
+    def __init__(self, rig, channel, amp, ccd='X', comment='', revision=1):
         self.initTest()
 
         self.rig = rig
@@ -73,7 +73,7 @@ class OneTest(object):
         self.testData = None
         self.delayTime = 0
         
-        self.revision = 1
+        self.revision = revision
 
     def initTest(self):
         self.testName = 'unnamed test'
