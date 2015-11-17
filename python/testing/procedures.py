@@ -433,13 +433,21 @@ class xxV1Test(OneTest):
                        xlim=(-0.5,5.0), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
-def sigplot(waves, channels=range(4), 
+def sigplot(waves,
+            channels=None,
+            offsets=None,
             ylim=None, xlim=None, 
             noWide=False, doNorm=False,
             xscale=1e-6, showLimits=False, 
             xoffset=0,
+            clocks=None,
             title=None):
-    
+
+    if channels is None:
+        channels = range(4)
+    if offsets is None:
+        offsets = np.zeros(4)
+        
     colors = waveColors
     
     if noWide:
@@ -449,22 +457,34 @@ def sigplot(waves, channels=range(4),
         fig, plist = plt.subplots(nrows=2, figsize=(14, 12))
         p0, p1 = plist
 
-
+    if xlim is not None:
+        xdatalim = np.array(xlim) * xscale
+    else:
+        xdatalim = None
+    #xoffset *= xscale
     for i in channels:
         chan = waves['ch%d' % (i+1)]
-        x = chan['x'] - xoffset
+        x = chan['x']
+        print "x %d: %g %g %s %s %s" % (i, x.min(), x.max(), xoffset, xlim, xdatalim) 
+        x = x - xoffset
         if xlim is not None:
-            xslice = (x >= xlim[0]) & (x <= xlim[1])
+            xslice = (x >= xdatalim[0]) & (x <= xdatalim[1])
         else:
             xslice = slice(None, None)
-        y = chan['data']
+        y = chan['data'] + offsets[i]
+
         if doNorm:
-            y -= y.mean()
+            y = y - y.mean()
+        label = chan['label']
+        if offsets[i] < 0:
+            label = label + " - %g" % (-offsets[i])
+        elif offsets[i] > 0:
+            label = label + " + %g" % (offsets[i])
         p0.plot(x[xslice]/xscale, y[xslice], 
-                color=colors[i], label=chan['label'])
+                color=colors[i], label=label)
         if not noWide:
             p1.plot(x/xscale, y, 
-                    color=colors[i], label=chan['label'])
+                    color=colors[i], label=label)
             p1.set_xlabel('%s sec' % (xscale))
         if showLimits:
             w = np.argmax(y[xslice])
@@ -477,6 +497,14 @@ def sigplot(waves, channels=range(4),
     if xlim is not None:
         p0.set_xlim(xlim[0], xlim[1])
         
+        
+    for c in (clocks if clocks is not None else []):
+        c = c * 1e-9 / xscale
+                
+        print("vline @ %g" % (c))
+        p0.axvline(c,
+                   alpha=0.5,color='r',linestyle='dot')
+            
     p0.legend(bbox_to_anchor=(1, 1), loc=2, borderaxespad=0.)
     p0.set_xlabel('%s sec' % (xscale))
     p0.set_ylabel('V')
