@@ -297,6 +297,14 @@ class FeeControl(object):
         self.status = newStatus
         return self.status
 
+    def getTemps(self):
+        temps = []
+        for probe in 'FEE', 'PA', 'ccd0', 'ccd1':
+            val = self.sendCommandStr('rt,%s' % (probe))
+            temps.append(float(val))
+
+        return temps
+                         
     def powerDown(self):
         """ Bring the FEE down to a sane and stable idle. """
 
@@ -785,7 +793,7 @@ def main(argv=None):
                                      epilog="At least one command must be specified.\n")
 
     parser.add_argument('-p', '--port', 
-                        type=str, default='/dev/ttyS0',
+                        type=str, default='/dev/ttyS1',
                         help='the port to use. Currently must be a tty name. Default=%(default)s')
     parser.add_argument('-r', '--raw', action='append',
                         help='a raw command to send. The "~" is automatically prepended.')
