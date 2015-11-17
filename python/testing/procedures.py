@@ -191,25 +191,46 @@ class S0Test(OneTest):
 class S2Test(OneTest):
     def initTest(self):
         self.testName = 'S2'
-        self.label = "serial clocks, no averaging"
+        self.label = "CCD pixel readout"
+        self.clocks = None
+        rowTime = 7925.920 * 1e-6
+        pixTime = 13.920 * 1e-6
+        self.delayTime = (2 * rowTime +  0 * pixTime)
         
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
-        self.delayTime = 13.920*1e-6 * 10
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
-        self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
+        self.scope.setSampling(scale=1e-6, # recordLength=1000000,
+                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
+        self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
 
-        self.scope.setWaveform(1, 'RG', scale=2)
-        self.scope.setWaveform(2, 'S1', scale=2)
-        self.scope.setWaveform(3, 'S2', scale=0.1, coupling='ac')
-        self.scope.setWaveform(4, 'SW', scale=2)
-    
-    def plot(self):
-        return sigplot(self.testData['waveforms'], xscale=1e-6,
-                       noWide=False,
-                       xoffset=self.delayTime,
-                       xlim=(-0.5,15), ylim=(-8,4), 
-                       showLimits=True, title=self.title)        
+        self.scope.setWaveform(1, 'DCR', scale=0.5)
+        self.scope.setWaveform(2, 'ADC', scale=1.0)
+        self.scope.setWaveform(3, 'Video', scale=2.0)
+        self.scope.setWaveform(4, 'Ref', scale=0.01, coupling='ac')
+
+    def setClocks(self, clocks=None):
+        if clocks is None:
+            import clocks_002
+
+            pre, pix, post = clocks_002.readClocks()
+            clocks = np.array(pix.ticks) * pix.tickTime
+            
+        self.clocks = clocks
+        print "clocks: %s" % (self.clocks)
+        
+    def plot(self, channels=None):
+        self.setClocks()
+        xscale = 1e-6
+        fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
+                          offsets=[0,0,0,0],
+                          noWide=False,
+                          xoffset=self.delayTime,
+                          ylim=(-0.25,0.6),
+                          clocks=self.clocks,
+                          showLimits=False, title=self.title)
+
+                
+        return fig, pl
 
 class S1Test(OneTest):
     def initTest(self):
