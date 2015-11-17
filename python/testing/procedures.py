@@ -152,6 +152,18 @@ class OneTest(object):
         self.testData['version'] = 2
         self.testData['waveforms'] = self.scope.getWaveforms()
 
+
+    def channelData(self):
+        """ Return an ndarray of data for the given channels. """
+
+        datalen = self.testData['waveforms']['ch1']['x'].shape[0]
+        arr = np.zeros((datalen, 5), dtype='f8')
+        arr[:,0] = self.testData['waveforms']['ch1']['x']
+        for i in range(4):
+            arr[:,i+1] = self.testData['waveforms']['ch%d' % (i+1)]['data']
+
+        return arr
+    
     def plot(self):
         """ Default plot -- all channels, autoscaled. """
 
