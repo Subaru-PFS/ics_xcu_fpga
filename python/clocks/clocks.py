@@ -215,13 +215,17 @@ class Clocks(object):
         label_n = 0
         transitionLabels = ['.']
         otherLabels = ['.']
+        _names = [unichr(xc) for xc in range(0x100, 0x1ff)]
+        names = [n for n in _names if not n.islower()]
         traceLen = len(traces[list(signals)[0]])
         for c_i in range(1, traceLen):
             isTransition = any([traces[sig][c_i] in '01' for sig in traces.keys()])
             if c_i == traceLen-1:
                 isTransition = True
-            thisName = chr(ord('A')+label_n)
-            otherName = chr(ord('Z')-label_n)
+            #thisName = chr(ord('A')+label_n)
+            #otherName = chr(ord('Z')-label_n)
+            thisName = names[label_n]
+            otherName = names[-label_n]
             if isTransition:
                 self.logger.info(" trans %d(%s) at %d/%d" % (label_n, thisName, c_i, traceLen))
                 transitionLabels.append(thisName)
