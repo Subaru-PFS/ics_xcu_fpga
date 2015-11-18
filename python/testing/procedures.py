@@ -211,34 +211,36 @@ class S2Test(OneTest):
         
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=1e-6, # recordLength=1000000,
+        self.scope.setSampling(scale=2e-6, # recordLength=1000000,
+                               triggerPos=0.2,
                                delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
         self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
 
-        self.scope.setWaveform(1, 'DCR', scale=0.5)
-        self.scope.setWaveform(2, 'ADC', scale=1.0)
-        self.scope.setWaveform(3, 'Video', scale=2.0)
-        self.scope.setWaveform(4, 'Ref', scale=0.01, coupling='ac')
+        self.scope.setWaveform(1, 'DCR', scale=2.0)
+        self.scope.setWaveform(2, 'ADC', scale=0.1)
+        self.scope.setWaveform(3, 'Video', scale=0.1)
+        self.scope.setWaveform(4, 'Ref', scale=2.0)
 
     def setClocks(self, clocks=None):
         if clocks is None:
-            import clocks_002
+            import clocks.read
 
-            pre, pix, post = clocks_002.readClocks()
+            pre, pix, post = clocks.read.readClocks()
             clocks = np.array(pix.ticks) * pix.tickTime
             
         self.clocks = clocks
         print "clocks: %s" % (self.clocks)
         
-    def plot(self, channels=None):
-        self.setClocks()
+    def plot(self, channels=[0,1]):
+        #self.setClocks()
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          offsets=[0,0,0,0],
+                          offsets=[-1,0,0,-3],
                           noWide=False,
                           xoffset=self.delayTime,
-                          ylim=(-0.25,0.6),
-                          clocks=self.clocks,
+                          ylim=(-0.25,0.5),
+                          xlim=(-1.0,15),
+                          #clocks=self.clocks,
                           showLimits=False, title=self.title)
 
                 
