@@ -40,7 +40,7 @@ class CCD(pyFPGA.FPGA):
         if im is not None:
             ncols = im.shape[1]/self.namps
         else:
-            ncols = 536
+            ncols = 520
         
         return numpy.arange(ncols) + ampid*ncols
 
@@ -59,7 +59,7 @@ class CCD(pyFPGA.FPGA):
         hdu.writeto(fnames[0])
         return fnames
 
-    def readImage(self, nrows=4240, ncols=536,
+    def readImage(self, nrows=4224+76, ncols=520+32,
                   doTest=False, debugLevel=1, 
                   doAmpMap=True, 
                   doReread=False,
