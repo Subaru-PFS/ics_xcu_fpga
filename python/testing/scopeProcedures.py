@@ -189,6 +189,7 @@ class S0Test(OneTest):
         self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
         self.scope.setEdgeTrigger(level=-2, slope='fall', holdoff='10e-6')
 
+        # C4 C5 C7 C9
         self.scope.setWaveform(1, 'RG', scale=2)
         self.scope.setWaveform(2, 'S1', scale=2)
         self.scope.setWaveform(3, 'S2', scale=2)
@@ -199,52 +200,6 @@ class S0Test(OneTest):
                        noWide=False,
                        xlim=(-0.5,8), ylim=(-8,4), 
                        showLimits=True, title=self.title)        
-
-class S2Test(OneTest):
-    def initTest(self):
-        self.testName = 'S2'
-        self.label = "CCD pixel readout"
-        self.clocks = None
-        rowTime = 7925.920 * 1e-6
-        pixTime = 13.920 * 1e-6
-        self.delayTime = (2 * rowTime +  0 * pixTime)
-        
-    def setup(self):
-        self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=2e-6, # recordLength=1000000,
-                               triggerPos=0.2,
-                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
-        self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
-
-        self.scope.setWaveform(1, 'DCR', scale=2.0)
-        self.scope.setWaveform(2, 'ADC', scale=0.1)
-        self.scope.setWaveform(3, 'Video', scale=0.1)
-        self.scope.setWaveform(4, 'Ref', scale=2.0)
-
-    def setClocks(self, clocks=None):
-        if clocks is None:
-            import clocks.read
-
-            pre, pix, post = clocks.read.readClocks()
-            clocks = np.array(pix.ticks) * pix.tickTime
-            
-        self.clocks = clocks
-        print "clocks: %s" % (self.clocks)
-        
-    def plot(self, channels=[0,1]):
-        #self.setClocks()
-        xscale = 1e-6
-        fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          offsets=[-1,0,0,-3],
-                          noWide=False,
-                          xoffset=self.delayTime,
-                          ylim=(-0.25,0.5),
-                          xlim=(-1.0,15),
-                          #clocks=self.clocks,
-                          showLimits=False, title=self.title)
-
-                
-        return fig, pl
 
 class S1Test(OneTest):
     def initTest(self):
@@ -267,12 +222,121 @@ class S1Test(OneTest):
                        xlim=(-0.5,8), ylim=(-8,4), 
                        showLimits=True, title=self.title)        
 
-class V0Test(OneTest):
+class Switch1Test(OneTest):
     def initTest(self):
+        self.testName = 'Switch1A'
+        self.label = " switch times"
+        self.clocks = None
+        rowTime = 7925.920 * 1e-6
+        pixTime = 13.920 * 1e-6
+        self.delayTime = (0 * rowTime +  0 * pixTime)
+        
+    def setup(self):
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=20e-9, # recordLength=1000000,
+                               triggerPos=0.2,
+                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
+
+        self.scope.setEdgeTrigger(source='ch2', level=1.3, slope='rise', holdoff='10e-6')
+
+        self.scope.setWaveform(1, 'DCR', scale=1.0)
+        self.scope.setWaveform(2, 'IR', scale=1.0)
+        self.scope.setWaveform(3, 'ampout', scale=0.5)
+        self.scope.setWaveform(4, '', scale=5)
+
+    def setClocks(self, clocks=None):
+        if clocks is None:
+            import clocks.read
+
+            pre, pix, post = clocks.read.readClocks()
+            clocks = np.array(pix.ticks) * pix.tickTime
+            
+        self.clocks = clocks
+        print "clocks: %s" % (self.clocks)
+        
+    def plot(self, channels=[0,1]):
+        #self.setClocks()
+        xscale = 1e-6
+        fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
+                          channels=range(3),
+                          offsets=[0,0,0,-10],
+                          noWide=False,
+                          # xoffset=self.delayTime,
+                          ylim=(-0.25,0.5),
+                          #xlim=(-1.0,15),
+                          #clocks=self.clocks,
+                          showLimits=False, title=self.title)
+        for p in pl:	
+#            p.set_xticks(np.arange(0,pixTime,1000)/1000.0)
+#            p.set_xticks(np.arange(0,pixTime,200)/1000.0, minor=True)
+            p.grid(which='major', alpha=0.7)
+            p.grid(which='minor', alpha=0.2)
+                
+                
+        return fig, pl
+
+class Switch2Test(OneTest):
+    def initTest(self):
+        self.testName = 'Switch2'
+        self.label = " switch times"
+        self.clocks = None
+        rowTime = 7925.920 * 1e-6
+        pixTime = 13.920 * 1e-6
+        self.delayTime = (0 * rowTime +  0 * pixTime)
+        
+    def setup(self):
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=20e-9, # recordLength=1000000,
+                               triggerPos=0.2,
+                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
+
+        self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
+
+        self.scope.setWaveform(1, 'DCR', scale=1.0)
+        self.scope.setWaveform(2, 'IR', scale=1.0)
+        self.scope.setWaveform(3, 'ampout', scale=0.5)
+        self.scope.setWaveform(4, '', scale=5)
+
+    def setClocks(self, clocks=None):
+        if clocks is None:
+            import clocks.read
+
+            pre, pix, post = clocks.read.readClocks()
+            clocks = np.array(pix.ticks) * pix.tickTime
+            
+        self.clocks = clocks
+        print "clocks: %s" % (self.clocks)
+        
+    def plot(self, channels=[0,1]):
+        #self.setClocks()
+        xscale = 1e-6
+        fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
+                          channels=range(3),
+                          offsets=[0,0,0,-10],
+                          noWide=False,
+                          # xoffset=self.delayTime,
+                          ylim=(-0.25,0.5),
+                          #xlim=(-1.0,15),
+                          #clocks=self.clocks,
+                          showLimits=False, title=self.title)
+        for p in pl:	
+#            p.set_xticks(np.arange(0,pixTime,1000)/1000.0)
+#            p.set_xticks(np.arange(0,pixTime,200)/1000.0, minor=True)
+            p.grid(which='major', alpha=0.7)
+            p.grid(which='minor', alpha=0.2)
+                
+                
+        return fig, pl
+
+class V0Test(OneTest):
+
+    def initTest(self):
+        self.delayTime = 13.920*1e-6 * 10
         self.testName = 'V0'
         self.label = "power up, all modes, readout, power off"
 
     def setup(self):
+        # C1 C2 C11 M11
         self.scope.setWaveform(1, 'OG', scale=5)
         self.scope.setWaveform(2, 'RD', scale=5)
         self.scope.setWaveform(3, 'OD', scale=5)
@@ -315,6 +379,7 @@ class P0Test(OneTest):
         self.label = "Main parallel clocks"
 
     def setup(self):
+        # M10 M4 M5 M6
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1', scale=2)
         self.scope.setWaveform(3, 'P2', scale=2)
@@ -336,6 +401,7 @@ class P1Test(OneTest):
         self.label = "Storage parallel clocks"
 
     def setup(self):
+        # M10 M7 M8 M9
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1S', scale=2)
         self.scope.setWaveform(3, 'P2S', scale=2)
@@ -351,7 +417,7 @@ class P1Test(OneTest):
                        xlim=(-50,250), ylim=(-7,7), 
                        showLimits=True, title=self.title)        
 
-class P2Test(OneTest):
+class P_Test(OneTest):
     def initTest(self):
         self.testName = 'P2'
         self.label = "ISV,IG1V,IG2V"
@@ -383,11 +449,9 @@ class P2Test(OneTest):
                              showLimits=True, title=self.title)
         return fig, plots
             
-            
-
-class P3Test(OneTest):
+class P2Test(OneTest):
     def initTest(self):
-        self.testName = 'P3'
+        self.testName = 'P2'
         self.label = "Storage parallel clocks"
 
     def setup(self):
@@ -396,10 +460,32 @@ class P3Test(OneTest):
         self.scope.setWaveform(3, 'IG1', scale=2)
         self.scope.setWaveform(4, 'IG2', scale=5)
 
-        self.scope.setAcqMode(numAvg=16)
+        self.scope.setAcqMode(numAvg=1)
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
 
-        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='250e-6')
+        self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       xlim=(-50,250), ylim=(-7,7), 
+                       showLimits=True, title=self.title)        
+
+class PxTest(OneTest):
+    def initTest(self):
+        self.testName = 'Px'
+        self.label = "Main parallel clocks"
+
+    def setup(self):
+        # M10 M4 M5 M6
+        self.scope.setWaveform(1, 'TG', scale=1)
+        self.scope.setWaveform(2, 'P1', scale=1)
+        self.scope.setWaveform(3, 'P2', scale=2)
+        self.scope.setWaveform(4, 'P3', scale=2)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+
+        self.scope.setEdgeTrigger(level=1.25, slope='rise', holdoff='250e-6')
         
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
