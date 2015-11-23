@@ -19,13 +19,13 @@ class CCD(pyFPGA.FPGA):
     with one (moderately complex) readImage() method.
 
     """
-    def __init__(self, adc18bit=1, dewarID=12):
+    def __init__(self, adc18bit=1, dewarId=None):
         baseTemplate = '%(filePrefix)s%(seqno)06d'
         self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
                                                 filePrefix='PFSA',
                                                 filePattern="%s%02d.fits" % (baseTemplate,
-                                                                             dewarID))
-
+                                                                             dewarId))
+        
     def ampidx(self, ampid, im=None):
         """ Return an ndarray mask for a single amp. 
 

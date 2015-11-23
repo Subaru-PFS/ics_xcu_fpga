@@ -52,7 +52,7 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 cdef class FPGA:
-    def __cinit__(self, adc18bit=1):
+    def __cinit__(self, adc18bit=1, dewarId=None):
         configureFpga(<const char *>0)
         self.namps = 8
         self.adc18bit = adc18bit
