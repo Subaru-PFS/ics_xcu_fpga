@@ -1,5 +1,6 @@
 import logging
 import time
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -76,6 +77,9 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 def rawAmpGrid(im, ccd, cols=None, rows=None, 
                showFfts=False,
                fig=None, figWidth=None):
+    print "in rawAmpGrid"
+    sys.stdout.flush()
+    
     if fig is None:
         fig = plt.figure('amp_hists', figsize=(figWidth, figWidth*2), tight_layout=True)
     fig.clf()
@@ -147,7 +151,7 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
     for a in range(8):
         ampIm = im[rows, ccd.ampidx(a, im)[cols]].flatten()
         #ampIm -= np.round(np.mean(ampIm))
-        ampIm -= np.median(ampIm)
+        ampIm -= np.int(np.round(np.median(ampIm)))
         p = fig.add_subplot(r, c, a+1)
         #p.xaxis.set_visible(False)
         p.yaxis.set_visible(False)
