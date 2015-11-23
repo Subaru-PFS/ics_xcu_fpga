@@ -338,7 +338,7 @@ class FeeControl(object):
         self.lockedConfig = False
 
     def setSerial(self, serialType, serial):
-        if serialType not in ('ADC', 'PA0'):
+        if serialType not in ('ADC', 'PA0', 'CCD0', 'CCD1'):
             raise RuntimeError("unknown serial number type: %s" % (serialType))
 
         if self.lockedConfig:
@@ -414,7 +414,7 @@ class FeeControl(object):
 
         self.commands['revision'] = FeeSet('revision', 'r', ['FEE'], 
                                            setLetter=None)
-        self.commands['serial'] = FeeSet('serial', 's', ['FEE', 'ADC', 'PA0'])
+        self.commands['serial'] = FeeSet('serial', 's', ['FEE', 'ADC', 'PA0', 'CCD0', 'CCD1'])
 
         """
         #define setPowerEn   "se" // must include 0 or 1 for off or on 
