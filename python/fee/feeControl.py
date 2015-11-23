@@ -372,7 +372,7 @@ class FeeControl(object):
 
         self.presets['expose'] = m = ModePreset('expose')
         m.define(preload=self.presets['read'], 
-                 OG=-4.5, RD=-5.0, OD=-5.0, BB=45.0)
+                 RD=-5.0, OD=-5.0, BB=45.0)
 
         self.presets['wipe'] = m = ModePreset('wipe')
         m.define(preload=self.presets['read'], 
