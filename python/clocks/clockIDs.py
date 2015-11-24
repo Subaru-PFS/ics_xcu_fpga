@@ -18,7 +18,7 @@ I_P = Signal(27, 'I_P', 'Integrate Plus', group='Serial', order=8)
 
 CNV = Signal(28, 'CNV', 'ADC Convert', group='FPGA', order=1)
 SCK = Signal(29, 'SCK', 'ADC SCK Burst', group='FPGA', order=2)
-DG  = Signal(30, 'DG', 'Drain Gate', group='Serial', order=9)
+DG  = Signal(30, 'DG', 'Dump Gate', group='Serial', order=9)
 
 IRQ = Signal(31, 'IRQ', 'Interrupt')
 

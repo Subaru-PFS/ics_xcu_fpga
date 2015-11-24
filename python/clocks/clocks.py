@@ -386,7 +386,11 @@ class Clocks(object):
                           self.stateMask(turnOff))
         self.outputFor(duration, newSet)
         
-def genRowClocks(ncols, clocksFunc):
+def genRowClocks(ncols, clocksFunc, rowBinning=1):
+    """ Instantiate a complete row of clock times and opcodes. 
+    
+    """
+    
     ticksList = []
     opcodesList = []
 
@@ -402,8 +406,9 @@ def genRowClocks(ncols, clocksFunc):
         opcodesList.extend(opcodes)
 
     ticks, opcodes = post.genClocks()
-    ticksList.extend(ticks)
-    opcodesList.extend(opcodes)
+    for i in range(rowBinning):
+        ticksList.extend(ticks)
+        opcodesList.extend(opcodes)
 
     return (np.array(ticksList, dtype='u2'), 
             np.array(opcodesList, dtype='u4'))
