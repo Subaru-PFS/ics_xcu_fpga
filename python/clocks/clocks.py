@@ -103,7 +103,8 @@ class Clocks(object):
             ticks, states = self.signalTrace(s)
             print "%s: %s %s" % (s.label, ticks, states)
 
-    def genJSON(self, tickDiv=2, cutAfter=20, signals=None, includeAll=False):
+    def genJSON(self, tickDiv=2, cutAfter=20, signals=None,
+                includeAll=False, title=''):
         if signals is None:
             signals = set()
             for e in self.enabled:
@@ -200,7 +201,7 @@ class Clocks(object):
                 
         json = []
         json.append('{')
-        json.append('head: {text: "ns from start"},')
+        json.append('head: {text: "ns from start %s"},' % (title))
         json.append('signal: [')
 
         # Patch up cut ends
@@ -215,17 +216,20 @@ class Clocks(object):
         label_n = 0
         transitionLabels = ['.']
         otherLabels = ['.']
+
+        # Start with ASCII characters, extend into Unicode if we have to.
+        names = [chr(ord('A')+n) for n in range(26)]
         _names = [unichr(xc) for xc in range(0x100, 0x1ff)]
-        names = [n for n in _names if not n.islower()]
+        names2 = [n for n in _names if not n.islower()]
+        names.extend(names2)
+
         traceLen = len(traces[list(signals)[0]])
         for c_i in range(1, traceLen):
             isTransition = any([traces[sig][c_i] in '01' for sig in traces.keys()])
             if c_i == traceLen-1:
                 isTransition = True
-            #thisName = chr(ord('A')+label_n)
-            #otherName = chr(ord('Z')-label_n)
-            thisName = names[label_n]
-            otherName = names[-label_n]
+            thisName = names[2*label_n]
+            otherName = names[2*label_n + 1]
             if isTransition:
                 self.logger.info(" trans %d(%s) at %d/%d" % (label_n, thisName, c_i, traceLen))
                 transitionLabels.append(thisName)
