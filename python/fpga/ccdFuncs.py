@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
+import glob
 import logging
+import os
 import sys
+import time
 
 import numpy
 import matplotlib.pyplot as plt
+
+import fitsio
 
 import pyFPGA
 
@@ -19,6 +24,71 @@ def rowProgress(row_i, image, errorMsg="OK",
 
     if (everyNRows is not None and (row_i%everyNRows == 0 or row_i == nrows-1)) or errorMsg is not "OK":
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
+
+def getReadClocks():
+    import clocks.readImage
+    reload(clocks.read)
+    
+    return clocks.read.readClocks
+
+def lastNight():
+    ddirs = glob.glob('/data/pfs/201[0-9]-[0-9][0-9]-[0-9][0-9]')
+    return sorted(ddirs)[-1]
+
+def ts(t=None):
+    if t is None:
+        t = time.time()
+        return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t))
+
+                    
+def note(text, tick=None):
+    ddir = lastNight()
+    bellFile = file(os.path.join(ddir, 'LOG.txt'), 'ab+', buffering=1)
+    bellFile.write("%s %s\n" % (ts(), text))
+    bellFile.flush()
+    bellFile.close()
+
+def fnote(fname, ftype='', notes=''):
+    hdr = fitsio.read_header(fname)
+    hdrNotes = "ccd=%s,%s pa=%s %s %s" % (float(hdr.get('temp.ccd0')),
+                                          float(hdr.get('temp.ccd1')),
+                                          float(hdr.get('temp.PA')),
+                                          hdr.get('IMAGETYP', 'unknown').strip(),
+                                          hdr.get('EXPTIME', ''))
+
+    note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
+    
+def fetchCards(fee, exptype=None, expTime=0.0):
+    feeCards = fee.statusAsCards()
+    if exptype is not None:
+        feeCards.insert(0, ('EXPTIME', expTime, ''))
+        feeCards.insert(0, ('IMAGETYP', exptype, ''))
+        feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
+    return feeCards
+    
+def fullExposure(ccd, fee,
+                 nrows, ncols, imtype, expTime=0, 
+                 clockFunc=None,
+                 doSave=True, comment='',
+                 feeControl=None):
+    
+    argDict = dict(everyNRows=200, ccd=ccd, cols=slice(50,None))
+
+    if clockFunc is None:
+        clockFunc = getReadClocks()
+        
+    if feeControl is None:
+        feeControl = fee
+    feeControl.setMode('read')
+
+    feeCards = fetchCards(fee, imtype, expTime=expTime)
+    im, files = ccd.readImage(nrows=nrows, ncols=ncols, 
+                              rowFunc=rowStats, rowFuncArgs=argDict,
+                              clockFunc=clockFunc, doSave=doSave,
+                              comment=comment, addCards=feeCards)
+    fnote(files[0], comment)
+    
+    return im, files[0]
 
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
