@@ -40,7 +40,7 @@ class CCD(pyFPGA.FPGA):
         if im is not None:
             ncols = im.shape[1]/self.namps
         else:
-            ncols = 520
+            ncols = self.ncols
         
         return numpy.arange(ncols) + ampid*ncols
 
@@ -85,6 +85,11 @@ class CCD(pyFPGA.FPGA):
         documentation for most of the arguments.
         """
 
+        if nrows is None:
+            nrows = self.nrows
+        if ncols is None:
+            ncols = self.ncols
+            
         if doReset:
             self.pciReset()
 

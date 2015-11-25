@@ -99,10 +99,13 @@ cdef class FPGA:
         if not armReadout(nrows, doTest, self.adc18bit):
             raise RuntimeError("failed to arm for readout)")
 
-    cpdef _readImage(self, int nrows=4240, int ncols=536,  
+        return readTime
+    
+    cpdef _readImage(self, int nrows=-1, int ncols=-1,  
                      doTest=False, debugLevel=1, 
                      doAmpMap=True, 
                      rowFunc=None, rowFuncArgs=None):
+    
         """ Read out the detector. Does _not_ (re-)configure the FPGA.
 
         Parameters
@@ -146,6 +149,11 @@ cdef class FPGA:
 
         """
 
+        if nrows == -1:
+            nrows = self.nrows
+        if ncols == -1:
+            ncols = self.ncols
+            
         # a contiguous C array with all the numpy and cython geometry information.
         # Yes, magic -- look at the cython manual...
         cdef int namps = self.namps
