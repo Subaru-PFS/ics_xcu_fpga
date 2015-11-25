@@ -4,6 +4,7 @@ import argparse
 import glob
 import logging
 import os
+import socket
 import sys
 import time
 
@@ -34,6 +35,25 @@ def getReadClocks():
     return clocks.read.readClocks
 
 def lastNight():
+def getWipeClocks():
+    import clocks.wipe
+    reload(clocks.wipe)
+    
+    return clocks.wipe.wipeClocks
+
+def pulseShutter(stime):
+    host = '127.0.0.1'
+    port = 10101
+    
+    print "pulsing shutter for %g seconds..." % (stime)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    s.send('%g\n' % (stime))
+    data = s.recv(1024)
+    s.close()
+    
+    return data
+
     ddirs = glob.glob('/data/pfs/201[0-9]-[0-9][0-9]-[0-9][0-9]')
     return sorted(ddirs)[-1]
 
