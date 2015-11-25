@@ -261,7 +261,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     for a in ampList:
         ampMasks[a] = ccd.ampidx(a, image)[cols]
 
-    if (everyNRows is not None and (line > 0 and line % everyNRows == 0 or line == nrows-1)) or errorMsg is not "OK":
+    if (everyNRows is not None and (line % everyNRows == 0 or line == nrows-1)) or errorMsg is not "OK":
         imRow = image[line]
 
         parts = ["%04d" % line]
@@ -271,9 +271,9 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
                 kwargs.get('fpgaRow', 9999)))
 
         for a in ampList:
-            parts.append("%0.1f" % (imRow[ampMasks[a]].mean()))
+            parts.append("%0.1f" % (imRow[ampMasks[a]][cols].mean()))
         for a in ampList:
-            parts.append("%0.2f" % (imRow[ampMasks[a]].std()))
+            parts.append("%0.2f" % (imRow[ampMasks[a]][cols].std()))
         parts.append(errorMsg)
 
         print(' '.join(parts))
