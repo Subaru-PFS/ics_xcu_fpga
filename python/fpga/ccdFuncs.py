@@ -29,12 +29,11 @@ def rowProgress(row_i, image, errorMsg="OK",
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 def getReadClocks():
-    import clocks.readImage
+    import clocks.read
     reload(clocks.read)
     
     return clocks.read.readClocks
 
-def lastNight():
 def getWipeClocks():
     import clocks.wipe
     reload(clocks.wipe)
@@ -54,6 +53,7 @@ def pulseShutter(stime):
     
     return data
 
+def lastNight():
     ddirs = glob.glob('/data/pfs/201[0-9]-[0-9][0-9]-[0-9][0-9]')
     return sorted(ddirs)[-1]
 
@@ -142,6 +142,78 @@ def fullExposure(imtype, expTime=0,
     
     return im, files[0]
 
+def expSequence(nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
+                darks=(), flats=(), 
+                feeControl=None,
+                clockFunc=None,
+                comment='',
+                title='Running sequence'):
+
+    explist = []
+    if nwipes > 0:
+        explist.append(('wipe', nwipes),)
+    for i in range(nbias):
+        explist.append(('bias', 0),)
+    for darkTime in darks:
+        explist.append(('dark', darkTime),)
+    for flatTime in flats:
+        explist.append(('flat', flatTime),)
+    for i in range(nendbias):
+        explist.append(('bias', 0),)
+        
+    return expList(explist, nrows=nrows, ncols=ncols,
+                   feeControl=feeControl, clockFunc=clockFunc,
+                   comment=comment, title=title)
+    
+def expList(explist, nrows=None, ncols=None,
+            feeControl=None,
+            clockFunc=None,
+            comment='',
+            title='Running exposure list'):
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+    note('... %s (%s exposures)' % (title, len(explist)))
+
+    for e_i, exp in enumerate(explist):
+        exptype, exparg = exp
+        expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
+        print "%s %s" % (exptype, exparg)
+        if exptype == 'wipe':
+            wipe(nrows=nrows, ncols=ncols, nwipes=exparg)
+            continue
+        elif exptype == 'bias':
+            im, imfile = fullExposure('bias',
+                                      nrows=nrows, ncols=ncols,
+                                      clockFunc=clockFunc, 
+                                      feeControl=feeControl,
+                                      comment=expComment)
+        elif exptype == 'dark':
+            wipe(nrows=nrows, ncols=ncols)
+
+            darkTime = exparg
+            time.sleep(darkTime)
+            im, imfile = fullExposure('dark', expTime=darkTime,
+                                      nrows=nrows, ncols=ncols,
+                                      clockFunc=clockFunc, 
+                                      feeControl=feeControl,
+                                      comment=expComment)
+        elif exptype == 'flat':
+            wipe(nrows=nrows, ncols=ncols)
+
+            flatTime = exparg
+            pulseShutter(flatTime)
+            time.sleep(flatTime + 1)
+            im, imfile = fullExposure('flat', expTime=flatTime,
+                                      nrows=nrows, ncols=ncols,
+                                      clockFunc=clockFunc, 
+                                      feeControl=feeControl,
+                                      comment=expComment)
+        print imfile    
+
+    feeControl.setMode('erase')
+    note('Done with exposure list.')
+    
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
              ampList=range(8), cols=None, 
