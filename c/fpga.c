@@ -20,7 +20,6 @@
 readoutStates readoutState = OFF;
 
 static volatile uint32_t *fpga;
-static uint32_t output_states;
 static uint32_t bram_addr;
 static int wordsReady;
 
@@ -66,13 +65,6 @@ int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt)
   }
 
   return 1;
-}
-
-// send_opcode(d) causes the output states currently stored in the global
-// output_states to be driven on the outputs for d*40ns
-static void send_opcode(unsigned int duration) 
-{
-  sendOneOpcode(output_states, duration);
 }
 
 int configureFpga(const char *mmapname)
@@ -147,7 +139,7 @@ int resetReadout(int force)
   return 1;
 }
 
-int armReadout(int nrows, int ncols, int doTest, int adc18bit)
+int armReadout(int nrows, int doTest, int adc18bit)
 {
   uint32_t end_addr = bram_addr-4;
 

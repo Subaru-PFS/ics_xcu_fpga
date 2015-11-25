@@ -30,7 +30,7 @@ cdef extern from "fpga.h":
      int sendOneOpcode(uint32_t states, uint16_t duration)
 
      int resetReadout(int force)
-     int armReadout(int nrows, int ncols, int doTest, int ard18bit)
+     int armReadout(int nrows, int doTest, int ard18bit)
 
      void finishReadout()
      int readLine(int npixels, uint16_t *rowbuf,
@@ -96,7 +96,7 @@ cdef class FPGA:
             if not ret:
                 raise RuntimeError("failed to send opcode %d" % (i))
 
-        if not armReadout(nrows, ncols, doTest, self.adc18bit):
+        if not armReadout(nrows, doTest, self.adc18bit):
             raise RuntimeError("failed to arm for readout)")
 
     cpdef _readImage(self, int nrows=4240, int ncols=536,  

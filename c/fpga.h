@@ -43,7 +43,7 @@ extern void releaseFpga(void);
 extern void pciReset(void);
 
 extern int resetReadout(int force);
-extern int armReadout(int nrows, int ncols, int doTest, int adc18bit);
+extern int armReadout(int nrows, int doTest, int adc18bit);
 extern void finishReadout(void);
 
 extern int sendAllOpcodes(uint32_t *states, uint16_t *durations, int cnt);
