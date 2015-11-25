@@ -9,7 +9,14 @@ import time
 
 from collections import OrderedDict
 
+import numpy as np
+
 import astropy.io.fits as fits
+
+fee = None
+
+def clipFloat(v, ndig=2):
+    return np.round(float(v), ndig)
 
 class ModePreset(object):
     def __init__(self, name):
@@ -456,7 +463,7 @@ class FeeControl(object):
                                           ['3V3M','3V3',
                                            '5VP','5VN','5VPpa', '5VNpa',
                                            '12VP', '12VN', '24VN', '54VP'],
-                                          converter=float,
+                                          converter=clipFloat,
                                           setLetter='c', getLetter='r', hasAll=True)
         """
         // Set/Get the CDS offset voltages 
@@ -477,7 +484,7 @@ class FeeControl(object):
         self.commands['offset'] = FeeChannelSet('offset', 'o', 
                                                 ['0p','0n','1p','1n',
                                                  '2p','2n','3p','3n'],
-                                                converter=float,
+                                                converter=clipFloat,
                                                 getLetter='r', hasAll=True)
         """
         // Set/get the clock Bias Voltages
@@ -508,7 +515,7 @@ class FeeControl(object):
                                                'SW_on', 'SW_off',
                                                'RG_on', 'RG_off',
                                                'OG', 'RD', 'OD', 'BB'],
-                                              converter=float,
+                                              converter=clipFloat,
                                               getLetter='r', hasAll=True)
 
         """
