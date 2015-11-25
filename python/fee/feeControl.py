@@ -192,6 +192,8 @@ class FeeChannelSet(FeeSet):
 class FeeControl(object):
     def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None,
                  noConnect=False, noPowerup=False):
+
+        global fee
         
         if port is None:
             port = '/dev/ttyS1'
@@ -221,7 +223,9 @@ class FeeControl(object):
         else:
             if not noPowerup:
                 self.powerUp()
-            
+
+        fee = self
+        
     def setDevice(self, devName):
         """ """
         self.devName = devName

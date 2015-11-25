@@ -7,6 +7,8 @@ import astropy.io.fits as pyfits
 import pyFPGA
 import SeqPath
 
+ccd = None
+
 class CCD(pyFPGA.FPGA):
     """Top-level wrapper for FPGA control and readout. 
 

@@ -14,6 +14,8 @@ import fitsio
 
 import pyFPGA
 
+import fpga.ccd as ccdMod
+import fee.feeControl as feeMod
 
 def rowProgress(row_i, image, errorMsg="OK", 
                 everyNRows=100, 
@@ -58,30 +60,60 @@ def fnote(fname, ftype='', notes=''):
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
-def fetchCards(fee, exptype=None, expTime=0.0):
-    feeCards = fee.statusAsCards()
+def fetchCards(exptype=None, expTime=0.0):
+    feeCards = feeMod.fee.statusAsCards()
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
         feeCards.insert(0, ('IMAGETYP', exptype, ''))
         feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
     return feeCards
+
+def wipe(nwipes=1, ncols=None, nrows=None, rowBinning=1, feeControl=None):
+    """ Run nwipes full-detector wipes. Leave CCD in expose mode. """
     
-def fullExposure(ccd, fee,
-                 nrows, ncols, imtype, expTime=0, 
+    ccd = ccdMod.ccd
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+
+    if ncols is None:
+        ncols = ccd.ampCols
+    if nrows is None:
+        nrows = ccd.ccdRows / rowBinning
+        
+    if nwipes > 0:
+        feeControl.setMode('wipe')
+        time.sleep(0.25)
+    for i in range(nwipes):
+        print "wiping...."
+        ccd.pciReset()
+        readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
+                                        clockFunc=getWipeClocks(),
+                                        rowBinning=rowBinning)
+        time.sleep(readTime+0.1)
+        print "wiped"
+    feeControl.setMode('expose')
+    time.sleep(0.25)
+                                                                                    
+def fullExposure(imtype, expTime=0, 
+                 nrows=None, ncols=None,
                  clockFunc=None,
                  doSave=True, comment='',
                  feeControl=None):
     
-    argDict = dict(everyNRows=200, ccd=ccd, cols=slice(50,None))
+    ccd = ccdMod.ccd
+    
+    argDict = dict(everyNRows=500, ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getReadClocks()
-        
-    if feeControl is None:
-        feeControl = fee
-    feeControl.setMode('read')
 
-    feeCards = fetchCards(fee, imtype, expTime=expTime)
+    if feeControl is None:
+        feeControl = feeMod.fee
+    feeControl.setMode('read')
+    time.sleep(1)               # Per JEG
+    
+    feeCards = fetchCards(imtype, expTime=expTime)
     im, files = ccd.readImage(nrows=nrows, ncols=ncols, 
                               rowFunc=rowStats, rowFuncArgs=argDict,
                               clockFunc=clockFunc, doSave=doSave,
