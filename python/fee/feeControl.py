@@ -530,6 +530,11 @@ class FeeControl(object):
                                          getLetter=None,
                                          setLetter='l')
 
+    def setFast(self):
+        return self.sendCommandStr('sf,fast')
+    def setSlow(self):
+        return self.sendCommandStr('sf,slow')
+        
     def allKeys(self, setName):
         try:
             cmdSet = self.commands[setName]
