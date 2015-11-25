@@ -209,7 +209,7 @@ uint32_t readWord(void)
   if (wordsReady == 0) {
     wordsReady = fpga[R_DDR_COUNT];
     while (wordsReady == 0) {
-      usleep(1000);
+      usleep(50000);
       wordsReady = fpga[R_DDR_COUNT];
       fprintf(stderr, "slept on line (avail=%d)\n", wordsReady);
       /* If fpga[R_DDR_COUNT] stays at zero for 50ms, we can infer
