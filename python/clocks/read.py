@@ -2,12 +2,12 @@ from clocks import Clocks
 
 from clockIDs import *
 
-def readClocks(tickTime=40e-9):
-    pre = Clocks(tickTime)
+def readClocks():
+    pre = Clocks()
     pre.changeFor(duration=120,
                   turnOn= [P1,P3,S1,CNV])
     
-    pix = Clocks(tickTime, initFrom=pre)
+    pix = Clocks(initFrom=pre)
     pix.changeFor(duration=8,
                   turnOff=[S1],
                   turnOn= [S2,DCR,IR,SCK])
@@ -49,31 +49,31 @@ def readClocks(tickTime=40e-9):
     pix.changeFor(duration=12,
                   turnOff= [RG])
 
-    post = Clocks(tickTime, initFrom=pix)
-    post.changeFor(duration=1000,
-                   turnOff=[P1],
-                   turnOn= [RG,IR,DCR])
+    par = Clocks(initFrom=pix)
+    par.changeFor(duration=1000,
+                  turnOff=[P1],
+                  turnOn= [RG,IR,DCR])
 
-    post.changeFor(duration=1000,
-                   turnOn= [P2,TG,CRC])
+    par.changeFor(duration=1000,
+                  turnOn= [P2,TG,CRC])
 
-    post.changeFor(duration=1000,
-                   turnOff=[P3,CRC])
+    par.changeFor(duration=1000,
+                  turnOff=[P3,CRC])
 
-    post.changeFor(duration=1000,
-                   turnOn=[P1])
+    par.changeFor(duration=1000,
+                  turnOn=[P1])
 
-    post.changeFor(duration=1000,
-                   turnOff=[P2,TG])
+    par.changeFor(duration=1000,
+                  turnOff=[P2,TG])
 
-    post.changeFor(duration=1000,
-                   turnOn=[P3])
+    par.changeFor(duration=1000,
+                  turnOn=[P3])
 
-    post.changeFor(duration=50,
-                   turnOff=[RG,IR])
+    par.changeFor(duration=50,
+                  turnOff=[RG,IR])
 
-    post.changeFor(duration=2,
-                   turnOff= [DCR])
+    par.changeFor(duration=2,
+                  turnOff= [DCR])
 
-    return pre, pix, post
+    return pre, pix, par
 
