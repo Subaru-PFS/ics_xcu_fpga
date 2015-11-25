@@ -84,13 +84,24 @@ cdef class FPGA:
 
         pciReset()
 
-    def configureReadout(self, nrows, ncols, doTest=False, clockFunc=None):
+    def resetReadout(self, force=False):
+        return resetReadout(1 if force else 0)
+        
+    def configureReadout(self, nrows, ncols, doTest=False,
+                         clockFunc=None, rowBinning=1):
+
+        """ Configure the detector for a readout.
+
+        Returns:
+           Expected readout time (s).
+        """
+        
         if clockFunc is None:
             raise RuntimeError("Must specify clocking")
-        if not resetReadout(0):
+        if not self.resetReadout(0):
             raise RuntimeError("failed to reset for readout")
 
-        ticks, opcodes = clocks.genRowClocks(ncols, clockFunc)
+        ticks, opcodes, readTime = clocks.genRowClocks(ncols, clockFunc, rowBinning=rowBinning)
         for i in range(len(ticks)):
             ret = sendOneOpcode(opcodes[i], ticks[i])
             if not ret:

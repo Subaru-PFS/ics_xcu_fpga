@@ -25,9 +25,13 @@ class Clocks(object):
     signals to set high or low, and the low 15 being the number of clocks to sustain. 
     """
 
-    def __init__(self, tickTime=40e-9, initFrom=None, logLevel=logging.INFO):
+    tickTime = 40e-9
+    
+    def __init__(self, tickTime=None, initFrom=None, logLevel=logging.INFO):
         self.clear()
-        self.tickTime = tickTime
+
+        if tickTime is not None:
+            self.tickTime = tickTime
         self.initSet = set() if initFrom is None else initFrom.enabled[-1]
         self.logLevel = logLevel
         self.logger = logging.getLogger()
@@ -394,22 +398,26 @@ def genRowClocks(ncols, clocksFunc, rowBinning=1):
     ticksList = []
     opcodesList = []
 
-    pre, pix, post = clocksFunc()
+    pre, pix, par = clocksFunc()
 
-    ticks, opcodes = pre.genClocks()
-    ticksList.extend(ticks)
+    preTicks, opcodes = pre.genClocks()
+    ticksList.extend(preTicks)
     opcodesList.extend(opcodes)
 
-    ticks, opcodes = pix.genClocks()
+    pixTicks, opcodes = pix.genClocks()
     for i in range(ncols):
-        ticksList.extend(ticks)
+        ticksList.extend(pixTicks)
         opcodesList.extend(opcodes)
 
-    ticks, opcodes = post.genClocks()
+    parTicks, opcodes = par.genClocks()
     for i in range(rowBinning):
-        ticksList.extend(ticks)
+        ticksList.extend(parTicks)
         opcodesList.extend(opcodes)
 
-    return (np.array(ticksList, dtype='u2'), 
-            np.array(opcodesList, dtype='u4'))
+    allTicks = np.array(ticksList, dtype='u2')
+    rowTime = allTicks.sum(dtype='f8') * Clocks.tickTime
+    
+    return (allTicks, 
+            np.array(opcodesList, dtype='u4'),
+            rowTime)
 
