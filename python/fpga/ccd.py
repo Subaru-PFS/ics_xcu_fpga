@@ -21,13 +21,86 @@ class CCD(pyFPGA.FPGA):
     with one (moderately complex) readImage() method.
 
     """
-    def __init__(self, adc18bit=1, dewarId=None):
+    
+    dewarNumbers = {'red':2,
+                    'blue':1}
+    
+    def __init__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
+        global ccd
+
+        if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
+            raise RuntimeError('spectroId must be 1..9')
+        if dewarId not in self.dewarNumbers:
+            raise RuntimeError('dewarId must be one of: ', self.dewarNumbers.keys())
+
+        assert splitDetectors is False, "cannot handle splitting detector files yet"
+        
+        self.dewarId = dewarId
+        self.spectroId = spectroId
+        self.splitDetectors = splitDetectors
+
         baseTemplate = '%(filePrefix)s%(seqno)06d'
         self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
                                                 filePrefix='PFSA',
-                                                filePattern="%s%02d.fits" % (baseTemplate,
-                                                                             dewarId))
+                                                filePattern="%s%s.fits" % (baseTemplate,
+                                                                           self.detectorName))
+
+        # Defaults for real detectors.  Put in config file, CPL
+        self.ampCols = 520
+        self.ccdRows = 4224
+        self.overCols = 32
+        self.overRows = 76
+        self.namps = 8
         
+        ccd = self
+
+    @property
+    def nrows(self):
+        """ Number of rows for the detector, derived from .ccdRows + .overRows. """
+        
+        return self.ccdRows + self.overRows
+
+    @property
+    def ncols(self):
+        """ Number of cols for one amp, derived from .ampCols + .overColss. """
+
+        return self.ampCols + self.overCols
+
+    @property
+    def detectorName(self):
+        """ The 2-digit name for this device. Used for the FITS file name. """
+        
+        return "%1d%1d" % (self.spectroId,
+                           self.dewarNumbers[self.dewarId])
+
+    @property
+    def detectorNum(self):
+        assert not self.splitDetectors, "do not yet know how to split detector reads. "
+        return 2
+
+    def fpgaVersion(self):
+        return "0x%08x" % self.peekWord(0)
+    
+    def idCards(self):
+        """ Return the full set of FITS cards to identify this detector (pair). """
+
+        cards = []
+        cards.append(('versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
+        cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
+        cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))
+        cards.append(('DETNUM', self.detectorNum, "Detector number: 0/1, or 2 if both detectors."))
+
+        return cards
+
+    def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
+                      **kwargs):
+        """ A sample end-of-row callback. Prints all errors and per-100 row progess lines. """
+
+        nrows, ncols = image.shape
+
+        if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
+            sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
+    
     def ampidx(self, ampid, im=None):
         """ Return an ndarray mask for a single amp. 
 
