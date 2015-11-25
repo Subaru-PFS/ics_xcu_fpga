@@ -119,22 +119,26 @@ class CCD(pyFPGA.FPGA):
         
         return numpy.arange(ncols) + ampid*ncols
 
-    def writeImageFile(self, im, 
-                       comment=None, addCards=None):
+    def writeImageFiles(self, im, 
+                        comment=None, addCards=None):
 
         fnames = self.fileMgr.getNextFileset()
 
         hdr = pyfits.Header()
+        
         if comment is not None:
             hdr.add_comment(comment)
         if addCards is not None:
             for card in addCards:
                 hdr.append(card)
-        hdu = pyfits.PrimaryHDU(data=im, header=hdr)
-        hdu.writeto(fnames[0])
+
+        hdr.extend(self.idCards())
+
+        pyfits.writeto(fnames[0], im, hdr, checksum=True)
+        
         return fnames
 
-    def readImage(self, nrows=4224+76, ncols=520+32,
+    def readImage(self, nrows=None, ncols=None,
                   doTest=False, debugLevel=1, 
                   doAmpMap=True, 
                   doReread=False,
@@ -169,17 +173,22 @@ class CCD(pyFPGA.FPGA):
             self.pciReset()
 
         if not doReread:
-            self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest, clockFunc=clockFunc)
+            expectedRowTime = self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest,
+                                                    clockFunc=clockFunc)
 
+        t0 = time.time()
         im = self._readImage(nrows=nrows, ncols=ncols, 
                              doTest=doTest, debugLevel=debugLevel,
                              doAmpMap=doAmpMap,
                              rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
+        t1 = time.time()
+
+        print("readTime = %g; expected %g" % (t1-t0, expectedRowTime*nrows))
+        
 
         if doSave:
-            files = self.writeImageFile(im, comment=comment, addCards=addCards)
+            files = self.writeImageFiles(im, comment=comment, addCards=addCards)
         else:
             files = []
 
         return im, files
-

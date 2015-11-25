@@ -50,11 +50,10 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
 
     if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
-
+    
 cdef class FPGA:
-    def __cinit__(self, adc18bit=1, dewarId=None):
+    def __cinit__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
         configureFpga(<const char *>0)
-        self.namps = 8
         self.adc18bit = adc18bit
 
     def __init__(self):
