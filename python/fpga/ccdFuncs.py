@@ -18,6 +18,8 @@ import pyFPGA
 import fpga.ccd as ccdMod
 import fee.feeControl as feeMod
 
+reload(ccdMod)
+
 def rowProgress(row_i, image, errorMsg="OK", 
                 everyNRows=100, 
                 **kwargs):
@@ -33,6 +35,12 @@ def getReadClocks():
     reload(clocks.read)
     
     return clocks.read.readClocks
+
+def getFastRevReadClocks():
+    import clocks.fastrevread
+    reload(clocks.fastrevread)
+    
+    return clocks.fastrevread.readClocks
 
 def getWipeClocks():
     import clocks.wipe
@@ -139,6 +147,40 @@ def fullExposure(imtype, expTime=0,
                               clockFunc=clockFunc, doSave=doSave,
                               comment=comment, addCards=feeCards)
     fnote(files[0], comment)
+    
+    return im, files[0]
+
+def fastRevRead(rowBinning=10,
+                nrows=None, ncols=None,
+                clockFunc=None,
+                doSave=True, comment='',
+                feeControl=None):
+    
+    ccd = ccdMod.ccd
+    
+    argDict = dict(everyNRows=500/rowBinning, ccd=ccd, cols=slice(50,-40))
+
+    if clockFunc is None:
+        clockFunc = getFastRevReadClocks()
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+    try:
+        feeControl.setFast()
+        feeControl.setMode('BT1')
+        time.sleep(1)               # Per JEG
+    
+        feeCards = fetchCards('revread', expTime=0)
+        im, files = ccd.readImage(nrows=nrows, ncols=ncols, rowBinning=rowBinning,
+                                  rowFunc=rowStats, rowFuncArgs=argDict,
+                                  clockFunc=clockFunc, doSave=doSave,
+                                  comment=comment, addCards=feeCards)
+        fnote(files[0], comment)
+    finally:
+        feeControl.setSlow()
+        feeControl.setMode('erase')
+        time.sleep(1)               # Per JEG
+        
     
     return im, files[0]
 
