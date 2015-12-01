@@ -38,11 +38,14 @@ class FeeTweaks(object):
         for k, v in kws.iteritems():
             self.modes[mode][k] = v
 
-def stdExposures_biases(nbias=10,
+def stdExposures_biases(nwipes=1,
+                        nbias=10,
+                        feeControl=None,
                         comment=''):
 
-    ccdFuncs.expSequence(nwipes=1, 
-                         nbias=nbias, 
+    ccdFuncs.expSequence(nwipes=nwipes, 
+                         nbias=nbias,
+                         feeControl=feeControl,
                          comment=comment,
                          title='%d biases' % (nbias))
     
@@ -99,8 +102,10 @@ def stdExposures_allFlats(comment=''):
 
                ('bias', 0),
                ('flat', 2),
+               ('flat', 2),
                ('flat', 4),
                ('flat', 6),
+               ('flat', 8),
                ('flat', 8),
                ('flat', 2),
 

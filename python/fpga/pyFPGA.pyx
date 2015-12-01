@@ -109,7 +109,7 @@ cdef class FPGA:
         if not armReadout(nrows, doTest, self.adc18bit):
             raise RuntimeError("failed to arm for readout)")
 
-        return readTime
+        return readTime * nrows
     
     cpdef _readImage(self, int nrows=-1, int ncols=-1,  
                      doTest=False, debugLevel=1, 

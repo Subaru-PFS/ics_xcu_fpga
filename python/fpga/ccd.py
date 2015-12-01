@@ -139,6 +139,7 @@ class CCD(pyFPGA.FPGA):
         return fnames
 
     def readImage(self, nrows=None, ncols=None,
+                  rowBinning=1,
                   doTest=False, debugLevel=1, 
                   doAmpMap=True, 
                   doReread=False,
@@ -168,22 +169,28 @@ class CCD(pyFPGA.FPGA):
             nrows = self.nrows
         if ncols is None:
             ncols = self.ncols
+
+        readRows = nrows / rowBinning
+        if readRows * rowBinning != nrows:
+            print "warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
+                                                                                       nrows)
             
         if doReset:
             self.pciReset()
 
         if not doReread:
-            expectedRowTime = self.configureReadout(nrows=nrows, ncols=ncols, doTest=doTest,
-                                                    clockFunc=clockFunc)
+            expectedTime = self.configureReadout(nrows=readRows, ncols=ncols,
+                                                 rowBinning=rowBinning,
+                                                 doTest=doTest, clockFunc=clockFunc)
 
         t0 = time.time()
-        im = self._readImage(nrows=nrows, ncols=ncols, 
+        im = self._readImage(nrows=readRows, ncols=ncols, 
                              doTest=doTest, debugLevel=debugLevel,
                              doAmpMap=doAmpMap,
                              rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
         t1 = time.time()
 
-        print("readTime = %g; expected %g" % (t1-t0, expectedRowTime*nrows))
+        print("readTime = %g; expected %g" % (t1-t0, expectedTime))
         
 
         if doSave:
