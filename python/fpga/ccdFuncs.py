@@ -55,7 +55,7 @@ def pulseShutter(stime):
     print "pulsing shutter for %g seconds..." % (stime)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((host, port))
-    s.send('%g\n' % (stime))
+    s.send('shut %g\n' % (stime))
     data = s.recv(1024)
     s.close()
     

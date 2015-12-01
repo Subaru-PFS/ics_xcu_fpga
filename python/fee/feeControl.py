@@ -384,7 +384,6 @@ class FeeControl(object):
         self.presets['BT1'] = m = ModePreset('BT1')
         m.define(preload=self.presets['read'], 
                  DG_on=-5.0, DG_off=-5.0,
-                 RD=12.0,
                  BB=25.0)
 
         self.presets['expose'] = m = ModePreset('expose')
