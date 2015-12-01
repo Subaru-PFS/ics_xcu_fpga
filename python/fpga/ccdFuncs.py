@@ -119,7 +119,7 @@ def wipe(nwipes=1, ncols=None, nrows=None, rowBinning=1, feeControl=None):
                                         clockFunc=getWipeClocks(),
                                         rowBinning=rowBinning)
         time.sleep(readTime+0.1)
-        print "wiped"
+        print "wiped %d %d %g s" % (nrows, ncols, readTime)
     feeControl.setMode('expose')
     time.sleep(0.25)
                                                                                     
@@ -225,6 +225,8 @@ def expList(explist, nrows=None, ncols=None,
             wipe(nrows=nrows, ncols=ncols, nwipes=exparg)
             continue
         elif exptype == 'bias':
+            wipe(nrows=nrows, ncols=ncols)
+
             im, imfile = fullExposure('bias',
                                       nrows=nrows, ncols=ncols,
                                       clockFunc=clockFunc, 
