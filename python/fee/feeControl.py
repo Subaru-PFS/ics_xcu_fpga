@@ -365,8 +365,12 @@ class FeeControl(object):
     def defineModes(self):
         self.presets = OrderedDict()
 
+        # Note that per JEG, erase mode starts with VBB high.
+        # We could add slew logic in the FEE, or have two erase modes,
+        # but for now the caller must drive VBB later. See ccdFuncs.wipe()
+        # for details.
         self.presets['erase'] = m = ModePreset('erase')
-        m.define(OG=6.0, RD=-12.0, OD=-5.0, BB=0.2,
+        m.define(OG=6.0, RD=-12.0, OD=-5.0, BB=30.0,
                  P_off = 6.0, P_on = 6.0,
                  S_off = 6.0, S_on = 6.0,
                  DG_off= 6.0, DG_on= 6.0,
@@ -381,6 +385,10 @@ class FeeControl(object):
                  SW_off= 5.0, SW_on= -6.0,
                  RG_off= 2.0, RG_on= -7.5)
 
+        self.presets['wipe'] = m = ModePreset('wipe')
+        m.define(preload=self.presets['read'], 
+                 OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0)
+
         self.presets['BT1'] = m = ModePreset('BT1')
         m.define(preload=self.presets['read'], 
                  DG_on=-5.0, DG_off=-5.0,
@@ -389,10 +397,6 @@ class FeeControl(object):
         self.presets['expose'] = m = ModePreset('expose')
         m.define(preload=self.presets['read'], 
                  RD=-5.0, OD=-5.0, BB=45.0)
-
-        self.presets['wipe'] = m = ModePreset('wipe')
-        m.define(preload=self.presets['read'], 
-                 OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0)
 
 
     def saveModesOnFee(self, modes=None):

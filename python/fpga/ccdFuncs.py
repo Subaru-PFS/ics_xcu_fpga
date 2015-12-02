@@ -96,8 +96,22 @@ def fetchCards(exptype=None, expTime=0.0):
         feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
     return feeCards
 
-def wipe(nwipes=1, ncols=None, nrows=None, rowBinning=1, feeControl=None):
-    """ Run nwipes full-detector wipes. Leave CCD in expose mode. """
+def wipe(nwipes=1, ncols=None, nrows=None,
+         rowBinning=1,
+         feeControl=None,
+         toExposeMode=True):
+    """ Run nwipes full-detector wipes. Leave CCD in expose mode. 
+
+    Per JEG, 2015-12-01:
+     Before each exposure, you should do the following sequence:
+
+     Gate voltages in erase mode, Vbb high. Wait ~1 second
+     Vbb to zero, wait ~ 1s
+     Vbb to read voltage, wait ~ 1s
+     Fast wipeExpose mode if there is one
+     Read
+
+    """
     
     ccd = ccdMod.ccd
 
@@ -107,9 +121,15 @@ def wipe(nwipes=1, ncols=None, nrows=None, rowBinning=1, feeControl=None):
     if ncols is None:
         ncols = ccd.ampCols
     if nrows is None:
-        nrows = ccd.ccdRows / rowBinning
+        nrows = ccd.ccdRows / rowBinning + 5
         
     if nwipes > 0:
+        feeControl.setMode('erase')
+        time.sleep(1.0)
+        feeControl.setVoltage(None, 'BB', 0.2)
+        time.sleep(1.0)
+        feeControl.setVoltage(None, 'BB', 30.0)
+        time.sleep(1.0)
         feeControl.setMode('wipe')
         time.sleep(0.25)
     for i in range(nwipes):
@@ -120,8 +140,9 @@ def wipe(nwipes=1, ncols=None, nrows=None, rowBinning=1, feeControl=None):
                                         rowBinning=rowBinning)
         time.sleep(readTime+0.1)
         print "wiped %d %d %g s" % (nrows, ncols, readTime)
-    feeControl.setMode('expose')
-    time.sleep(0.25)
+
+    if toExposeMode:
+        feeControl.setMode('expose')
                                                                                     
 def fullExposure(imtype, expTime=0, 
                  nrows=None, ncols=None,
@@ -222,19 +243,19 @@ def expList(explist, nrows=None, ncols=None,
         expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
         print "%s %s" % (exptype, exparg)
         if exptype == 'wipe':
-            wipe(nrows=nrows, ncols=ncols, nwipes=exparg)
+            wipe(nrows=nrows, ncols=ncols, nwipes=exparg, feeControl=feeControl)
             continue
-        elif exptype == 'bias':
-            wipe(nrows=nrows, ncols=ncols)
 
+        wipe(nrows=nrows, ncols=ncols,
+             toExposeMode=(exptype != 'bias'),
+             feeControl=feeControl)
+        if exptype == 'bias':
             im, imfile = fullExposure('bias',
                                       nrows=nrows, ncols=ncols,
                                       clockFunc=clockFunc, 
                                       feeControl=feeControl,
                                       comment=expComment)
         elif exptype == 'dark':
-            wipe(nrows=nrows, ncols=ncols)
-
             darkTime = exparg
             time.sleep(darkTime)
             im, imfile = fullExposure('dark', expTime=darkTime,
@@ -243,8 +264,8 @@ def expList(explist, nrows=None, ncols=None,
                                       feeControl=feeControl,
                                       comment=expComment)
         elif exptype == 'flat':
-            wipe(nrows=nrows, ncols=ncols)
-
+            time.sleep(0.25)
+            
             flatTime = exparg
             pulseShutter(flatTime)
             time.sleep(flatTime + 1)

@@ -20,10 +20,14 @@ class FeeTweaks(object):
         fee.setMode(mode)
         if mode in self.modes:
             for vname, val in self.modes[mode].iteritems():
-                self.setVoltage(vname, val)
+                self.setVoltage(None, vname, val)
         time.sleep(0.25)
 
-    def setVoltage(self, vname, val):
+    def setVoltage(self, mode, vname, val):
+
+        if mode is not None:
+            raise RuntimeError("tweaked modes can only set runtime voltages")
+        
         fee = feeMod.fee
     
         oldVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
