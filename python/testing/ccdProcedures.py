@@ -32,6 +32,7 @@ class FeeTweaks(object):
     
         oldVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
         [fee.doSet('bias', vname, val, ch) for ch in 0,1]
+        time.sleep(0.25)
         newVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
         print("%s %0.1f,%0.1f -> %0.1f,%0.1f (%0.1f)" %
               (vname, oldVals[0], oldVals[1], newVals[0], newVals[1], val))
@@ -53,90 +54,94 @@ def stdExposures_biases(nwipes=1,
                          comment=comment,
                          title='%d biases' % (nbias))
     
-def stdExposures_base(nrows=None, ncols=None, comment=''):
+def stdExposures_base(nrows=None, ncols=None, comment='base exposures'):
     tweaks = FeeTweaks()
     tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
     ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
-                         nwipes=2, 
+                         nwipes=0, 
                          nbias=10, 
                          nendbias=1, 
-                         darks=[300,300, 1200], 
-                         flats=[10,10,10], 
+                         darks=[300,300,300, 1200, 3600], 
+                         flats=[], 
                          feeControl=tweaks,
                          comment=comment,
                          title='base sequence')
 
 def stdExposures_VOD_VOG(nrows=None, ncols=None,
-                         comment=''):
+                         comment='VOD/VOG tuning'):
     
     tweaks = FeeTweaks()
     tweaks.tweakMode('read', OD=-19, OG=-4.5)
 
-    ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
-                         nwipes=2, 
-                         nbias=0, 
-                         nendbias=0, 
-                         darks=[], 
-                         flats=[], 
-                         feeControl=tweaks,
-                         comment='clearing',
-                         title='VOD/VOG tuning')
-    
     for VOD in -18, -19, -20, -21:
         for VOG in -4, -4.5, -5:
             tweaks = FeeTweaks()
             tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
             ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
-                                 nwipes=1, 
+                                 nwipes=0, 
                                  nbias=1, 
-                                 nendbias=0, 
-                                 darks=[], 
-                                 flats=[1], 
+                                 flats=[2], 
                                  feeControl=tweaks,
                                  comment=comment,
                                  title='VOD/VOG tuning')
             
-def stdExposures_allFlats(comment=''):
+def stdExposures_allFlats(comment='all flats'):
     tweaks = FeeTweaks()
     tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
-    explist = (('wipe', 2),
-
+    explist = (('bias', 0),
+               ('bias', 0),
                ('bias', 0),
                ('flat', 2),
                ('flat', 2),
+               ('flat', 4),
                ('flat', 4),
                ('flat', 6),
                ('flat', 8),
                ('flat', 8),
                ('flat', 2),
-
+               
                ('bias', 0),
-               ('flat', 10),
                ('flat', 12),
+               ('flat', 16),
+               ('flat', 16),
                ('flat', 2),
                
                ('bias', 0),
-               ('flat', 14),
-               ('flat', 16),
+               ('flat', 24),
+               ('flat', 32),
+               ('flat', 32),
                ('flat', 2),
-
+               
                ('bias', 0),
-              )
+               ('flat', 48),
+               ('flat', 64),
+               ('flat', 64),
+               ('flat', 2),
+               
+               ('bias', 0),
+               ('flat', 72),
+               ('flat', 72),
+               ('bias', 0),
+               ('flat', 96),
+               ('flat', 2),
+               
+               ('bias', 0))
+    
     ccdFuncs.expList(explist,
                      feeControl=tweaks,
-                     comment='all flats',
+                     comment=comment,
                      title='all flats')
-        
+    
 
 def stdExposures_wipes(comment=''):
     tweaks = FeeTweaks()
     tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
     explist = (('wipe', 1),
-
+               
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
@@ -146,8 +151,7 @@ def stdExposures_wipes(comment=''):
                ('bias', 0),
                
                ('flat', 16),
-               ('bias', 0)
-              )
+               ('bias', 0))
 
     ccdFuncs.expList(explist,
                      feeControl=tweaks,
