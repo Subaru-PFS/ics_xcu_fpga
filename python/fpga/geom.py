@@ -90,8 +90,8 @@ class Exposure(object):
         osYr, osXr = self.overscanExtents(ampId)
 
         if byRow:
-            imMed = np.median(im[osYr, osXr]
-                              , axis=1, keepdims=True).astype('i4')
+            imMed = np.median(im[osYr, osXr],
+                              axis=1, keepdims=True).astype('i4')
             print "%s: %s %s" % (ampId, osYr, osXr)
         else:
             osYr = slice(osYr.start + 500,
@@ -148,7 +148,57 @@ def splitImage(im, doTrim=False):
 
     return ampIms, osIms
 
+def imStats(im):
+    if isinstance(im, basestring):
+        im = fitsio.read(im)
+
+    exp = Exposure()
+    
+    ampIms, osIms = splitImage(im, doTrim=True)
+
+    stats = np.zeros(shape=exp.namps,
+                     dtype=([('signal','f4'),
+                             ('sqrtSig', 'f4'),
+                             ('bias', 'f4'),
+                             ('readnoise', 'f4'),
+                             ('readnoiseM', 'f4'),
+                             ('shotnoise', 'f4'),
+                             ('shotnoiseM', 'f4'),
+                             ('gain', 'f4'),
+                             ('gainM', 'f4'),
+                             ('noise', 'f4')]))
+
+    for a_i in range(8):
+        ampIm = ampIms[a_i]
+        osIm = osIms[a_i]
+        ampSig = np.median(ampIm)
+        osSig = np.median(osIm)
+        stats[a_i]['signal'] = signal = ampSig - osSig
+        stats[a_i]['sqrtSig'] = np.sqrt(signal)
+        stats[a_i]['bias'] = osSig
+
+        sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+        sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+        _, trusig1, _ = clippedStats(ampIm) / np.sqrt(2)
+        _, trusig2, _ = clippedStats(osIm) / np.sqrt(2)
+        stats[a_i]['readnoise'] = sig2
+        stats[a_i]['readnoiseM'] = trusig2
+
+        stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
+        stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
+
+        stats[a_i]['gain'] = gain = signal/sig**2
+        stats[a_i]['gainM'] = signal/trusig**2
+        stats[a_i]['noise'] = sig2*gain
+        
+    return ampIms, osIms, stats
+
 def flatStats(f1, f2):
+    if isinstance(f1, basestring):
+        f1 = fitsio.read(f1)
+    if isinstance(f2, basestring):
+        f2 = fitsio.read(f2)
+
     exp = Exposure()
     
     f1AmpIms, f1OsIms = splitImage(f1, doTrim=True)
