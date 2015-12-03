@@ -59,7 +59,7 @@ def stdExposures_base(nrows=None, ncols=None, comment='base exposures'):
 
     ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
                          nwipes=0, 
-                         nbias=10, 
+                         nbias=20, 
                          nendbias=1, 
                          darks=[300,300,300, 1200, 3600], 
                          flats=[], 
@@ -87,11 +87,11 @@ def stdExposures_VOD_VOG(nrows=None, ncols=None,
 
             ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
                                  nwipes=0, 
-                                 nbias=1, 
-                                 flats=[2], 
+                                 nbias=0, 
+                                 flats=[3,3], 
                                  feeControl=tweaks,
                                  comment=comment,
-                                 title='VOD/VOG tuning')
+                                 title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
             
 def stdExposures_allFlats(comment='all flats'):
     tweaks = FeeTweaks()
@@ -117,7 +117,6 @@ def stdExposures_allFlats(comment='all flats'):
                ('bias', 0),
                ('flat', 24),
                ('flat', 32),
-               ('flat', 32),
                ('flat', 2),
                
                ('bias', 0),
@@ -127,10 +126,18 @@ def stdExposures_allFlats(comment='all flats'):
                ('flat', 2),
                
                ('bias', 0),
-               ('flat', 72),
-               ('flat', 72),
-               ('bias', 0),
                ('flat', 96),
+               ('flat', 128),
+               ('flat', 2),
+               
+               ('bias', 0),
+               ('flat', 160),
+               ('flat', 160),
+               ('flat', 2),
+               
+               ('bias', 0),
+               ('flat', 192),
+               ('flat', 256),
                ('flat', 2),
                
                ('bias', 0))
