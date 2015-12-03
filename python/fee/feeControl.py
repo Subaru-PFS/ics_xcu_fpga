@@ -378,7 +378,7 @@ class FeeControl(object):
                  RG_off= 6.0, RG_on= 6.0)
 
         self.presets['read'] = m = ModePreset('read')
-        m.define(OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0,
+        m.define(OG=-4.5, RD=-12.0, OD=-21.0, BB=30.0,
                  P_off = 3.0, P_on = -5.0,
                  S_off = 3.0, S_on = -6.0,
                  DG_off= 5.0, DG_on=  5.0,
@@ -387,7 +387,7 @@ class FeeControl(object):
 
         self.presets['wipe'] = m = ModePreset('wipe')
         m.define(preload=self.presets['read'], 
-                 OG=-4.5, RD=-12.0, OD=-20.0, BB=30.0)
+                 OG=-4.5, RD=-12.0, OD=-21.0, BB=30.0)
 
         self.presets['BT1'] = m = ModePreset('BT1')
         m.define(preload=self.presets['read'], 

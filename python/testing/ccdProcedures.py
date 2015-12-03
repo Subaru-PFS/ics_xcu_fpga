@@ -56,7 +56,6 @@ def stdExposures_biases(nwipes=1,
     
 def stdExposures_base(nrows=None, ncols=None, comment='base exposures'):
     tweaks = FeeTweaks()
-    tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
     ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
                          nwipes=0, 
@@ -72,10 +71,17 @@ def stdExposures_VOD_VOG(nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
     
     tweaks = FeeTweaks()
-    tweaks.tweakMode('read', OD=-19, OG=-4.5)
 
-    for VOD in -18, -19, -20, -21:
-        for VOG in -4, -4.5, -5:
+    ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
+                         nwipes=0, 
+                         nbias=6, 
+                         flats=[], 
+                         feeControl=tweaks,
+                         comment=comment,
+                         title='pre-VOD/VOG tuning biases')
+            
+    for VOD in -21, -22:
+        for VOG in -4.5, -5:
             tweaks = FeeTweaks()
             tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
@@ -89,7 +95,6 @@ def stdExposures_VOD_VOG(nrows=None, ncols=None,
             
 def stdExposures_allFlats(comment='all flats'):
     tweaks = FeeTweaks()
-    tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
     explist = (('bias', 0),
                ('bias', 0),
@@ -138,7 +143,6 @@ def stdExposures_allFlats(comment='all flats'):
 
 def stdExposures_wipes(comment=''):
     tweaks = FeeTweaks()
-    tweaks.tweakMode('read', OD=-19.0, OG=-4.5)
 
     explist = (('wipe', 1),
                
