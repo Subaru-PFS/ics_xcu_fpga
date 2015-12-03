@@ -1,5 +1,7 @@
 import numpy as np
 
+import fitsio
+
 class Exposure(object):
     def __init__(self, nccds=2):
         self.nccds = nccds
@@ -10,9 +12,10 @@ class Exposure(object):
         self.ampCols = 520
         self.overRows = 100
         self.overCols = 32
-        self.leadinCols = 9
-        self.leadinRows = 50
-
+        self.leadinCols = 10
+        self.leadinRows = 0
+        self.flipAmps = False
+        
         self.namps = 4 * self.nccds
         
     @property
@@ -27,7 +30,7 @@ class Exposure(object):
         x0 = ampId*self.ncols + self.leadinCols
         x1 = (ampId+1)*self.ampCols
 
-        if ampId%2 == 0:
+        if not self.flipAmps or ampId%2 == 0:
             xr = slice(x0, x1)
         else:
             xr = slice(x1-1, x0-1, -1)
@@ -48,10 +51,10 @@ class Exposure(object):
         xr = slice(x0, x1)
         yr = slice(self.leadinRows, self.ampRows)
 
-        return xr, yr
+        return yr, xr
 
-    def overscanImage(self, im, ampId, doTrim=False):
-        xr, yr = self.overscanExtents(ampId, doTrim=doTrim)
+    def overscanImage(self, im, ampId):
+        yr, xr = self.overscanExtents(ampId)
     
         return im[yr, xr]
 
@@ -65,33 +68,48 @@ class Exposure(object):
         return ampImg[hslice, wslice]
 
     def coreOverscanImage(self, im, ampId):
-        ampImg = self.overscanImage(im, ampId, doTrim=False)
+        ampImg = self.overscanImage(im, ampId)
 
         amph, ampw = ampImg.shape
         hslice = slice(int(amph/2.0 - 50), int(amph/2.0 + 50))
         wslice = slice(5, None)
     
         return ampImg[hslice, wslice]
-    
-def biasSubtract(selim):
-    bsim = np.zeros((ampRows,8*ampCols), dtype='f4')
-    
-    for a in range(8):
-        bImg = biasSubtractAmp(im, a)
-        bsim[:, a*ampCols:(a+1)*ampCols] = bImg
-        
-    return bsim
-        
-def biasSubtractAmp(im, ampId):
-    x0 = ampId * ncols
-    osx0 = x0 + ampCols
-    
-    ampIm = im[:-overRows, x0:x0+ampCols]
-    osIm = im[:-overRows, osx0:osx0+overCols]
-    biasVec = np.median(osIm, axis=0)
 
-    return ampIm - biasVec[:,None]
-                        
+    def biasSubtract(self, im, byRow=False):
+        amps = []
+        
+        for a_i in range(8):
+            amps.append(self.biasSubtractAmp(im, a_i, byRow=byRow))
+        
+        return np.hstack(amps)
+        
+    def biasSubtractAmp(self, im, ampId, byRow=False):
+
+        ampIm = self.ampImage(im, ampId)
+        osYr, osXr = self.overscanExtents(ampId)
+
+        if byRow:
+            imMed = np.median(im[osYr, osXr]
+                              , axis=1, keepdims=True).astype('i4')
+            print "%s: %s %s" % (ampId, osYr, osXr)
+        else:
+            osYr = slice(osYr.start + 500,
+                         osYr.stop - 500)
+            osXr = slice(osXr.start+3, osXr.stop)
+            print "%s: %s %s" % (ampId, osYr, osXr)
+        
+            imMed = int(np.median(im[osYr, osXr]))
+
+        return ampIm.astype('i4') - imMed
+    
+def stackIms(ims):
+    stack = np.dstack(ims)
+    return np.median(stack, axis=2)
+
+def readIms(filenames):
+    return [fitsio.read(f) for f in filenames]
+
 def clippedStats(a, nsig=3.0, niter=5):
     a = a.reshape(-1)
     keep = np.ones(a.size, dtype=np.bool)
@@ -139,6 +157,7 @@ def flatStats(f1, f2):
 
     stats = np.zeros(shape=exp.namps,
                      dtype=([('signal','f4'),
+                             ('sqrtSig', 'f4'),
                              ('bias', 'f4'),
                              ('readnoise', 'f4'),
                              ('readnoiseM', 'f4'),
@@ -152,6 +171,7 @@ def flatStats(f1, f2):
         _s1 = np.median(f1AmpIms[a_i]) - np.median(f1OsIms[a_i])
         _s2 = np.median(f2AmpIms[a_i]) - np.median(f2OsIms[a_i])
         stats[a_i]['signal'] = signal = (_s1+_s2)/2
+        stats[a_i]['sqrtSig'] = np.sqrt(signal)
         stats[a_i]['bias'] = (np.median(f1OsIms[a_i]) + np.median(f2OsIms[a_i]))/2
 
         ampIm = diffAmpIms[a_i]
@@ -178,9 +198,10 @@ def printStats(stats):
     po = np.get_printoptions()
     np.set_printoptions(formatter=dict(float=lambda f: "%0.2f" % (f)))
     
-    print("amp readnoise readnoiseM  gain  gainM    signal    bias shotnoise shotnoiseM noise\n")
+    print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise\n")
+
     for i in range(8):
-        print(str(i) + "   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f" % stats[i])
+        print(str(i) + "   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f" % stats[i])
 
     np.set_printoptions(**po)
         
