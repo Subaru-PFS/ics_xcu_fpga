@@ -214,6 +214,9 @@ class FeeControl(object):
         self.activeMode = None
         self.defineModes()
 
+        self.serials = None
+        self.revisions = None
+        
         if noConnect is True:
             return
         self.setDevice(port)
@@ -225,7 +228,7 @@ class FeeControl(object):
                 self.powerUp()
 
         fee = self
-        
+
     def setDevice(self, devName):
         """ """
         self.devName = devName
@@ -240,7 +243,7 @@ class FeeControl(object):
 
         if self.devName:
             self.device = serial.Serial(**self.devConfig)
-    
+
     def powerUp(self, preset='erase'):
         """ Bring the FEE up to a sane and useable configuration. 
 
@@ -251,12 +254,14 @@ class FeeControl(object):
         """
 
         print self.sendCommandStr('se,all,on')
-        print self.sendCommandStr('lp,%s' % (preset))
+        self.setMode(preset)
         print self.sendCommandStr('se,Clks,on')
-
+        
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
 
+        self.getSerials()
+        
     def getCommandStatus(self, cset):
         status = OrderedDict()
 
@@ -295,16 +300,41 @@ class FeeControl(object):
 
         return status
 
+    def getSerials(self):
+        cset = self.commands['serial']
+        self.serials = self.getCommandStatus(cset)
+
+        cset = self.commands['revision']
+        self.revisions = self.getCommandStatus(cset)
+
     def getAllStatus(self, skip=None):
         newStatus = OrderedDict()
 
+        if skip is None:
+            skip = set()
+        else:
+            skip = set(skip)
+    
+        if self.serials is not None:
+            skip.add('serial')
+            skip.add('revision')
+            newStatus.update(self.serials)
+            newStatus.update(self.revisions)
+            
         for csetName in self.commands.keys():
-            if skip is not None and csetName in skip:
+            t0 = time.time()
+            if csetName in skip:
                 continue
             cset = self.commands[csetName]
             cmdStatus = self.getCommandStatus(cset)
             newStatus.update(cmdStatus)
-
+            t1 = time.time()
+            print "get all %s: %0.2fs" % (csetName, t1-t0)
+            if csetName == 'serial':
+                self.serials = cmdStatus
+            if csetName == 'revision':
+                self.revisions = cmdStatus
+                
         self.status = newStatus
         return self.status
 
@@ -771,7 +801,11 @@ class FeeControl(object):
 
     def setMode(self, newMode):
         self.sendCommandStr('lp,%s' % (newMode))
+        self.activeMode = newMode
 
+    def getMode(self):
+        return self.activeMode
+    
     def setOffsets(self, amps, levels, leg='n', pause=0.0):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
