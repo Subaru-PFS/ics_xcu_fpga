@@ -363,10 +363,6 @@ class FeeControl(object):
         for k,v in self.status.iteritems():
             c = fits.Card('HIERARCH %s' % (k), v)
             cards.append(c)
-        for probe in 'FEE', 'PA', 'ccd0', 'ccd1':
-            val = self.sendCommandStr('rt,%s' % (probe))
-            c = fits.Card('HIERARCH temp.%s' % (probe), val)
-            cards.append(c)
                     
         return cards
 
@@ -466,6 +462,11 @@ class FeeControl(object):
                                            setLetter=None)
         self.commands['serial'] = FeeSet('serial', 's', ['FEE', 'ADC', 'PA0', 'CCD0', 'CCD1'])
 
+        self.commands['temps'] = FeeSet('temps', 't', 
+                                        ['CCD0', 'CCD1', 'FEE', 'PA'],
+                                        getLetter='r',
+                                        setLetter=None,
+                                        hasAll=True)
         """
         #define setPowerEn   "se" // must include 0 or 1 for off or on 
         #define getPowerEn   "ge" 
@@ -626,7 +627,7 @@ class FeeControl(object):
             raise e
 
         if not cmdSet.hasAll:
-            raise AttributeError("%s has no fetch-all command.")
+            raise AttributeError("%s has no fetch-all command.", setName)
         
         if channel is not None:
             cmdStr = cmdSet.getVal('all', channel)
