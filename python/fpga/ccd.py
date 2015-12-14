@@ -50,7 +50,10 @@ class CCD(pyFPGA.FPGA):
         self.ccdRows = 4224
         self.overCols = 32
         self.overRows = 76
+        self.leadinCols = 8
+        self.leadinRows = 48
         self.namps = 8
+        self.readDirection = 0b10101010
         
         ccd = self
 
@@ -92,6 +95,21 @@ class CCD(pyFPGA.FPGA):
 
         return cards
 
+    def geomCards(self):
+        cards = []
+
+        cards.append(('geom.rows.leadin', self.leadinRows, "rows in necked area"))
+        cards.append(('geom.rows.active', self.ccdRows-self.leadinRows, "active rows"))
+        cards.append(('geom.rows.overscan', self.overscanRows, "overscan rows"))
+        cards.append(('geom.cols.leadin', self.leadinCols, "unilluminated cols"))
+        cards.append(('geom.cols.active', self.ccdCols-self.leadinCols, "active columns"))
+        cards.append(('geom.cols.overscan', self.overscanCols, "overscan columnss"))
+        cards.append(('geom.namps', self.namps, "number of amps in image"))
+        cards.append(('geom.readDirection', self.readDirection,
+                      "0th bit: right amp; 0: read right, 1: read left"))
+
+        return cards
+    
     def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
                       **kwargs):
         """ A sample end-of-row callback. Prints all errors and per-100 row progess lines. """
@@ -125,6 +143,8 @@ class CCD(pyFPGA.FPGA):
         fnames = self.fileMgr.getNextFileset()
 
         hdr = pyfits.Header()
+
+        hdr.extend(self.geomCards())
         
         if comment is not None:
             hdr.add_comment(comment)
