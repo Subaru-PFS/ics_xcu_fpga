@@ -228,20 +228,20 @@ class Switch1Test(OneTest):
         self.label = " switch times"
         self.clocks = None
         rowTime = 7925.920 * 1e-6
-        pixTime = 13.920 * 1e-6
-        self.delayTime = (0 * rowTime +  0 * pixTime)
+        self.pixTime = 13.920 * 1e-6
+        self.delayTime = (0 * rowTime +  0 * self.pixTime)
         
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=20e-9, # recordLength=1000000,
-                               triggerPos=0.2,
+                               triggerPos=20,
                                delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
 
         self.scope.setEdgeTrigger(source='ch2', level=1.3, slope='rise', holdoff='10e-6')
 
-        self.scope.setWaveform(1, 'DCR', scale=1.0)
+        self.scope.setWaveform(1, 'DCR', scale=0.2)
         self.scope.setWaveform(2, 'IR', scale=1.0)
-        self.scope.setWaveform(3, 'ampout', scale=0.5)
+        self.scope.setWaveform(3, 'ampout', scale=0.2)
         self.scope.setWaveform(4, '', scale=5)
 
     def setClocks(self, clocks=None):
@@ -259,11 +259,11 @@ class Switch1Test(OneTest):
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
                           channels=range(3),
-                          offsets=[0,0,0,-10],
+                          offsets=[0,-1,0,0],
                           noWide=False,
-                          # xoffset=self.delayTime,
-                          ylim=(-0.25,0.5),
-                          #xlim=(-1.0,15),
+                          xoffset=self.pixTime,
+                          ylim=(-0.25,0.75),
+                          xlim=(-1.0,15),
                           #clocks=self.clocks,
                           showLimits=False, title=self.title)
         for p in pl:	
@@ -331,7 +331,7 @@ class Switch2Test(OneTest):
 class V0Test(OneTest):
 
     def initTest(self):
-        self.delayTime = 13.920*1e-6 * 10
+        self.delayTime = 0 #13.920*1e-6 * 10
         self.testName = 'V0'
         self.label = "power up, all modes, readout, power off"
 
@@ -349,7 +349,7 @@ class V0Test(OneTest):
 
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1.0, 
-                       xlim=(-1,7), ylim=(-20,20), 
+                       xlim=(-1,15), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
 class V1Test(OneTest):
@@ -417,9 +417,9 @@ class P1Test(OneTest):
                        xlim=(-50,250), ylim=(-7,7), 
                        showLimits=True, title=self.title)        
 
-class P_Test(OneTest):
+class P3Test(OneTest):
     def initTest(self):
-        self.testName = 'P2'
+        self.testName = 'P3'
         self.label = "ISV,IG1V,IG2V"
         self.probes = (('TG', 'Misc 10'),
                        ('ISV', 'Misc 1'),
