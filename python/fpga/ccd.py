@@ -88,7 +88,7 @@ class CCD(pyFPGA.FPGA):
         """ Return the full set of FITS cards to identify this detector (pair). """
 
         cards = []
-        cards.append(('versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
+        cards.append(('HIERARCH versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
         cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))
         cards.append(('DETNUM', self.detectorNum, "Detector number: 0/1, or 2 if both detectors."))
@@ -98,14 +98,14 @@ class CCD(pyFPGA.FPGA):
     def geomCards(self):
         cards = []
 
-        cards.append(('geom.rows.leadin', self.leadinRows, "rows in necked area"))
-        cards.append(('geom.rows.active', self.ccdRows-self.leadinRows, "active rows"))
-        cards.append(('geom.rows.overscan', self.overscanRows, "overscan rows"))
-        cards.append(('geom.cols.leadin', self.leadinCols, "unilluminated cols"))
-        cards.append(('geom.cols.active', self.ccdCols-self.leadinCols, "active columns"))
-        cards.append(('geom.cols.overscan', self.overscanCols, "overscan columnss"))
-        cards.append(('geom.namps', self.namps, "number of amps in image"))
-        cards.append(('geom.readDirection', self.readDirection,
+        cards.append(('HIERARCH geom.rows.leadin', self.leadinRows, "rows in necked area"))
+        cards.append(('HIERARCH geom.rows.active', self.ccdRows-self.leadinRows, "active rows"))
+        cards.append(('HIERARCH geom.rows.overscan', self.overRows, "overscan rows"))
+        cards.append(('HIERARCH geom.cols.leadin', self.leadinCols, "unilluminated cols"))
+        cards.append(('HIERARCH geom.cols.active', self.ampCols-self.leadinCols, "active columns"))
+        cards.append(('HIERARCH geom.cols.overscan', self.overCols, "overscan columnss"))
+        cards.append(('HIERARCH geom.namps', self.namps, "number of amps in image"))
+        cards.append(('HIERARCH geom.readDirection', self.readDirection,
                       "0th bit: right amp; 0: read right, 1: read left"))
 
         return cards
