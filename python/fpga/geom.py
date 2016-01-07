@@ -228,14 +228,26 @@ class Exposure(object):
 
         return ampIms, osColIms, osRowIms
 
-    def biasSubtract(self, bias, im=None, corretLevels=True):
+    def biasSubtract(self, bias):
         bias = Exposure(bias)
+
+        biasParts = bias.splitImage()
+        coreBiasParts = bias.splitImage(doTrim=True)
         
-        if im is None:
-            im = self.image
-        im = im.astype('i4') - bias.image
+        parts = self.splitImage()
+        coreParts = self.splitImage(doTrim=True)
+
+        newAmps = []
+        newOverCols = []
         
-        return Exposure(im).finalImage()
+        for a_i in range(self.namps):
+            biasOffset = np.median(coreBiasParts[1][a_i]) - np.median(coreParts[1][a_i])
+
+            newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
+            newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
+
+        print newAmps[0].shape, newOverCols[0].shape
+        return newAmps, newOverCols
         
     def biasSubtractOne(self, im=None, byRow=False):
         if im is None:
