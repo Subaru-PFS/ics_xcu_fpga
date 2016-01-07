@@ -248,13 +248,13 @@ class FeeControl(object):
         """ Bring the FEE up to a sane and useable configuration. 
 
         Specifically, and in order: 
-          1. power supplies on
-          2. mode voltage set (default=erase)
+          1. mode voltage set (default=idle)
+          2. power supplies on
           3. clocks enabled, but idle.
         """
 
-        print self.sendCommandStr('se,all,on')
         self.setMode(preset)
+        print self.sendCommandStr('se,all,on')
         print self.sendCommandStr('se,Clks,on')
         
         # Send a spurious read, to paper over a device error on the first read.
