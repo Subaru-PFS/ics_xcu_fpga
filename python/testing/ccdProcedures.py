@@ -249,7 +249,7 @@ def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
     ccdFuncs.monoSetSlitwidth(slitWidth)
 
     if waves is None:
-        waves = np.arange(550,1100,50)
+        waves = np.arange(550,1051,50)
     for wave in waves:
         ccdFuncs.monoSetWavelength(wave)
 
@@ -263,7 +263,7 @@ def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
         cards = []
         cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
         cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
-        cards.append(('HIERARCH QE.flux', slitWidth, 'calibrated flux, W/s'),)
+        cards.append(('HIERARCH QE.flux', slitWidth, 'calibrated flux, W'),)
         cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
         cards.append(('HIERARCH QE.energy', energy, 'calibrated total energy, J'),)
 
