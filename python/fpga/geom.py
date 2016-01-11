@@ -53,7 +53,7 @@ class Exposure(object):
             return image
 
     def deduceGeometry(self):
-        """ Using the """
+        """ Use .image to generate geometry for an unbinned full-frame """
 
         self.ampCols = 520
         self.ccdRows = 4224
@@ -116,6 +116,15 @@ class Exposure(object):
             xr = slice(x1-1, x0-1, -1)
 
         yr = slice(self.leadinRows*(not leadingRows), self.ccdRows)
+
+        return yr, xr
+
+    def finalAmpExtents(self, ampId):
+        x0 = ampId*self.ampCols
+        x1 = x0 + self.ampCols
+
+        xr = slice(x0, x1)
+        yr = slice(0, self.ccdRows)
 
         return yr, xr
 
@@ -251,6 +260,17 @@ class Exposure(object):
 
         return ampIms, osColIms, osRowIms
 
+    def replaceActiveFlux(self, newFlux):
+        newImage = self.image.copy()
+
+        for a_i in range(self.namps):
+            yslice, xslice = self.ampExtents(a_i, leadingRows=True)
+            inYslice, inXslice = self.finalAmpExtents(a_i)
+
+            newImage[yslice, xslice] = newFlux[inYslice,inXslice]
+
+        return newImage
+    
     def biasSubtract(self, bias):
         bias = Exposure(bias)
 
