@@ -67,6 +67,8 @@ def ts(t=None):
 
                     
 def note(text, tick=None):
+    """ Append a single line to our night's LOG file. """
+    
     ddir = lastNight()
     bellFile = file(os.path.join(ddir, 'LOG.txt'), 'ab+', buffering=1)
     bellFile.write("%s %s\n" % (ts(), text))
@@ -87,6 +89,8 @@ def fnote(fname, ftype='', notes=''):
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
 def fetchCards(exptype=None, expTime=0.0):
+    """ Generate all FEE exposure cards, included times and IMAGETYP. """
+    
     feeCards = feeMod.fee.statusAsCards()
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
@@ -306,6 +310,17 @@ def expList(explist, nrows=None, ncols=None,
             clockFunc=None,
             comment='',
             title='Running exposure list'):
+
+    """ Currently the main entry-point for taking multiple exposures. 
+
+    Takes a list of exposure tuples:
+      (bias 0)
+      (dark DARKTIME)
+      (flat FLATTIME)
+      (wipe NWIPES)
+      (flash DARKTIME FLATTIME)
+
+    """
 
     if feeControl is None:
         feeControl = feeMod.fee
