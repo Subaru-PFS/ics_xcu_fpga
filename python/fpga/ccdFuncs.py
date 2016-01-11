@@ -199,33 +199,106 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
 
     if toExposeMode:
         feeControl.setMode('expose')
-                                                                                    
-def fullExposure(imtype, expTime=0, 
-                 nrows=None, ncols=None,
-                 clockFunc=None,
-                 doSave=True, comment='',
-                 feeControl=None):
+        time.sleep(0.25)
+
+def readout(imtype, ccd=None, expTime=0, 
+            nrows=None, ncols=None,
+            clockFunc=None,
+            doSave=True, comment='',
+            extraCards=(),
+            feeControl=None):
+
+    """ Wrap a complete detector readout: no wipe, but with a log note, FITS cards and left in idle mode.  """
     
-    ccd = ccdMod.ccd
+    if ccd is None:
+        ccd = ccdMod.ccd
     
-    argDict = dict(everyNRows=500, ccd=ccd, cols=slice(50,-40))
+    argDict = dict(everyNRows=(nrows/5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getReadClocks()
 
     if feeControl is None:
         feeControl = feeMod.fee
+
+    t0 = time.time()
     feeControl.setMode('read')
     time.sleep(1)               # Per JEG
+    t1 = time.time()
     
     feeCards = fetchCards(imtype, expTime=expTime)
+    feeCards.extend(extraCards)
     im, files = ccd.readImage(nrows=nrows, ncols=ncols, 
                               rowFunc=rowStats, rowFuncArgs=argDict,
                               clockFunc=clockFunc, doSave=doSave,
                               comment=comment, addCards=feeCards)
-    fnote(files[0], comment)
+    t2 = time.time()
+    feeControl.setMode('idle')
+    time.sleep(0.5)
+    t3 = time.time()
     
-    return im, files[0]
+    print "files: %s" % (files)
+    print("times: %0.2f, %0.2f, %0.2f"
+          % (t1-t0,t2-t1,t3-t2))
+    
+    if files:
+        imfile = files[0]
+    else:
+        imfile = None
+    fnote(imfile, comment)
+    
+    return im, imfile
+
+
+def fullExposure(imtype, ccd=None, expTime=0, 
+                 nrows=None, ncols=None,
+                 clockFunc=None, doWipe=True,
+                 doSave=True, comment='',
+                 extraCards=(),
+                 feeControl=None):
+
+    """ Wrap a complete exposure, including wipe, sleep, and readout. 
+
+    Because of the sleep, this is only useful for biases and short darks.
+    """
+    
+    if ccd is None:
+        ccd = ccdMod.ccd
+    
+    if clockFunc is None:
+        clockFunc = getReadClocks()
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+
+    t0 = time.time()
+    if doWipe:
+        wipe(ccd=ccd, ncols=ncols, nrows=nrows, feeControl=feeControl)
+
+    # This cannot be used in real life!
+    t1 = time.time()
+    time.sleep(expTime)
+    t2 = time.time()
+    
+    im, files = readout(imtype, ccd=ccd, expTime=expTime,
+                        nrows=nrows, ncols=ncols,
+                        clockFunc=clockFunc, doSave=doSave,
+                        comment=comment, extraCards=extraCards,
+                        feeControl=feeControl)
+    t3 = time.time()
+
+
+    print "files: %s" % (files)
+    print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
+          % (t1-t0,t2-t1,t3-t2,t3-t0))
+    
+    if files:
+        imfile = files[0]
+    else:
+        imfile = None
+    fnote(imfile, comment)
+    
+    return im, imfile
 
 def fastRevRead(rowBinning=10,
                 nrows=None, ncols=None,
