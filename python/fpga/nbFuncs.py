@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import ccdFuncs
+reload(ccdFuncs)
 
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
@@ -361,17 +362,19 @@ def gainCurve(ccd, fee, amps=None,
     time.sleep(sleepTime)
     
     # Clear any accumulated charge
-    toss = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
-                         clockFunc=clockFunc)
-
+    ccdFuncs.wipe(ccd=ccd, feeControl=fee)
+    
     offset = 0.0
     while np.fabs(offset) <= offLimit:
         offsets.append(offset)
         fee.setOffsets(amps, [offset]*namps, leg=leg)
         time.sleep(sleepTime)
 
-        im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False,
-                                  clockFunc=clockFunc)
+        im, files = ccdFuncs.fullExposure('bias', ccd=ccd, feeControl=fee,
+                                          nrows=nrows,
+                                          # rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict,
+                                          doSave=False,
+                                          clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')
             hi_w = im > doUnwrap
