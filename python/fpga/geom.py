@@ -1,4 +1,5 @@
 import itertools
+import logging
 import numpy as np
 
 import fitsio
@@ -9,32 +10,36 @@ class Exposure(object):
         self._setDefaultGeometry()
 
         if obj is None:
-            self.rawImage = None
             self.image = None
             self.header = dict()
         elif isinstance(obj, Exposure):
-            self.rawImage = obj.rawImage
             self.image = obj.image
             self.header = obj.header
+            self.deduceGeometry()
             
             if copyExposure:
                 self.image = self.image.copy()
                 self.header = self.header.copy()
         elif isinstance(obj, basestring):
-            self.rawImage, self.header = fitsio.read(obj, header=True)
-            self.image = self.fixEdgeColsBug(self.rawImage)
+            self.image, self.header = fitsio.read(obj, header=True)
+            self.deduceGeometry()
+            self.image = self.fixEdgeColsBug(self.image)
 
         elif isinstance(obj, np.ndarray):
-            self.rawImage = None
             self.image = obj.copy() if copyExposure else obj
             self.header = dict()
+            self.deduceGeometry()
         else:
             raise RuntimeError("do not know how to construct from a %s" % (type(obj)))
 
 
     def fixEdgeColsBug(self, image):
-
-        if ('CPL has not fixed the outer columns and rows yet'):
+        try:
+            flag = self.header.get('geom.edgesOK')
+        except:
+            flag = False
+            
+        if not flag:
             fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
             fixedImage1[:,:-1] = image[:,1:]
             fixedImage1[:,-1] = image[:,0]
@@ -46,15 +51,34 @@ class Exposure(object):
             return fixedImage
         else:
             return image
+
+    def deduceGeometry(self):
+        """ Using the """
+
+        self.ampCols = 520
+        self.ccdRows = 4224
+        self.leadinCols = 8
+        self.leadinRows = 48
         
+        self.readDirection = 0b10101010
+        self.namps = 4 * self.nccds
+
+        imh,imw = self.image.shape
+        self.overRows = imh - self.ampRows
+        self.overCols = imw/self.namps - self.ampCols
+        if self.ncols * self.namps != imw:
+            raise RuntimeError("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
+                               (self.namps, self.ampCols, self.overCols, imw))
+                               
     def _setDefaultGeometry(self):
         self.ampCols = 520
         self.ccdRows = 4224
         self.overCols = 32
+        self.overRows = 76
         self.leadinCols = 8
         self.leadinRows = 48
         
-        self.flipAmps = True
+        self.readDirection = 0b10101010
         
         self.namps = 4 * self.nccds
 
@@ -75,7 +99,6 @@ class Exposure(object):
         self.ampCols - self.leadinCols
         
     @property
-        self.overRows = 76
     def nrows(self):
         return self.ccdRows + self.overRows
 
@@ -87,7 +110,7 @@ class Exposure(object):
         x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
         x1 = ampId*self.ncols + self.ampCols
 
-        if not self.flipAmps or ampId%2 == 0:
+        if not self.readDirection or (self.readDirection & (1 << ampId)) == 0:
             xr = slice(x0, x1)
         else:
             xr = slice(x1-1, x0-1, -1)
