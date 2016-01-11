@@ -150,7 +150,7 @@ def fetchCards(exptype=None, expTime=0.0):
         feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
     return feeCards
 
-def wipe(nwipes=1, ncols=None, nrows=None,
+def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
          toExposeMode=True):
@@ -162,12 +162,15 @@ def wipe(nwipes=1, ncols=None, nrows=None,
      Gate voltages in erase mode, Vbb high. Wait ~1 second
      Vbb to zero, wait ~ 1s
      Vbb to read voltage, wait ~ 1s
-     Fast wipeExpose mode if there is one
-     Read
+     Fast wipe
+     Set expose mode 
+
+     Later: read.
 
     """
-    
-    ccd = ccdMod.ccd
+
+    if ccd is None:
+        ccd = ccdMod.ccd
 
     if feeControl is None:
         feeControl = feeMod.fee
@@ -178,14 +181,13 @@ def wipe(nwipes=1, ncols=None, nrows=None,
         nrows = ccd.ccdRows / rowBinning + 5
         
     if nwipes > 0:
+        if feeControl.getMode != 'idle':
+            feeControl.setMode('idle')
+            time.sleep(1.0)
         feeControl.setMode('erase')
         time.sleep(1.0)
-        feeControl.setVoltage(None, 'BB', 0.2)
-        time.sleep(1.0)
-        feeControl.setVoltage(None, 'BB', 30.0)
-        time.sleep(1.0)
         feeControl.setMode('wipe')
-        time.sleep(0.25)
+        time.sleep(1.0)
     for i in range(nwipes):
         print "wiping...."
         ccd.pciReset()
@@ -242,7 +244,7 @@ def fastRevRead(rowBinning=10,
         feeControl = feeMod.fee
     try:
         feeControl.setFast()
-        feeControl.setMode('BT1')
+        feeControl.setMode('revRead')
         time.sleep(1)               # Per JEG
     
         feeCards = fetchCards('revread', expTime=0)
@@ -253,7 +255,7 @@ def fastRevRead(rowBinning=10,
         fnote(files[0], comment)
     finally:
         feeControl.setSlow()
-        feeControl.setMode('erase')
+        feeControl.setMode('idle')
         time.sleep(1)               # Per JEG
         
     
@@ -330,7 +332,7 @@ def expList(explist, nrows=None, ncols=None,
                                       comment=expComment)
         print imfile    
 
-    feeControl.setMode('erase')
+    feeControl.setMode('idle')
     note('Done with exposure list.')
     
 

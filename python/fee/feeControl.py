@@ -391,17 +391,26 @@ class FeeControl(object):
     def defineModes(self):
         self.presets = OrderedDict()
 
-        # Note that per JEG, erase mode starts with VBB high.
+        # Note that per JEG, idle mode starts with VBB high.
         # We could add slew logic in the FEE, or have two erase modes,
         # but for now the caller must drive VBB later. See ccdFuncs.wipe()
         # for details.
-        self.presets['erase'] = m = ModePreset('erase')
+        self.presets['idle'] = m = ModePreset('idle')
         m.define(OG=6.0, RD=-12.0, OD=-5.0, BB=30.0,
                  P_off = 6.0, P_on = 6.0,
                  S_off = 6.0, S_on = 6.0,
                  DG_off= 6.0, DG_on= 6.0,
                  SW_off= 6.0, SW_on= 6.0,
                  RG_off= 6.0, RG_on= 6.0)
+
+        self.presets['erase'] = m = ModePreset('erase')
+        m.define(preload=self.presets['idle'], 
+                 BB=0.2)
+        if False:               # Not used yet, plus I'm not sure about the name.
+            self.presets['fastRev'] = m = ModePreset('fastRev')
+            m.define(preload=self.presets['read'], 
+                     DG_on=-5.0, DG_off=-5.0,
+                     BB=25.0)
 
         self.presets['read'] = m = ModePreset('read')
         m.define(OG=-4.5, RD=-12.0, OD=-21.0, BB=30.0,
@@ -414,11 +423,6 @@ class FeeControl(object):
         self.presets['wipe'] = m = ModePreset('wipe')
         m.define(preload=self.presets['read'], 
                  OG=-4.5, RD=-12.0, OD=-21.0, BB=30.0)
-
-        self.presets['BT1'] = m = ModePreset('BT1')
-        m.define(preload=self.presets['read'], 
-                 DG_on=-5.0, DG_off=-5.0,
-                 BB=25.0)
 
         self.presets['expose'] = m = ModePreset('expose')
         m.define(preload=self.presets['read'], 
@@ -571,13 +575,12 @@ class FeeControl(object):
         #define pb_read        "read"
         #define pb_expose      "expose"
         #define pb_wipe        "wipe"
-        #define pb_biasTest1   "BT1"
+        #define pb_idle        "idle"
         #define pb_offset      "offset"
-        #define pb_osTest1     "0T1"
+        #define pb_fastRev     "fastRev"
         """
         self.commands['preset'] = FeeSet('preset', 'p', 
-                                         ["erase", "read", "expose", "wipe", "offset", 
-                                          "BT1"],
+                                         ["erase", "read", "expose", "wipe", "idle"],
                                          getLetter=None,
                                          setLetter='l')
 
