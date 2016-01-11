@@ -48,9 +48,8 @@ class Exposure(object):
             return image
         
     def _setDefaultGeometry(self):
-        self.ampRows = 4224
         self.ampCols = 520
-        self.overRows = 76
+        self.ccdRows = 4224
         self.overCols = 32
         self.leadinCols = 8
         self.leadinRows = 48
@@ -69,15 +68,16 @@ class Exposure(object):
 
     @property
     def activeRows(self):
-        self.ampRows - self.leadinRows
+        self.ccdRows - self.leadinRows
         
     @property
     def activeCols(self):
         self.ampCols - self.leadinCols
         
     @property
+        self.overRows = 76
     def nrows(self):
-        return self.ampRows + self.overRows
+        return self.ccdRows + self.overRows
 
     @property
     def ncols(self):
@@ -92,7 +92,7 @@ class Exposure(object):
         else:
             xr = slice(x1-1, x0-1, -1)
 
-        yr = slice(self.leadinRows*(not leadingRows), self.ampRows)
+        yr = slice(self.leadinRows*(not leadingRows), self.ccdRows)
 
         return yr, xr
 
@@ -110,7 +110,7 @@ class Exposure(object):
 
         xr = slice(x0, x1)
         yr = slice(self.leadinRows*(not leadingRows),
-                   self.ampRows + self.overRows*(overscanRows))
+                   self.ccdRows + self.overRows*(overscanRows))
 
         return yr, xr
 
@@ -119,7 +119,7 @@ class Exposure(object):
         x1 = ampId*self.ncols + self.ampCols + self.overCols*(overscanCols)
 
         xr = slice(x0, x1)
-        yr = slice(self.ampRows, self.ampRows + self.overRows)
+        yr = slice(self.ccdRows, self.ccdRows + self.overRows)
 
         return yr, xr
 
