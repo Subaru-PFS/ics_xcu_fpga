@@ -327,37 +327,54 @@ def expList(explist, nrows=None, ncols=None,
     note('... %s (%s exposures)' % (title, len(explist)))
 
     for e_i, exp in enumerate(explist):
-        exptype, exparg = exp
+        exptype = exp[0]
+        expargs = exp[1:]
         expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
-        print "%s %s" % (exptype, exparg)
+        print "%s %s" % (exptype, exp[1:])
         if exptype == 'wipe':
+            exparg = expargs[0]
             wipe(nrows=nrows, ncols=ncols, nwipes=exparg, feeControl=feeControl)
             continue
 
+        # Wipe before all exposures, including in runs of biases.
         wipe(nrows=nrows, ncols=ncols,
-             toExposeMode=(exptype != 'bias'),
              feeControl=feeControl)
+
         if exptype == 'bias':
-            im, imfile = fullExposure('bias',
-                                      nrows=nrows, ncols=ncols,
-                                      clockFunc=clockFunc, 
-                                      feeControl=feeControl,
-                                      comment=expComment)
+            im, imfile = readout('bias',
+                                 nrows=nrows, ncols=ncols,
+                                 clockFunc=clockFunc, 
+                                 feeControl=feeControl,
+                                 comment=expComment)
         elif exptype == 'dark':
-            darkTime = exparg
+            darkTime = expargs[0]
             time.sleep(darkTime)
-            im, imfile = fullExposure('dark', expTime=darkTime,
-                                      nrows=nrows, ncols=ncols,
-                                      clockFunc=clockFunc, 
-                                      feeControl=feeControl,
-                                      comment=expComment)
+            im, imfile = readout('dark', expTime=darkTime,
+                                 nrows=nrows, ncols=ncols,
+                                 clockFunc=clockFunc, 
+                                 feeControl=feeControl,
+                                 comment=expComment)
         elif exptype == 'flat':
             time.sleep(0.25)
             
-            flatTime = exparg
-            pulseShutter(flatTime)
-            time.sleep(flatTime + 1)
-            im, imfile = fullExposure('flat', expTime=flatTime,
+            flatTime = expargs[0]
+            ret = opticslab.pulseShutter(flatTime)
+            print ret
+            im, imfile = readout('flat', expTime=flatTime,
+                                 nrows=nrows, ncols=ncols,
+                                 clockFunc=clockFunc, 
+                                 feeControl=feeControl,
+                                 comment=expComment)
+        elif exptype == 'flash':
+            time.sleep(0.25)
+            
+            darkTime = expargs[0]
+            flatTime = expargs[1]
+            time.sleep(darkTime)
+
+            ret = opticslab.pulseShutter(flatTime)
+            print ret
+            im, imfile = fullExposure('flash', expTime=flatTime,
                                       nrows=nrows, ncols=ncols,
                                       clockFunc=clockFunc, 
                                       feeControl=feeControl,
