@@ -59,13 +59,13 @@ class CCD(pyFPGA.FPGA):
 
     @property
     def nrows(self):
-        """ Number of rows for the detector, derived from .ccdRows + .overRows. """
+        """ Number of rows for the readout, derived from .ccdRows + .overRows. """
         
         return self.ccdRows + self.overRows
 
     @property
     def ncols(self):
-        """ Number of cols for one amp, derived from .ampCols + .overColss. """
+        """ Number of cols for one amp's readout, derived from .ampCols + .overCols. """
 
         return self.ampCols + self.overCols
 
@@ -211,7 +211,6 @@ class CCD(pyFPGA.FPGA):
         t1 = time.time()
 
         print("readTime = %g; expected %g" % (t1-t0, expectedTime))
-        
 
         if doSave:
             files = self.writeImageFiles(im, comment=comment, addCards=addCards)
