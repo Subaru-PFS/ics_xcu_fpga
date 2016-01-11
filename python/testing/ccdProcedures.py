@@ -223,6 +223,26 @@ def stdExposures_wipes(comment=''):
                      comment='wipe tests',
                      title='wipe tests')
 
+def stdExposures_Fe55(comment='Fe55 sequence'):
+    tweaks = FeeTweaks()
+
+    explist = []
+    explist.append(('bias', 0),)
+
+    for i in range(10):
+        explist.extend(('dark', 1),
+                       ('dark', 5),
+                       ('dark', 10))
+        
+    for i in range(2):
+        explist.extend(('dark', 30),
+                       ('dark', 60))
+
+    ccdFuncs.expList(explist,
+                     feeControl=tweaks,
+                     comment='Fe55 darks',
+                     title='Fe55 darks')
+
 def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
     tweaks = FeeTweaks()
 
