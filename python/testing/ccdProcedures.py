@@ -5,8 +5,10 @@ import fpga.geom as geom
 
 import fee.feeControl as feeMod
 import fpga.ccdFuncs as ccdFuncs
+import fpga.opticslab as opticslab
 
 reload(ccdFuncs)
+reload(opticslab)
 
 class FeeTweaks(object):
     """ Interpose into fee.setMode() to override bias voltages after
@@ -246,17 +248,17 @@ def stdExposures_Fe55(comment='Fe55 sequence'):
 def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
     tweaks = FeeTweaks()
 
-    ccdFuncs.monoSetSlitwidth(slitWidth)
+    opticslab.monoSetSlitwidth(slitWidth)
 
     if waves is None:
         waves = np.arange(550,1051,50)
     for wave in waves:
-        ccdFuncs.monoSetWavelength(wave)
+        opticslab.monoSetWavelength(wave)
 
         time.sleep(1.0)
         ccdFuncs.wipe()
 
-        ret = ccdFuncs.pulseShutter(flatTime, wave)
+        ret = opticslab.pulseShutter(flatTime, wave)
         print ret
         stime, flux, current, energy = ret
 

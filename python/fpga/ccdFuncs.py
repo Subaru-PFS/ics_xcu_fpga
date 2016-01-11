@@ -4,7 +4,6 @@ import argparse
 import glob
 import logging
 import os
-import socket
 import sys
 import time
 
@@ -17,6 +16,7 @@ import pyFPGA
 
 import fpga.ccd as ccdMod
 import fee.feeControl as feeMod
+import fpga.opticslab as opticslab
 
 reload(ccdMod)
 
@@ -31,88 +31,32 @@ def rowProgress(row_i, image, errorMsg="OK",
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 def getReadClocks():
+    """ Dynamically load read clock pattern. """
+
     import clocks.read
     reload(clocks.read)
     
     return clocks.read.readClocks
 
 def getFastRevReadClocks():
+    """ Dynamically load reverse read clock pattern. """
+    
     import clocks.fastrevread
     reload(clocks.fastrevread)
     
     return clocks.fastrevread.readClocks
 
 def getWipeClocks():
+    """ Dynamically load wipe clock pattern. """
+
     import clocks.wipe
     reload(clocks.wipe)
     
     return clocks.wipe.wipeClocks
 
-def pulseShutter(stime, wavelength=None):
-    host = '127.0.0.1'
-    port = 10101
-    
-    print "pulsing shutter for %g seconds..." % (stime)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    if wavelength is None:
-        s.send('shut %g\n' % (stime))
-    else:
-        s.send('shut %g %g\n' % (stime, wavelength))
-        
-    data = s.recv(1024)
-    if data[:2] != 'OK':
-        raise RuntimeError('something went wrong, got %s' % (data))
-    flux = float(data.split()[-1])
-    current = float(data.split()[-2])
-    
-    s.close()
-    
-    return stime, flux, current, flux*stime
-
-def monoSetWavelength(wave):
-    host = '127.0.0.1'
-    port = 50000
-    
-    print "setting wavelength to %g..." % (wave)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    s.send('wave %d\n' % (wave))
-    data = s.recv(1024)
-    s.close()
-
-    if data != 'moved to %4d' % (wave):
-        raise RuntimeError('failed to adjust monochrometer: %s' % (data))
-
-    return wave
-
-def monoSetSlitwidth(mm):
-    host = '127.0.0.1'
-    port = 50000
-    
-    print "setting slit width to %g mm..." % (mm)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    s.send('slit %g\n' % (mm))
-    data = s.recv(1024)
-    s.close()
-    
-    return data
-
-def monoSetLamp(lampID):
-    host = '127.0.0.1'
-    port = 50000
-    
-    print "setting lamp to %s..." % (lampID)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((host, port))
-    s.send('lamp %d\n' % (lampID))
-    data = s.recv(1024)
-    s.close()
-    
-    return data
-
 def lastNight():
+    """ Convenience for getting the latest night's directory. """
+    
     ddirs = glob.glob('/data/pfs/201[0-9]-[0-9][0-9]-[0-9][0-9]')
     return sorted(ddirs)[-1]
 
