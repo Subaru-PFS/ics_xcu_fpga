@@ -489,19 +489,23 @@ def topPeriods(arr, topN=0, pixtime=1.392e-5):
 
     return freqs, yhat, topPeaks_ii
 
-def plotTopPeriods(arr, topN=5):
+def plotTopPeriods(arr, plot=None, topN=5):
     """ Plot the FFT of a given vector, and identify the first few
     """
-    
+
+    if plot is None:
+        plot = plt.gca()
+        
     freqs, yhat, top_ii = topPeriods(arr, topN=topN)
     
-    plt.plot(freqs, yhat)
-    plt.vlines(freqs[top_ii[:topN]], 0, yhat.max(), 
-               'r', alpha=0.4)
-    plt.show()
+    plot.plot(freqs, yhat)
     for i in range(topN):
         freq = freqs[top_ii[i]]
-        print "%0.1fHz -- %0.1f" % (freq, yhat[top_ii[i]])
+        peak = yhat[top_ii[i]]
+        plot.axvline(freq, color='r', alpha=0.4)
+        plot.text(freq, peak, "%0.1f" % (freq),
+                  horizontalalignment='center',
+                  verticalalignment='bottom')
 
     return freqs, yhat, top_ii
         
