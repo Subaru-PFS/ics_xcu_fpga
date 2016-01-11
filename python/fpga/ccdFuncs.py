@@ -130,10 +130,13 @@ def note(text, tick=None):
     bellFile.close()
 
 def fnote(fname, ftype='', notes=''):
+    if fname is None:
+        return
+    
     hdr = fitsio.read_header(fname)
-    hdrNotes = "ccd=%s,%s pa=%s %s %s" % (float(hdr.get('temp.ccd0')),
-                                          float(hdr.get('temp.ccd1')),
-                                          float(hdr.get('temp.PA')),
+    hdrNotes = "ccd=%s,%s pa=%s %s %s" % (hdr.get('temp.ccd0'),
+                                          hdr.get('temp.ccd1'),
+                                          hdr.get('temp.PA'),
                                           hdr.get('IMAGETYP', 'unknown').strip(),
                                           hdr.get('EXPTIME', ''))
 
@@ -396,7 +399,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     
 def sinfit(x, a0, a1, a2, a3):
     """ Generate a0 * sin(a1 + x/a2) + a3 """
-    return a0 * numpy.sin(a1 + x/a2) + a3
+    return a0 * np.sin(a1 + x/a2) + a3
 
 def argPeaks(arr):
     """ Locate all local peaks: pixels which are higher than both their neighbors. 
@@ -406,8 +409,8 @@ def argPeaks(arr):
     idx    : indices of all peaks, sorted from highest to lowest.
     """
 
-    peakmask = numpy.where((arr[0:-2] < arr[1:-1]) & (arr[2:] < arr[1:-1]))
-    peakmask = numpy.array(peakmask[0], dtype='i4') + 1
+    peakmask = np.where((arr[0:-2] < arr[1:-1]) & (arr[2:] < arr[1:-1]))
+    peakmask = np.array(peakmask[0], dtype='i4') + 1
     peaks = arr * 0
     peaks[peakmask] = arr[peakmask]
     
@@ -436,11 +439,11 @@ def topPeriods(arr, topN=0, pixtime=1.392e-5):
     """
     normArr = arr - arr.mean()
     
-    yhat = numpy.absolute(numpy.fft.fft(normArr))
-    freqs = numpy.fft.fftfreq(yhat.size, pixtime)
+    yhat = np.absolute(np.fft.fft(normArr))
+    freqs = np.fft.fftfreq(yhat.size, pixtime)
 
     # Drop the negative half.
-    pos_ii = numpy.where(freqs >= 0)
+    pos_ii = np.where(freqs >= 0)
     yhat = yhat[pos_ii]
     freqs = freqs[pos_ii]
 
