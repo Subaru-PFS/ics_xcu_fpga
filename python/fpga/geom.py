@@ -64,7 +64,7 @@ class Exposure(object):
         self.namps = 4 * self.nccds
 
         imh,imw = self.image.shape
-        self.overRows = imh - self.ampRows
+        self.overRows = imh - self.ccdRows
         self.overCols = imw/self.namps - self.ampCols
         if self.ncols * self.namps != imw:
             raise RuntimeError("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
@@ -120,8 +120,9 @@ class Exposure(object):
         return yr, xr
 
     def finalAmpExtents(self, ampId):
-        x0 = ampId*self.ampCols
-        x1 = x0 + self.ampCols
+        activeCols = self.ampCols - self.leadinCols
+        x0 = ampId*activeCols
+        x1 = x0 + activeCols
 
         xr = slice(x0, x1)
         yr = slice(0, self.ccdRows)
@@ -324,8 +325,8 @@ class Exposure(object):
 
         return ampIm.astype('i4') - imMed
     
-    def finalImage(self):
-        ampImages = self.allAmpsImages()
+    def finalImage(self, leadingRows=False):
+        ampImages = self.allAmpsImages(leadingRows=leadingRows)
         return np.hstack(ampImages)
     
 def clippedStats(a, nsig=3.0, niter=5):

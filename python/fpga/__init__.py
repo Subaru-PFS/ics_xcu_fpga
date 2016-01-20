@@ -1,3 +1,3 @@
-from pyFPGA import FPGA
-from ccd import CCD
+#from pyFPGA import FPGA
+#from ccd import CCD
 
