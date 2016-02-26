@@ -141,7 +141,8 @@ class CCD(pyFPGA.FPGA):
                         comment=None, addCards=None):
 
         fnames = self.fileMgr.getNextFileset()
-
+        fname = fnames[0]
+        
         hdr = pyfits.Header()
 
         hdr.extend(self.geomCards())
@@ -154,9 +155,9 @@ class CCD(pyFPGA.FPGA):
 
         hdr.extend(self.idCards())
 
-        pyfits.writeto(fnames[0], im, hdr, checksum=True)
+        pyfits.writeto(fname, im, hdr, checksum=True)
         
-        return fnames
+        return fname
 
     def readImage(self, nrows=None, ncols=None,
                   rowBinning=1,

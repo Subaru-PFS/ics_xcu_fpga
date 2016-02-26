@@ -176,29 +176,25 @@ def readout(imtype, ccd=None, expTime=0,
     
     feeCards = fetchCards(imtype, expTime=expTime)
     feeCards.extend(extraCards)
-    im, files = ccd.readImage(nrows=nrows, ncols=ncols, 
-                              rowFunc=rowStats, rowFuncArgs=argDict,
-                              clockFunc=clockFunc, doSave=doSave,
-                              comment=comment, addCards=feeCards)
+    im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
+                               rowFunc=rowStats, rowFuncArgs=argDict,
+                               clockFunc=clockFunc, doSave=doSave,
+                               comment=comment, addCards=feeCards)
     t2 = time.time()
     feeControl.setMode('idle')
     time.sleep(0.5)
     t3 = time.time()
     
-    print "files: %s" % (files)
+    print "file : %s" % (imfile)
     print("times: %0.2f, %0.2f, %0.2f"
           % (t1-t0,t2-t1,t3-t2))
     
-    if files:
-        imfile = files[0]
-    else:
-        imfile = None
     fnote(imfile, comment)
     
     return im, imfile
 
 
-def fullExposure(imtype, ccd=None, expTime=0, 
+def fullExposure(imtype, ccd=None, expTime=0.0, 
                  nrows=None, ncols=None,
                  clockFunc=None, doWipe=True,
                  doSave=True, comment='',
@@ -228,22 +224,18 @@ def fullExposure(imtype, ccd=None, expTime=0,
     time.sleep(expTime)
     t2 = time.time()
     
-    im, files = readout(imtype, ccd=ccd, expTime=expTime,
-                        nrows=nrows, ncols=ncols,
-                        clockFunc=clockFunc, doSave=doSave,
-                        comment=comment, extraCards=extraCards,
-                        feeControl=feeControl)
+    im, imfile = readout(imtype, ccd=ccd, expTime=expTime,
+                         nrows=nrows, ncols=ncols,
+                         clockFunc=clockFunc, doSave=doSave,
+                         comment=comment, extraCards=extraCards,
+                         feeControl=feeControl)
     t3 = time.time()
 
 
-    print "files: %s" % (files)
+    print "file : %s" % (imfile)
     print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
           % (t1-t0,t2-t1,t3-t2,t3-t0))
     
-    if files:
-        imfile = files[0]
-    else:
-        imfile = None
     fnote(imfile, comment)
     
     return im, imfile
@@ -269,18 +261,18 @@ def fastRevRead(rowBinning=10,
         time.sleep(1)               # Per JEG
     
         feeCards = fetchCards('revread', expTime=0)
-        im, files = ccd.readImage(nrows=nrows, ncols=ncols, rowBinning=rowBinning,
-                                  rowFunc=rowStats, rowFuncArgs=argDict,
-                                  clockFunc=clockFunc, doSave=doSave,
-                                  comment=comment, addCards=feeCards)
-        fnote(files[0], comment)
+        im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, rowBinning=rowBinning,
+                                   rowFunc=rowStats, rowFuncArgs=argDict,
+                                   clockFunc=clockFunc, doSave=doSave,
+                                   comment=comment, addCards=feeCards)
+        fnote(imfile, comment)
     finally:
         feeControl.setSlow()
         feeControl.setMode('idle')
         time.sleep(1)               # Per JEG
         
     
-    return im, files[0]
+    return im, imfile
 
 def expSequence(nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
                 darks=(), flats=(), 
