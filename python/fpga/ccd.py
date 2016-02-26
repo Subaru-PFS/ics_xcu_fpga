@@ -41,7 +41,7 @@ class CCD(pyFPGA.FPGA):
 
         baseTemplate = '%(filePrefix)s%(seqno)06d'
         self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
-                                                filePrefix='PFSA',
+                                                filePrefix='PFJA',
                                                 filePattern="%s%s.fits" % (baseTemplate,
                                                                            self.detectorName))
 
