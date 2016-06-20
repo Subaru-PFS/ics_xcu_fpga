@@ -77,7 +77,7 @@ class FeeSet(object):
 
     def __init__(self, name, letter, subs=(), 
                  setLetter='s', readLetter='r', getLetter='g',
-                 converter=None, hasAll=False):
+                 converter=None):
         self.name = name
         self.letter = letter
         self.subs = subs
@@ -85,7 +85,10 @@ class FeeSet(object):
         self.readLetter = readLetter
         self.getLetter = getLetter
         self.converter = converter if converter is not None else str
-        self.hasAll = hasAll
+
+    @property
+    def hasAll(self):
+        return 'all' in self.subs
         
     def _getCmdString(self, cmdLetter, *parts):
         allParts = ["%s%s" % (cmdLetter, self.letter)]
@@ -112,24 +115,27 @@ class FeeSet(object):
             raise RuntimeError("Cannot get %s(%s)!" % (self.name, subName))
 
         if subName:
-            if subName is 'all' and self.hasAll:
-                return self._getCmdString(letter, subName)
             if subName not in self.subs:
-                raise RuntimeError("Cannot get unknown %s (%s) hasAll=%s. Valid=%s" % (self.name, subName,
-                                                                                       self.hasAll,
-                                                                                       self.subs))
+                raise RuntimeError("Cannot get unknown %s (%s) Valid=%s" % (self.name, subName,
+                                                                            self.subs))
             return self._getCmdString(letter, subName)
         else:
             return self._getCmdString(letter)
 
-    def getVal(self, subName):
+    def getVal(self, subName, channel=None):
         """ Return the command string for a 'get' function. """
 
+        if channel is not None:
+            raise RuntimeError("%s sets do not have channels" % (self.name))
+        
         return self._getVal(subName, self.getLetter)
 
     def readVal(self, subName):
         """ Return the command string for a 'read' function. """
 
+        if channel is not None:
+            raise RuntimeError("%s sets do not have channels" % (self.name))
+        
         return self._getVal(subName, self.readLetter)
 
     def _ampName(self, ampNum, leg='n'):
@@ -171,12 +177,9 @@ class FeeChannelSet(FeeSet):
         if channel not in (0,1):
             raise RuntimeError("Channel must be 0 or 1 (%s) for %s(%s)!" % (channel, self.name, subName))
             
-        if subName is 'all' and self.hasAll:
-            return self._getCmdString(letter, subName, 'ch%d' % (channel))
         if subName not in self.subs:
-            raise RuntimeError("Cannot get unknown %s (%s) hasAll=%s. Valid=%s" % (self.name, subName,
-                                                                                   self.hasAll,
-                                                                                   self.subs))
+            raise RuntimeError("Cannot get unknown %s (%s) Valid=%s" % (self.name, subName,
+                                                                        self.subs))
         return self._getCmdString(letter, subName, 'ch%d' % (channel))
 
     def getVal(self, subName, channel):
@@ -467,10 +470,10 @@ class FeeControl(object):
         self.commands['serial'] = FeeSet('serial', 's', ['FEE', 'ADC', 'PA0', 'CCD0', 'CCD1'])
 
         self.commands['temps'] = FeeSet('temps', 't', 
-                                        ['CCD0', 'CCD1', 'FEE', 'PA'],
+                                        ['all',
+                                         'CCD0', 'CCD1', 'FEE', 'PA'],
                                         getLetter='r',
-                                        setLetter=None,
-                                        hasAll=True)
+                                        setLetter=None)
         """
         #define setPowerEn   "se" // must include 0 or 1 for off or on 
         #define getPowerEn   "ge" 
@@ -508,11 +511,12 @@ class FeeControl(object):
         #define gv_54Vpos "54VP"
         """
         self.commands['voltage'] = FeeSet('voltage', 'v', 
-                                          ['3V3M','3V3',
+                                          ['all',
+                                           '3V3M','3V3',
                                            '5VP','5VN','5VPpa', '5VNpa',
                                            '12VP', '12VN', '24VN', '54VP'],
                                           converter=clipFloat,
-                                          setLetter='c', getLetter='r', hasAll=True)
+                                          setLetter='c', getLetter='r')
         """
         // Set/Get the CDS offset voltages 
         #define setCDS_OS "so"
@@ -530,10 +534,11 @@ class FeeControl(object):
         #  define co_1 "ch1"
         """
         self.commands['offset'] = FeeChannelSet('offset', 'o', 
-                                                ['0p','0n','1p','1n',
+                                                ['all',
+                                                 '0p','0n','1p','1n',
                                                  '2p','2n','3p','3n'],
                                                 converter=clipFloat,
-                                                getLetter='r', hasAll=True)
+                                                getLetter='r')
         """
         // Set/get the clock Bias Voltages
         #define setClockBias "sb" // COMMAND
@@ -557,14 +562,15 @@ class FeeControl(object):
         #   define cb_1         "ch1"
         """
         self.commands['bias'] = FeeChannelSet('bias', 'b', 
-                                              ['P_on','P_off',
+                                              ['all',
+                                               'P_on','P_off',
                                                'DG_on', 'DG_off',
                                                'S_on', 'S_off',
                                                'SW_on', 'SW_off',
                                                'RG_on', 'RG_off',
                                                'OG', 'RD', 'OD', 'BB'],
                                               converter=clipFloat,
-                                              getLetter='r', hasAll=True)
+                                              getLetter='r')
 
         """
         //load/save bias presets
@@ -611,36 +617,24 @@ class FeeControl(object):
         return self.sendCommandStr(cmdStr)
 
     def doGet(self, setName, subName=None, channel=None):
-        try:
-            cmdSet = self.commands[setName]
-        except AttributeError as e:
-            raise e
-
-        if channel is not None:
-            cmdStr = cmdSet.getVal(subName, channel)
-        else:
-            cmdStr = cmdSet.getVal(subName)
-
-        return cmdSet.converter(self.sendCommandStr(cmdStr))
-
-    def doGetAll(self, setName, channel=None):
-        try:
-            cmdSet = self.commands[setName]
-        except AttributeError as e:
-            raise e
-
-        if not cmdSet.hasAll:
-            raise AttributeError("%s has no fetch-all command.", setName)
+        """  
+        """
         
-        if channel is not None:
-            cmdStr = cmdSet.getVal('all', channel)
-        else:
-            cmdStr = cmdSet.getVal('all')
+        try:
+            cmdSet = self.commands[setName]
+        except AttributeError as e:
+            raise e
+
+        cmdStr = cmdSet.getVal(subName, channel=channel)
         ret = self.sendCommandStr(cmdStr)
 
-        vals = [cmdSet.converter(v) for v in ret.split(',')]
-        return vals
-        
+        if subName == 'all':
+            retVal = [cmdSet.converter(v) for v in ret.split(',')]
+        else:
+            retVal = cmdSet.converter(ret)
+
+        return retVal
+    
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
