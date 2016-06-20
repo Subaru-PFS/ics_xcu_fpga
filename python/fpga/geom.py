@@ -272,11 +272,19 @@ class Exposure(object):
 
         return newImage
     
-    def biasSubtract(self, bias):
-        bias = Exposure(bias)
-
-        biasParts = bias.splitImage()
-        coreBiasParts = bias.splitImage(doTrim=True)
+    def biasSubtract(self, bias=None):
+        if bias is None:
+            bias = Exposure(self.image, copyExposure=True)
+            biasParts = bias.splitImage()
+            coreBiasParts = bias.splitImage(doTrim=True)
+            for a_i in range(self.namps):
+                m = np.median(coreBiasParts[1][a_i]) 
+                coreBiasParts[1][a_i][:] = m
+                m = np.median(biasParts[0][a_i]) 
+                biasParts[0][a_i][:] = m
+        else:
+            biasParts = bias.splitImage()
+            coreBiasParts = bias.splitImage(doTrim=True)
         
         parts = self.splitImage()
         coreParts = self.splitImage(doTrim=True)
