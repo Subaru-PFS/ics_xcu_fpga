@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 import sys
 import time
 
@@ -146,6 +146,7 @@ class CCD(pyFPGA.FPGA):
         
         hdr = pyfits.Header()
 
+        hdr.extend(self.idCards())
         hdr.extend(self.geomCards())
         
         if comment is not None:
@@ -153,8 +154,6 @@ class CCD(pyFPGA.FPGA):
         if addCards is not None:
             for card in addCards:
                 hdr.append(card)
-
-        hdr.extend(self.idCards())
 
         pyfits.writeto(fname, im, hdr, checksum=True)
         
