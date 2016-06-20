@@ -154,7 +154,8 @@ def readout(imtype, ccd=None, expTime=0,
             clockFunc=None,
             doSave=True, comment='',
             extraCards=(),
-            feeControl=None):
+            feeControl=None, cmd=None,
+            rowStatsFunc=None):
 
     """ Wrap a complete detector readout: no wipe, but with a log note, FITS cards and left in idle mode.  """
     
@@ -199,7 +200,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
                  clockFunc=None, doWipe=True,
                  doSave=True, comment='',
                  extraCards=(),
-                 feeControl=None):
+                 feeControl=None, cmd=None):
 
     """ Wrap a complete exposure, including wipe, sleep, and readout. 
 
@@ -217,20 +218,29 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
 
     t0 = time.time()
     if doWipe:
+        if cmd is not None:
+            cmd.inform('exposureState="wiping", 5.0')
         wipe(ccd=ccd, ncols=ncols, nrows=nrows, feeControl=feeControl)
 
     # This cannot be used in real life!
     t1 = time.time()
+    if cmd is not None:
+        cmd.inform('exposureState="integrating",%0.2f' % (expTime))
     time.sleep(expTime)
     t2 = time.time()
     
+    if cmd is not None:
+        cmd.inform('exposureState="reading",%0.2f' % (45.0))
     im, imfile = readout(imtype, ccd=ccd, expTime=expTime,
                          nrows=nrows, ncols=ncols,
                          clockFunc=clockFunc, doSave=doSave,
                          comment=comment, extraCards=extraCards,
+                         rowStatsFunc=False, cmd=cmd,
                          feeControl=feeControl)
     t3 = time.time()
 
+    if cmd is not None:
+        cmd.inform('exposureState="idle",0.0')
 
     print "file : %s" % (imfile)
     print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
