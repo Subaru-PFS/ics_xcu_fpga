@@ -52,17 +52,31 @@ class Exposure(object):
         else:
             return image
 
+    def parseHeader(self):
+        try:
+            self.namps = self.header['geom.namps']
+            self.nccds = self.namps / 4
+            
+            self.leadinRows = self.header['geom.rows.leadin']
+            self.overRows = self.header['geom.rows.overscan']
+            self.leadinCols = self.header['geom.cols.leadin'] 
+            self.overCols = self.header['geom.cols.overscan']
+            self.readDirection = self.header['geom.readDirection']
+
+            self.ccdRows = self.image.shape[0]
+            self.ampRows = self.image.shape[1]/self.namps
+
+            return True
+        except Exception as e:
+            print("FAILED to parse geometry cards: %s" % (e))
+            return False
+        
     def deduceGeometry(self):
         """ Use .image to generate geometry for an unbinned full-frame """
 
-        self.ampCols = 520
-        self.ccdRows = 4224
-        self.leadinCols = 8
-        self.leadinRows = 48
+        if not self.parseHeader():
+            self._setDefaultGeometry()
         
-        self.readDirection = 0b10101010
-        self.namps = 4 * self.nccds
-
         imh,imw = self.image.shape
         self.overRows = imh - self.ccdRows
         self.overCols = imw/self.namps - self.ampCols
