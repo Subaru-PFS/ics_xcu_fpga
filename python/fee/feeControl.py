@@ -7,6 +7,7 @@ import serial
 import sys
 import time
 
+import collections
 from collections import OrderedDict
 
 import numpy as np
@@ -232,6 +233,11 @@ class FeeControl(object):
 
         fee = self
 
+    def __str__(self):
+        return ("FeeControl(port=%s, device=%s)" %
+                (self.devConfig['port'],
+                 self.device))
+    
     def setDevice(self, devName):
         """ """
         self.devName = devName
@@ -247,6 +253,20 @@ class FeeControl(object):
         if self.devName:
             self.device = serial.Serial(**self.devConfig)
 
+    def calibrate(self):
+        """ Perform all FEE calibrations.
+
+        That is:
+          - load the mode voltages.
+          - run the CDS calibration
+          - run the bias calibration.
+        """
+
+        self.saveModesOnFee()
+        self.setMode('read')
+        self.raw('cal,CDS')
+        self.raw('cal,bias')
+        
     def powerUp(self, preset='erase'):
         """ Bring the FEE up to a sane and useable configuration. 
 
@@ -710,6 +730,15 @@ class FeeControl(object):
 
         self.logger.setLevel(logLevel)
 
+    def gobbleInput(self):
+        """ Read and drop any buffered input."""
+        
+        while True:
+            ret = self.readResponse()
+            if ret == '':
+                break
+            print "gobbled: ", ret
+                                                        
     def sendCommandStr(self, cmdStr, noTilde=False, EOL=None):
         if EOL is None:
             EOL = self.EOL
