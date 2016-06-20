@@ -11,9 +11,10 @@ reload(ccdFuncs)
 reload(opticslab)
 
 class FeeTweaks(object):
-    """ Interpose into fee.setMode() to override bias voltages after
-        mode has been loaded from PROM.
-            """
+    """ Interpose into fee.setMode() to override bias voltages after mode has been loaded from PROM.
+
+    Also prints out overrides.
+    """
     
     def __init__(self):
         self.modes = dict()
@@ -450,6 +451,8 @@ def imStats(im):
         osIm = osIms[a_i]
         ampSig = np.median(ampIm)
         osSig = np.median(osIm)
+        if osSig is np.nan:
+            osSig = 0
         stats[a_i]['signal'] = signal = ampSig - osSig
         stats[a_i]['flux'] = signal / exp.header['EXPTIME']
         stats[a_i]['exptime'] = exp.header['EXPTIME']
