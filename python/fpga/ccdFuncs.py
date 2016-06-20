@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import absolute_import
+
 import argparse
 import glob
 import logging
@@ -14,9 +16,9 @@ import fitsio
 
 import pyFPGA
 
-import fpga.ccd as ccdMod
-import fee.feeControl as feeMod
-import fpga.opticslab as opticslab
+from . import ccd as ccdMod
+from fee import feeControl as feeMod
+from . import opticslab
 
 reload(ccdMod)
 
@@ -178,7 +180,7 @@ def readout(imtype, ccd=None, expTime=0,
     feeCards = fetchCards(imtype, expTime=expTime)
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
-                               rowFunc=rowStats, rowFuncArgs=argDict,
+                               rowFunc=rowStatsFunc, rowFuncArgs=argDict,
                                clockFunc=clockFunc, doSave=doSave,
                                comment=comment, addCards=feeCards)
     t2 = time.time()
