@@ -84,6 +84,25 @@ class CCD(pyFPGA.FPGA):
     def fpgaVersion(self):
         return "0x%08x" % self.peekWord(0)
     
+    def ampidx(self, ampid, im=None):
+        """ Return an ndarray mask for a single amp. 
+
+        Examples
+        --------
+
+        >>> amp1mask = ccd.ampidx(1, im)
+        >>> amp1inRow100 = im[100, amp1mask]
+        >>> amp1forFullImage = im[:, amp1mask]
+        """
+
+        if im is not None:
+            nrows, ncols = im.shape
+            ampCols = ncols / 8
+            return np.arange(ampCols*ampid, ampCols*(ampid+1))
+        else:
+            return np.arange(ampid*self.ncols+self.leadinCols,
+                             (ampid+1)*self.ncols-self.overCols)
+
     def idCards(self):
         """ Return the full set of FITS cards to identify this detector (pair). """
 
@@ -119,24 +138,6 @@ class CCD(pyFPGA.FPGA):
         if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
             sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
     
-    def ampidx(self, ampid, im=None):
-        """ Return an ndarray mask for a single amp. 
-
-        Examples
-        --------
-
-        >>> amp1mask = ccd.ampidx(1, im)
-        >>> amp1inRow100 = im[100, amp1mask]
-        >>> amp1forFullImage = im[:, amp1mask]
-        """
-
-        if im is not None:
-            ncols = im.shape[1]/self.namps
-        else:
-            ncols = self.ncols
-        
-        return numpy.arange(ncols) + ampid*ncols
-
     def writeImageFiles(self, im, 
                         comment=None, addCards=None):
 
