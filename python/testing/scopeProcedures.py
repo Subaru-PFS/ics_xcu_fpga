@@ -94,7 +94,8 @@ class TestRig(object):
 
     def setScope(self, scope):
         self.scope = scope
-
+        self.scope.setProbes()
+        
     def loadSet(self, dirName, seqno):
         self.seqno = seqno
         dirName = os.path.join(self.fileMgr.rootDir, dirName)
