@@ -284,42 +284,66 @@ class FeeControl(object):
         self.sendCommandStr('ro,2p,ch1')
 
         self.getSerials()
-        
+
+    def doGetAll(self, cset):
+        pass
+    
     def getCommandStatus(self, cset):
+        """ Return the values for all of a cset's items.
+
+        Args
+        ----
+        cset    - one of our ChannelSets.
+
+
+        Notes
+        -----
+
+        If available, uses the 'all' command to fetch all values in one transaction.
+        """
+        
         status = OrderedDict()
 
         if cset.getLetter is None:
             return status
 
+        try:
+            csubs = cset.subs[:]
+            csubs.remove('all')
+            hasAll = True
+        except:
+            csubs = cset.subs
+            hasAll = False
+            
         if cset.channels:
             for chan in cset.channels:
-                try:
-                    all = self.doGetAll(cset.name, chan)
-                    if len(all) != len(cset.subs):
-                        raise IndexError("getAll returned %d items instead of the required %d" % (len(all),
-                                                                                                  len(cset.subs)))
-                    all = dict(zip(cset.subs, all))
-                except Exception:
-                    all = {}
+                if hasAll:
+                    allVals = self.doGet(cset.name, 'all', chan)
+                    if len(allVals) != len(csubs):
+                        raise IndexError("getAll returned %d items instead of the required %d" % (len(allVals),
+                                                                                                  len(csubs)))
+                    allVals = OrderedDict(zip(csubs, allVals))
+                else:
+                    allVals = OrderedDict()
                     for k in cset.subs:
-                        all[k] = self.doGet(cset.name, k, chan)
+                        allVals[k] = self.doGet(cset.name, k, chan)
                     
-                for k in cset.subs:       
-                    status["%s.ch%d.%s" % (cset.name, chan, k)] = all[k]
+                for k in csubs:       
+                    status["%s.ch%d.%s" % (cset.name, chan, k)] = allVals[k]
         else:
-            try:
-                all = self.doGetAll(cset.name)
-                if len(all) != len(cset.subs):
-                    raise IndexError("getAll returned %d items instead of the required %d" % (len(all),
+            if hasAll:
+                allVals = self.doGet(cset.name, 'all')
+                if len(allVals) != len(csubs):
+                    raise IndexError("getAll returned %d items instead of the required %d" % (len(allVals),
                                                                                               len(cset.subs)))
-                all = dict(zip(cset.subs, all))
-            except Exception:
-                all = {}
-                for k in cset.subs:
-                    all[k] = self.doGet(cset.name, k)
+                allVals = OrderedDict(zip(csubs, allVals))
+            else:
+                allVals = OrderedDict()
+                for k in csubs:
+                    allVals[k] = self.doGet(cset.name, k)
                     
-            for k in cset.subs:       
-                status["%s.%s" % (cset.name, k)] = all[k]
+            for k in csubs:       
+                status["%s.%s" % (cset.name, k)] = allVals[k]
 
         return status
 
