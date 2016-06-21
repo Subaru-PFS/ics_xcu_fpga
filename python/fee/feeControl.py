@@ -277,8 +277,8 @@ class FeeControl(object):
         """
 
         self.setMode(preset)
-        print self.sendCommandStr('se,all,on')
-        print self.sendCommandStr('se,Clks,on')
+        self.sendCommandStr('se,all,on')
+        self.sendCommandStr('se,Clks,on')
         
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
@@ -396,8 +396,8 @@ class FeeControl(object):
     def powerDown(self):
         """ Bring the FEE down to a sane and stable idle. """
 
-        print self.sendCommandStr('se,Clks,off')
-        print self.sendCommandStr('se,all,off')
+        self.sendCommandStr('se,Clks,off')
+        self.sendCommandStr('se,all,off')
 
     def printStatus(self):
         for k, v in self.status.iteritems():
@@ -428,7 +428,7 @@ class FeeControl(object):
         if self.lockedConfig:
             raise RuntimeError("FEE configuration is locked!")
             
-        print self.sendCommandStr('ss,%s,%s' % (serialType, serial))
+        self.sendCommandStr('ss,%s,%s' % (serialType, serial))
         
     def _defineFullCommand(self, cmdSet):
         """ For a passed commandset, create methods to set&get values."""
@@ -781,12 +781,13 @@ class FeeControl(object):
         except Exception as e:
             raise
 
-  
         ret = self.readResponse()
         if ret != fullCmd.strip():
             raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (cmdStr, ret))
  
-        return self.readResponse()
+        ret = self.readResponse()
+
+        return ret
 
     def readResponse(self, EOL=None):
         """ Read a single response line, up to the next self.EOL.
@@ -851,8 +852,10 @@ class FeeControl(object):
         return "%d%s" % (ampNum%4, leg), channel
 
     def setMode(self, newMode):
-        self.sendCommandStr('lp,%s' % (newMode))
+        ret = self.sendCommandStr('lp,%s' % (newMode))
         self.activeMode = newMode
+
+        return ret
 
     def getMode(self):
         return self.activeMode
