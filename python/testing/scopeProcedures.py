@@ -524,46 +524,6 @@ class Switch2Test(OneTest):
                 
         return fig, pl
 
-class xxV0Test(OneTest):
-    def initTest(self):
-        self.testName = 'V0'
-        self.label = "bias voltages over an exposure."
-
-    def setup(self):
-        self.scope.setWaveform(1, 'OG', scale=5)
-        self.scope.setWaveform(2, 'RD', scale=5)
-        self.scope.setWaveform(3, 'OD', scale=5)
-        self.scope.setWaveform(4, 'BB', scale=5)
-
-        self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=1, pos=20, triggerPos=10, delayMode=0, delayTime=0)
-        self.scope.setManualTrigger(after=6.0)
-
-    def plot(self):
-        return sigplot(self.testData['waveforms'], xscale=1.0, 
-                       ylim=(-20,20), 
-                       showLimits=True, title=self.title)        
-
-class xxV1Test(OneTest):
-    def initTest(self):
-        self.testName = 'V1'
-        self.label = "slew between modes, no clocking"
-
-    def setup(self):
-        self.scope.setWaveform(1, 'OG', scale=5)
-        self.scope.setWaveform(2, 'RD', scale=5)
-        self.scope.setWaveform(3, 'OD', scale=5)
-        self.scope.setWaveform(4, 'BB', scale=5)
-
-        self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=1, pos=5, triggerPos=5, delayMode=0, delayTime=0)
-        self.scope.setEdgeTrigger(source='ch3', level=-8, slope='fall', holdoff='1e-9')
-
-
-    def plot(self):
-        return sigplot(self.testData['waveforms'], xscale=1.0, 
-                       xlim=(-0.5,5.0), ylim=(-20,20), 
-                       showLimits=True, title=self.title)        
 
 def sigplot(waves,
             channels=None,
