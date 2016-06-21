@@ -13,60 +13,6 @@ from fee import feeControl
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
 class TestRig(object):
-    """ Test sequence:
-
-    Step 1: test the base voltages on the two CCDs
-    0,0 V0
-    1,0 V0
-
-    Step 2: test the serials and parallels on both CCDs
-    1,0 S0
-    0,0 S0
-    0,0 P0
-    1,0 P0
-
-    Step 3: test the secondary parallel signals on both CCDs
-    1,0 P1
-    0,0 P1
-
-    [ Back at CCD 0,0! ]
-
-    Step 4: make the S1 test there now.
-    0,0 S1
-    1,0 S1
-
-    Step 5: step through S0, S1, and V0 on the rest of the amps.
-    1,1 S1
-    1,1 S0
-    1,1 V0
-
-    1,2 V0
-    1,2 S0
-    1,2 S1
-    
-    1,3 S1
-    1,3 S0
-    1,3 V0
-
-    0,1 V0
-    0,1 S0
-    0,1 S1
-    
-    0,2 S1
-    0,2 S0
-    0,2 V0
-
-    0,3 V0
-    0,3 S0
-    0,3 S1
-    
-    Step 6: finish the stray parallel tests.
-
-    0   P2
-    1   P3
-
-
-    """
     
     def __init__(self, scope, dirName=None, seqno=None, root='/data/pfseng'):
         self.rootDir = root
@@ -116,6 +62,168 @@ class TestRig(object):
 
     def unregisterTest(self, test):
         self.tests.remove(test)
+
+class BenchRig(TestRig):
+    """ Test sequence:
+
+    Step 1: test the base voltages on the two CCDs
+    0,0 V0
+    1,0 V0
+
+    Step 2: test the serials and parallels on both CCDs
+    1,0 S0
+    0,0 S0
+    0,0 P0
+    1,0 P0
+
+    Step 3: test the secondary parallel signals on both CCDs
+    1,0 P1
+    0,0 P1
+
+    [ Back at CCD 0,0! ]
+
+    Step 4: make the S1 test there now.
+    0,0 S1
+    1,0 S1
+
+    Step 5: step through S0, S1, and V0 on the rest of the amps.
+    1,1 S1
+    1,1 S0
+    1,1 V0
+
+    1,2 V0
+    1,2 S0
+    1,2 S1
+    
+    1,3 S1
+    1,3 S0
+    1,3 V0
+
+    0,1 V0
+    0,1 S0
+    0,1 S1
+    
+    0,2 S1
+    0,2 S0
+    0,2 V0
+
+    0,3 V0
+    0,3 S0
+    0,3 S1
+    
+    Step 6: finish the stray parallel tests.
+
+    0,3 P2
+    1,3 P3
+    """
+
+    leadNames = dict(C1='OG',
+                     C2='RD',
+                     
+                     C4='RG',
+                     C5='S1',
+                     C6='S1.2',
+                     C7='S2',
+                     C8='S2.2',
+                     C9='SW',
+                     C10='OS',
+                     C11='OD',
+                     
+                     M1='ISV',
+                     M2='IG1',
+                     M3='IG2',
+                     M4='P1',
+                     M5='P2',
+                     M6='P3',
+                     M7='P1S',
+                     M8='P2S',
+                     M9='P3S',
+                     M10='TG',
+                     M11='BB')
+
+    leadPins = {v:k for k,v in leadNames.items()}
+    
+    def __init__(self, *argl, **argd):
+        TestRig.__init__(self, *argl, **argd)
+
+        self.sequence = [[0, 0, V0Test, 'base voltage test for CCD0'],
+                         [1, 0, V0Test, 'base voltage test for CCD1'],
+
+                         [1, 0, S0Test, 'base serial test 0 for CCD1'],
+                         [0, 0, S0Test, 'base serial test 0 for CCD0'],
+                         
+                         [0, 0, P0Test, 'base parallel test 0 for CCD0'],
+                         [1, 0, P0Test, 'base parallel test 0 for CCD1'],
+
+                         [1, 0, P1Test, 'base parallel test 1 for CCD1'],
+                         [0, 0, P1Test, 'base parallel test 1 for CCD0'],
+                         
+                         [0, 0, S1Test, 'base serial test 1 for CCD0'],
+                         [1, 0, S1Test, 'base serial test 1 for CCD1'],
+
+                         [1, 1, S1Test, None],
+                         [1, 1, S0Test, None],
+                         [1, 1, V0Test, None],
+                         [1, 2, V0Test, None],
+                         [1, 2, S0Test, None],
+                         [1, 2, S1Test, None],
+                         [1, 3, S1Test, None],
+                         [1, 3, S0Test, None],
+                         [1, 3, V0Test, None],
+                         [0, 1, V0Test, None],
+                         [0, 1, S0Test, None],
+                         [0, 1, S1Test, None],
+                         [0, 2, S1Test, None],
+                         [0, 2, S0Test, None],
+                         [0, 2, V0Test, None],
+                         [0, 3, V0Test, None],
+                         [0, 3, S0Test, None],
+                         [0, 3, S1Test, None],
+    
+                         [0, 3, P2Test, 'stray parallel signals, CCD0'],
+                         [1, 3, P2Test, 'stray parallel signals, CCD1'],
+        ]
+        self.seqNum = 0
+
+    def describeSequence(self):
+        return
+    
+    def describeTest(self, seqNum=None, withLeads=True):
+        if seqNum is None:
+            seqNum = self.seqNum
+
+        ccd, amp, test, comment = self.sequence[seqNum]
+        if comment is None:
+            comment = test.label
+
+        comment = "%s [ccd %d, amp %d]" % (comment, ccd, amp)
+        if withLeads:
+            comment = "test %d: %s\n     leads: %s" % (seqNum,
+                                                       comment,
+                                                       test.describeLeads())
+        return comment
+
+    def setTest(self, seqNum):
+        self.seqNum = seqNum
+        return self.describeTest()
+    
+    def runTest(self, comment=''):
+        ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
+
+        if comment2 and not comment:
+            comment = comment2
+            
+        print("running %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
+
+        test = testClass(self, ccd, amp,
+                         comment=comment)
+        try:
+            ret = self.scope.runTest(test)
+        except Exception as e:
+            print("test FAILED: %s" % (e))
+            return None
+
+        return ret
         
 class OneTest(object):
     def __init__(self, rig, channel, amp, ccd='X', comment='', revision=1):
@@ -131,10 +239,11 @@ class OneTest(object):
         
         self.revision = revision
 
-    def initTest(self):
-        self.testName = 'unnamed test'
-        self.label = ''
-
+    @classmethod
+    def describeLeads(self):
+        leads = [("%s(%s)" % (l, BenchRig.leadPins[l])) for l in self.leads]
+        return ", ".join(leads)
+    
     @property
     def scope(self):
         return self.rig.scope
@@ -204,10 +313,14 @@ class OneTest(object):
         return path
 
     def fetchData(self):
-        self.testData = dict()
-        self.testData['version'] = 2
-        self.testData['waveforms'] = self.scope.getWaveforms()
+        try:
+            testData = dict()
+            testData['version'] = 2
+            testData['waveforms'] = self.scope.getWaveforms()
+        except Exception as e:
+            raise e
 
+        self.testData = testData
 
     def channelData(self):
         """ Return an ndarray of data for the given channels. """
@@ -235,10 +348,13 @@ class OneTest(object):
                                                                  self.label)
 
 class S0Test(OneTest):
+    testName = 'S0'
+    label = "serial clocks, no averaging"
+    leads = ('RG', 'S1', 'S2', 'SW')
+    
     def initTest(self):
-        self.testName = 'S0'
-        self.label = "serial clocks, no averaging"
-        
+        pass
+    
     def setup(self):
         self.scope.setAcqMode(numAvg=0)
         self.delayTime = 13.920*1e-6 * 10
@@ -264,9 +380,12 @@ class S0Test(OneTest):
                        showLimits=True, title=self.title)        
 
 class S1Test(OneTest):
+    testName = 'S1'
+    label = "Alternate serial clocks"
+    leads = ('RG', 'S1.2', 'S2.2', 'OS')
+        
     def initTest(self):
-        self.testName = 'S1'
-        self.label = "Alternate serial clocks"
+        pass
 
     def setup(self):
         self.scope.setAcqMode(numAvg=1)
@@ -293,16 +412,13 @@ class S1Test(OneTest):
                        showLimits=True, title=self.title)        
 
 class V0Test(OneTest):
-
-    def initTest(self):
-        self.delayTime = 0 #13.920*1e-6 * 10
-        self.testName = 'V0'
-        self.label = "power up, all modes, readout, power off"
-
-    def describe(self):
-        # C1 C2 C11 M11
-        pass
+    testName = 'V0'
+    label = "power up, all modes, readout, power off"
+    leads = ('OG', 'RD', 'OD', 'BB')
     
+    def initTest(self):
+        self.delayTime = 0 # 13.920*1e-6 * 10
+
     def setup(self):
         # C1 C2 C11 M11
         self.scope.setWaveform(1, 'OG', scale=5)
@@ -327,6 +443,7 @@ class P0Test(OneTest):
 
     def setup(self):
         # M10 M4 M5 M6
+        self.leads = ('TG', 'P1', 'P2', 'P3')
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1', scale=2)
         self.scope.setWaveform(3, 'P2', scale=2)
@@ -349,6 +466,7 @@ class P1Test(OneTest):
 
     def setup(self):
         # M10 M7 M8 M9
+        self.leads = ('TG', 'P1S', 'P2S', 'P3S')
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1S', scale=2)
         self.scope.setWaveform(3, 'P2S', scale=2)
@@ -371,6 +489,7 @@ class P2Test(OneTest):
 
     def setup(self):
         # M10 M1 M2 M3
+        self.leads = ('TG', 'ISV', 'IG1', 'IG2')
         self.scope.setWaveform(1, 'TG', scale=2)
         self.scope.setWaveform(2, 'ISV', scale=2)
         self.scope.setWaveform(3, 'IG1', scale=5)

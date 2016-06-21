@@ -324,3 +324,9 @@ class PfsCpo(object):
         with open(fname, 'w+') as pf:
             pickle.dump(waves, pf)
 
+    def pquery(self, q):
+        ret = self.query(q).strip()
+        print("%s: %s" % (q, ret))
+
+        return ret
+    
