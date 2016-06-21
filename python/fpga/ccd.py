@@ -23,7 +23,9 @@ class CCD(pyFPGA.FPGA):
     """
     
     dewarNumbers = {'red':2,
-                    'blue':1}
+                    'blue':1,
+                    'r':2,
+                    'b':1}
     
     def __init__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
         global ccd
