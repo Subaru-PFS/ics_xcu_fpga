@@ -183,7 +183,7 @@ c.NotebookApp.open_browser = False
 #   from notebook.auth import passwd; passwd()
 # 
 # The string should be of the form type:salt:hashed-password.
-c.NotebookApp.password = u'sha1:cae7f2a1bcc7:60c3160c747ac8a9c26e375acaa576b44b0a12d8'
+c.NotebookApp.password = u'sha1:01928d921f60:4e6216d25737d68def09627539a90e75a288b96d'
 
 # extra paths to look for Javascript notebook extensions
 # c.NotebookApp.extra_nbextensions_path = traitlets.Undefined
