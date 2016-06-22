@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import
 
-import argparse
 import glob
 import logging
 import os
@@ -13,8 +12,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import fitsio
-
-import pyFPGA
 
 from . import ccd as ccdMod
 from fee import feeControl as feeMod
@@ -453,6 +450,9 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
         print(' '.join(parts))
     
 def main(argv=None):
+    import argparse
+    import pyFPGA
+
     if argv is None:
         argv = sys.argv[1:]
     if isinstance(argv, basestring):

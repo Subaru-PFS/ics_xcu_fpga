@@ -4,12 +4,16 @@ import time
 
 import astropy.io.fits as pyfits
 
-import pyFPGA
+try:
+    from pyFPGA import FPGA
+except:
+    FPGA = object
+    
 import SeqPath
 
 ccd = None
 
-class CCD(pyFPGA.FPGA):
+class CCD(FPGA):
     """Top-level wrapper for FPGA control and readout. 
 
     The core routines to access the FPGA are in c/fpga.[ch]. We access
