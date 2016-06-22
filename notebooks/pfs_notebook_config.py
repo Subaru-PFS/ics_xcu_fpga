@@ -64,7 +64,7 @@
 # c.NotebookApp.jinja_environment_options = traitlets.Undefined
 
 # The IP address the notebook server will listen on.
-c.NotebookApp.ip = ''
+c.NotebookApp.ip = 'localhost'
 
 # DEPRECATED use base_url
 # c.NotebookApp.base_project_url = '/'
@@ -85,7 +85,7 @@ c.NotebookApp.ip = ''
 # c.NotebookApp.default_url = '/tree'
 
 # The port the notebook server will listen on.
-c.NotebookApp.port = 8889
+c.NotebookApp.port = 8890
 
 # The kernel spec manager class to use. Should be a subclass of
 # `jupyter_client.kernelspec.KernelSpecManager`.
