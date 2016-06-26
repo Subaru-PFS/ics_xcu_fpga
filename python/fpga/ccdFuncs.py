@@ -87,10 +87,12 @@ def fnote(fname, ftype='', notes=''):
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
-def fetchCards(exptype=None, expTime=0.0):
+def fetchCards(exptype=None, feeControl=None, expTime=0.0):
     """ Generate all FEE exposure cards, included times and IMAGETYP. """
-    
-    feeCards = feeMod.fee.statusAsCards()
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+    feeCards = feeControl.statusAsCards()
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
         feeCards.insert(0, ('IMAGETYP', exptype, ''))
@@ -174,7 +176,7 @@ def readout(imtype, ccd=None, expTime=0,
     time.sleep(1)               # Per JEG
     t1 = time.time()
     
-    feeCards = fetchCards(imtype, expTime=expTime)
+    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime)
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,

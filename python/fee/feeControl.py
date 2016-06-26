@@ -7,7 +7,6 @@ import serial
 import sys
 import time
 
-import collections
 from collections import OrderedDict
 
 import numpy as np
