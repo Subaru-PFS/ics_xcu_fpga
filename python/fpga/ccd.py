@@ -11,8 +11,6 @@ except:
     
 import SeqPath
 
-ccd = None
-
 class CCD(FPGA):
     """Top-level wrapper for FPGA control and readout. 
 
@@ -32,8 +30,6 @@ class CCD(FPGA):
                     'b':1}
     
     def __init__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
-        global ccd
-
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
         if dewarId not in self.dewarNumbers:
@@ -61,8 +57,6 @@ class CCD(FPGA):
         self.namps = 8
         self.readDirection = 0b10101010
         
-        ccd = self
-
     @property
     def nrows(self):
         """ Number of rows for the readout, derived from .ccdRows + .overRows. """
