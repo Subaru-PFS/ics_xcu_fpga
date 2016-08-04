@@ -458,7 +458,6 @@ def imStats(im):
         stats[a_i]['exptime'] = exp.header['EXPTIME']
         stats[a_i]['preamptemp'] = exp.header['temps.PA']
         stats[a_i]['ccd0temp'] = exp.header['temps.CCD0']
-        stats[a_i]['exptime'] = exp.header['EXPTIME']
         stats[a_i]['sqrtSig'] = np.sqrt(signal)
         stats[a_i]['bias'] = osSig
 
