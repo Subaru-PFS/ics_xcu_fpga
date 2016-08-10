@@ -57,7 +57,7 @@ class Exposure(object):
     def parseHeader(self):
         try:
             self.namps = self.header['geom.namps']
-            self.nccds = self.namps / 4
+            self.nccds = self.namps / 2
             
             self.leadinRows = self.header['geom.rows.leadin']
             self.overRows = self.header['geom.rows.overscan']
@@ -65,12 +65,13 @@ class Exposure(object):
             self.overCols = self.header['geom.cols.overscan']
             self.readDirection = self.header['geom.readDirection']
 
-            self.ccdRows = self.image.shape[0]
-            self.ampRows = self.image.shape[1]/self.namps
+            self.ccdRows = self.image.shape[0] - self.overRows
+            self.ampCols = self.image.shape[1]/self.namps - self.overCols
 
             return True
         except Exception as e:
             print("FAILED to parse geometry cards: %s" % (e))
+            print("header: %s" % (self.header))
             return False
         
     def deduceGeometry(self):
@@ -80,9 +81,7 @@ class Exposure(object):
             self._setDefaultGeometry()
         
         imh,imw = self.image.shape
-        self.overRows = imh - self.ccdRows
-        self.overCols = imw/self.namps - self.ampCols
-        if self.ncols * self.namps != imw:
+        if (self.ampCols + self.overCols)*self.namps != imw:
             raise RuntimeError("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
                                (self.namps, self.ampCols, self.overCols, imw))
                                
@@ -122,16 +121,16 @@ class Exposure(object):
     def ncols(self):
         return self.ampCols + self.overCols
 
-    def ampExtents(self, ampId, leadingCols=False, leadingRows=False):
-        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
-        x1 = ampId*self.ncols + self.ampCols
+    def ampExtents(self, ampId, leadingCols=False, leadingRows=False, overscan=False):
+        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
+        x1 = (ampId + 1)*self.ampCols + overscan*self.overCols
 
         if not self.readDirection or (self.readDirection & (1 << ampId)) == 0:
             xr = slice(x0, x1)
         else:
             xr = slice(x1-1, x0-1, -1)
 
-        yr = slice(self.leadinRows*(not leadingRows), self.ccdRows)
+        yr = slice(self.leadinRows*(not leadingRows), self.ccdRows + overscan*self.overRows)
 
         return yr, xr
 
@@ -154,7 +153,7 @@ class Exposure(object):
         return im[yr, xr]
 
     def overscanCols(self, ampId, leadingRows=False, overscanRows=False):
-        x0 = ampId*self.ncols + self.ampCols
+        x0 = (ampId+1)*self.ampCols
         x1 = x0 + self.overCols
 
         xr = slice(x0, x1)
@@ -164,8 +163,8 @@ class Exposure(object):
         return yr, xr
 
     def overscanRows(self, ampId, leadingCols=False, overscanCols=False):
-        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
-        x1 = ampId*self.ncols + self.ampCols + self.overCols*(overscanCols)
+        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
+        x1 = ampId*self.ampCols + self.ampCols + self.overCols*(overscanCols)
 
         xr = slice(x0, x1)
         yr = slice(self.ccdRows, self.ccdRows + self.overRows)
