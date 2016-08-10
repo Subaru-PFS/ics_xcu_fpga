@@ -2,10 +2,10 @@ import itertools
 import logging
 import numpy as np
 
-import fitsio
+import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, nccds=2, copyExposure=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False):
         self.nccds = nccds
         self._setDefaultGeometry()
 
@@ -21,7 +21,9 @@ class Exposure(object):
                 self.image = self.image.copy()
                 self.header = self.header.copy()
         elif isinstance(obj, basestring):
-            self.image, self.header = fitsio.read(obj, header=True)
+            ffile = pyfits.open(obj)
+            self.image = ffile[0].data
+            self.header = ffile[0].header
             self.deduceGeometry()
             self.image = self.fixEdgeColsBug(self.image)
 
