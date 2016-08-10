@@ -34,7 +34,9 @@ class Exposure(object):
         else:
             raise RuntimeError("do not know how to construct from a %s" % (type(obj)))
 
-
+        if dtype is not None:
+            self.image = self.image.astype(dtype, copy=False)
+            
     def fixEdgeColsBug(self, image):
         try:
             flag = self.header.get('geom.edgesOK')
@@ -424,3 +426,17 @@ def constructImage(ampIms, osColIms=None, osRowIms=None):
     ret = np.concatenate(orderedIms, axis=1)
     return ret
 
+def normAmpLevels(exp):
+    """ Using the overscan region, crudely normalize all amps to min=0. """
+
+    retexp = Exposure(exp.image, copyExposure=True, dtype='i4')
+
+    for i in range(retexp.namps):
+        yr,xr = retexp.ampExtents(i, leadingCols=True, leadingRows=True, overscan=True)
+
+        overscanImage = retexp.overscanColImage(i)
+        overscanLevel = int(np.rint(np.median(overscanImage)))
+        
+        retexp.image[yr,xr] -= overscanLevel
+
+    return retexp
