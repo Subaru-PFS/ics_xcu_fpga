@@ -38,20 +38,29 @@ class Exposure(object):
             self.image = self.image.astype(dtype, copy=False)
             
     def fixEdgeColsBug(self, image):
+        """ Fix extra 0th pixel in early raw images.
+        """
+        
         try:
             flag = self.header.get('geom.edgesOK')
         except:
             flag = False
             
         if not flag:
-            fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
-            fixedImage1[:,:-1] = image[:,1:]
-            fixedImage1[:,-1] = image[:,0]
+            if False:
+                fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
+                fixedImage1[:,:-1] = image[:,1:]
+                fixedImage1[:,-1] = image[:,0]
 
-            fixedImage = np.ndarray(shape=image.shape, dtype=image.dtype)
-            fixedImage[:-1,:] = fixedImage1[1:,:]
-            fixedImage[-1,:] = fixedImage1[0,:]
-
+                fixedImage = np.ndarray(shape=image.shape, dtype=image.dtype)
+                fixedImage[:-1,:] = fixedImage1[1:,:]
+                fixedImage[-1,:] = fixedImage1[0,:]
+            else:
+                fixedImage = np.ndarray(shape=image.size, dtype=image.dtype)
+                fixedImage[:-1] = image.flat[1:]
+                fixedImage[-1] = fixedImage[-2]
+                fixedImage.shape = image.shape
+                
             return fixedImage
         else:
             return image
