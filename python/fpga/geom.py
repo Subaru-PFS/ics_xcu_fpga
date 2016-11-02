@@ -109,11 +109,11 @@ class Exposure(object):
 
     @property
     def activeRows(self):
-        self.ccdRows - self.leadinRows
+        return self.ccdRows - self.leadinRows
         
     @property
     def activeCols(self):
-        self.ampCols - self.leadinCols
+        return self.ampCols - self.leadinCols
         
     @property
     def nrows(self):
@@ -124,8 +124,24 @@ class Exposure(object):
         return self.ampCols + self.overCols
 
     def ampExtents(self, ampId, leadingCols=False, leadingRows=False, overscan=False):
-        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
-        x1 = (ampId + 1)*self.ampCols + overscan*self.overCols
+        """ Return the y,x slices covering the given amp. 
+        
+        Args
+        ----
+        ampId : int
+           The index of the amp. 0..self.namps
+        leadingCols : bool
+           Whether to include the leadin columns.
+        leadingRows : bool
+           Whether to include the leadin rows
+        overscan : bool
+           Whether to include the overscan pixels.
+
+        """
+        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
+        x1 = (ampId + 1)*self.ncols
+        if not overscan:
+            x1 -= self.overCols
 
         if not self.readDirection or (self.readDirection & (1 << ampId)) == 0:
             xr = slice(x0, x1)
@@ -136,17 +152,44 @@ class Exposure(object):
 
         return yr, xr
 
-    def finalAmpExtents(self, ampId):
-        activeCols = self.ampCols - self.leadinCols
-        x0 = ampId*activeCols
-        x1 = x0 + activeCols
+    def finalAmpExtents(self, ampId, leadingRows=True):
+        """ Return the y,x slices for the  
+        
+        Args
+        ----
+        ampId : int
+           The index of the amp. 0..self.namps
+        leadingRows : bool
+           Whether to include the leadin rows.
+        """
+        
+        x0 = ampId*self.activeCols
+        x1 = x0 + self.activeCols
 
         xr = slice(x0, x1)
-        yr = slice(0, self.ccdRows)
 
+        y0 = (not leadingRows)*self.leadinRows
+        y1 = y0 + self.activeRows + leadingRows*self.leadinRows
+        yr = slice(y0, y1)
+        
         return yr, xr
 
     def ampImage(self, ampId, im=None, leadingCols=False, leadingRows=False):
+        """ Return the image for a single amp.
+
+        Args
+        ----
+        ampId : int
+            The index of the desired amp. 0..7
+        im : ndarray of image, optional
+            If set, return the amp from the given image. Must have a geometry 
+            compatible with self.
+        leadingCols : bool
+            If set, include the leadin columns
+        leadingRows : bool
+            If set, include the leadin rows
+        """
+        
         if im is None:
             im = self.image
             
@@ -278,13 +321,13 @@ class Exposure(object):
 
         return ampIms, osColIms, osRowIms
 
-    def replaceActiveFlux(self, newFlux):
+    def replaceActiveFlux(self, newFlux, leadingRows=True):
         newImage = self.image.copy()
 
         for a_i in range(self.namps):
-            yslice, xslice = self.ampExtents(a_i, leadingRows=True)
-            inYslice, inXslice = self.finalAmpExtents(a_i)
-
+            yslice, xslice = self.ampExtents(a_i, leadingRows=leadingRows)
+            inYslice, inXslice = self.finalAmpExtents(a_i, leadingRows=leadingRows)
+            print("leadingRows=%s inYslice=%s" % (leadingRows, inYslice))
             newImage[yslice, xslice] = newFlux[inYslice,inXslice]
 
         return newImage
@@ -339,12 +382,10 @@ class Exposure(object):
         if byRow:
             imMed = np.median(im[osYr, osXr],
                               axis=1, keepdims=True).astype('i4')
-            print "%s: %s %s" % (ampId, osYr, osXr)
         else:
             osYr = slice(osYr.start + 500,
                          osYr.stop - 500)
             osXr = slice(osXr.start+3, osXr.stop)
-            print "%s: %s %s" % (ampId, osYr, osXr)
         
             imMed = int(np.median(im[osYr, osXr]))
 
@@ -404,7 +445,8 @@ def clippedStack(flist, dtype='i4'):
         stack[i] = exp.image - meds[i]
 
     medimg = np.median(stack, axis=0)
-    return medimg + np.median(meds), meds
+
+    return Exposure(medimg)
                                                                                                             
 def finalImage(exp, bias=None, dark=None, flat=None):
     exp = Exposure(exp)
