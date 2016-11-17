@@ -57,6 +57,7 @@ class Exposure(object):
             flag = False
             
         if not flag:
+            self.logger.info('fixing corner pixel')
             if False:
                 fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
                 fixedImage1[:,:-1] = image[:,1:]
@@ -367,7 +368,7 @@ class Exposure(object):
         for a_i in range(self.namps):
             yslice, xslice = self.ampExtents(a_i, leadingRows=leadingRows)
             inYslice, inXslice = self.finalAmpExtents(a_i, leadingRows=leadingRows)
-            print("leadingRows=%s inYslice=%s" % (leadingRows, inYslice))
+            self.logger.debug("leadingRows=%s inYslice=%s", leadingRows, inYslice)
             newImage[yslice, xslice] = newFlux[inYslice,inXslice]
 
         return newImage
