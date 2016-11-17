@@ -133,6 +133,12 @@ class Exposure(object):
         
         self.namps = 4 * self.nccds
 
+    def forceLeadinRows(self, newLeadinRows):
+        self.leadinRows = newLeadinRows
+        if 'geom.rows.leadin' in self.header:
+            self.header['geom.rows.leadin'] = newLeadinRows
+
+
     @property
     def expType(self):
         return self.header.get('IMAGETYP', 'unknown').strip()
