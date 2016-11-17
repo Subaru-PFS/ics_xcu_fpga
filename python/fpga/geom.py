@@ -5,7 +5,9 @@ import numpy as np
 import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False, simpleGeometry=False):
+        self.logger = logging.getLogger('geom.Exposure')
+        
         self.nccds = nccds
         self._setDefaultGeometry()
 
@@ -24,7 +26,7 @@ class Exposure(object):
             ffile = pyfits.open(obj)
             self.image = ffile[0].data
             self.header = ffile[0].header
-            self.deduceGeometry()
+            self.deduceGeometry(simpleGeometry)
             self.image = self.fixEdgeColsBug(self.image)
 
         elif isinstance(obj, np.ndarray):
@@ -81,15 +83,30 @@ class Exposure(object):
 
             return True
         except Exception as e:
-            print("FAILED to parse geometry cards: %s" % (e))
-            print("header: %s" % (self.header))
+            self.logger.warn("FAILED to parse geometry cards: %s", e)
+            self.logger.warn(("header: %s", self.header))
             return False
         
-    def deduceGeometry(self):
-        """ Use .image to generate geometry for an unbinned full-frame """
+    def deduceGeometry(self, simple=False):
+        """ Use .image to generate geometry for an unbinned full-frame. 
 
-        if not self.parseHeader():
+        Args
+        ----
+        simple : bool
+           If we do not have geometry in the header, generate one from the image shape,
+           assuming that it has .namps
+        """
+
+        hdrOk = self.parseHeader()
+        if not hdrOk:
+            self.header['geom.edgesOK'] = True
             self._setDefaultGeometry()
+            if simple:
+                self.overCols = self.overRows = 0
+                self.leadinCols = self.leadinRows = 0
+                self.readDirection = 0
+                self.ccdRows = self.image.shape[0]
+                self.ampCols = self.image.shape[1] / self.namps
         
         imh,imw = self.image.shape
         if (self.ampCols + self.overCols)*self.namps != imw:
