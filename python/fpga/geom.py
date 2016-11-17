@@ -38,7 +38,15 @@ class Exposure(object):
 
         if dtype is not None:
             self.image = self.image.astype(dtype, copy=False)
-            
+
+    def __str__(self):
+        return "Exposure(shape=%s, dtype=%s, rows=(%d,%d,%d) cols=(%d,%d,%d)*%d)" % (self.image.shape, self.image.dtype,
+                                                                                     self.leadinRows, self.activeRows,
+                                                                                     self.overRows,
+                                                                                     self.leadinCols, self.activeCols,
+                                                                                     self.overCols,
+                                                                                     self.namps)
+    
     def fixEdgeColsBug(self, image):
         """ Fix extra 0th pixel in early raw images.
         """
