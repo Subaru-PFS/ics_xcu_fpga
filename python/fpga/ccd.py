@@ -38,7 +38,8 @@ class CCD(FPGA):
             raise RuntimeError('dewarId must be one of: ', self.dewarNumbers.keys())
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
-        
+
+        self.headerVersion = 1
         self.dewarId = dewarId
         self.spectroId = spectroId
         self.splitDetectors = splitDetectors
@@ -109,6 +110,7 @@ class CCD(FPGA):
         """ Return the full set of FITS cards to identify this detector (pair). """
 
         cards = []
+        cards.append(('HEADVERS', self.headerVersion, 'FITS header version')
         cards.append(('HIERARCH versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
         cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))
