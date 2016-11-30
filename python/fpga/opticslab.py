@@ -17,7 +17,7 @@ def opticsLabCommand(cmdStr):
     return data
 
 def pulseShutter(stime):
-    """ Move the cold shutter in or out.
+    """ Open the shutter for a given time.
 
     Args:
        pos : 'in' or 'out'
@@ -28,14 +28,17 @@ def pulseShutter(stime):
     if parts[0] != 'OK' or parts[1] != 'pulse':
         raise RuntimeError('something went wrong, got %r' % (ret))
 
-    flux = float(parts[3])
-    current = float(parts[4])
+    # "OK %s %s %g %g %g %g\n" % (command, number, current, flux, WAVELENGTH, SLITWIDTH)
+
+    current = float(parts[3])
+    flux = float(parts[4])
     wavelength = float(parts[5])
     slitwidth = float(parts[6])
     t1 = time.time()
 
-    if t1-t0 < stime:
-        raise RuntimeError('remote pulseShutter took less than the requested time!')
+    # Give the PC clock some slack.
+    if (t1-t0 + 0.02) < stime:
+        raise RuntimeError('remote pulseShutter took less than the requested time! (%g < %g)' % (t1-t0, stime))
     
     return stime, flux, current, wavelength, slitwidth
 
