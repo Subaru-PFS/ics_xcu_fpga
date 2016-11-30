@@ -3,7 +3,6 @@ import time
 
 import fpga.geom as geom
 
-import fee.feeControl as feeMod
 import fpga.ccdFuncs as ccdFuncs
 import fpga.opticslab as opticslab
 
@@ -16,17 +15,16 @@ class FeeTweaks(object):
     Also prints out overrides.
     """
     
-    def __init__(self):
+    def __init__(self, fee):
+        self.fee = fee
         self.modes = dict()
 
     def getMode(self):
-        return feeMod.fee.getMode()
+        return self.fee.getMode()
 
     def setMode(self, mode):
-        fee = feeMod.fee
-    
         print "setting mode: ", mode
-        fee.setMode(mode)
+        self.fee.setMode(mode)
         if mode in self.modes:
             for vname, val in self.modes[mode].iteritems():
                 self.setVoltage(None, vname, val)
@@ -37,7 +35,7 @@ class FeeTweaks(object):
         if mode is not None:
             raise RuntimeError("tweaked modes can only set runtime voltages")
         
-        fee = feeMod.fee
+        fee = self.fee
     
         oldVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
         [fee.doSet('bias', vname, val, ch) for ch in 0,1]
@@ -52,42 +50,43 @@ class FeeTweaks(object):
         for k, v in kws.iteritems():
             self.modes[mode][k] = v
 
-def stdExposures_biases(nwipes=1,
+def stdExposures_biases(ccd=None,
+                        nwipes=0,
                         nbias=10,
                         feeControl=None,
                         comment='biases'):
 
-    tweaks = FeeTweaks()
-
-    ccdFuncs.expSequence(nwipes=nwipes, 
+    ccdFuncs.expSequence(ccd=ccd,
+                         nwipes=nwipes, 
                          nbias=nbias,
-                         feeControl=tweaks,
+                         feeControl=feeControl,
                          comment=comment,
                          title='%d biases' % (nbias))
     
-def stdExposures_base(nrows=None, ncols=None, comment='base exposures'):
-    tweaks = FeeTweaks()
+def stdExposures_base(ccd=None, feeControl=None,
+                      nrows=None, ncols=None, comment='base exposures'):
 
-    ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
+    ccdFuncs.expSequence(ccd=ccd,
+                         nrows=nrows, ncols=ncols,
                          nwipes=0, 
                          nbias=20, 
                          nendbias=20, 
-                         darks=[300,300,300, 1200,1200, 3600, 3600], 
+                         darks=[300,300,300,300, 1200,1200, 3600,3600], 
                          flats=[2,2,2,10,10,10], 
-                         feeControl=tweaks,
+                         feeControl=feeControl,
                          comment=comment,
                          title='base sequence')
 
-def stdExposures_VOD_VOG(nrows=None, ncols=None,
+def stdExposures_VOD_VOG(ccd=None, feeControl=None,
+                         nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
-    
-    tweaks = FeeTweaks()
 
-    ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
+    ccdFuncs.expSequence(ccd=ccd,
+                         nrows=nrows, ncols=ncols,
                          nwipes=0, 
                          nbias=6, 
                          flats=[], 
-                         feeControl=tweaks,
+                         feeControl=feeControl,
                          comment=comment,
                          title='pre-VOD/VOG tuning biases')
             
@@ -96,7 +95,8 @@ def stdExposures_VOD_VOG(nrows=None, ncols=None,
             tweaks = FeeTweaks()
             tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
-            ccdFuncs.expSequence(nrows=nrows, ncols=ncols,
+            ccdFuncs.expSequence(ccd=ccd,
+                                 nrows=nrows, ncols=ncols,
                                  nwipes=0, 
                                  nbias=0, 
                                  flats=[3,3], 
@@ -104,8 +104,7 @@ def stdExposures_VOD_VOG(nrows=None, ncols=None,
                                  comment=comment,
                                  title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
             
-def stdExposures_brightFlats(comment='bright flats'):
-    tweaks = FeeTweaks()
+def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
 
     explist = (('bias', 0),
                ('bias', 0),
@@ -172,15 +171,14 @@ def stdExposures_brightFlats(comment='bright flats'):
                ('bias', 0))
 
     
-    ccdFuncs.expList(explist,
-                     feeControl=tweaks,
+    ccdFuncs.expList(explist, ccd=ccd,
+                     feeControl=feeControl,
                      comment=comment,
                      title='bright flats')
     
 
-def stdExposures_lowFlats(comment='low flats'):
-    tweaks = FeeTweaks()
-
+def stdExposures_lowFlats(ccd=None, feeControl=None,
+                          comment='low flats'):
     explist = []
 
     for i in range(10):
@@ -199,8 +197,8 @@ def stdExposures_lowFlats(comment='low flats'):
     for i in range(10):
         explist.append(('bias', 0),)
     
-    ccdFuncs.expList(explist,
-                     feeControl=tweaks,
+    ccdFuncs.expList(explist, ccd=ccd, 
+                     feeControl=feeControl,
                      comment=comment,
                      title='low flats')
     
@@ -222,13 +220,11 @@ def stdExposures_wipes(comment=''):
                ('bias', 0))
 
     ccdFuncs.expList(explist,
-                     feeControl=tweaks,
+                     feeControl=feeControl,
                      comment='wipe tests',
                      title='wipe tests')
 
-def stdExposures_Fe55(comment='Fe55 sequence'):
-    tweaks = FeeTweaks()
-
+def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     explist = []
     explist.append(('bias', 0),)
 
@@ -241,13 +237,13 @@ def stdExposures_Fe55(comment='Fe55 sequence'):
         explist.extend(('dark', 30),
                        ('dark', 60))
 
-    ccdFuncs.expList(explist,
-                     feeControl=tweaks,
+    ccdFuncs.expList(explist, ccd=ccd,
+                     feeControl=feeControl,
                      comment='Fe55 darks',
                      title='Fe55 darks')
 
-def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
-    tweaks = FeeTweaks()
+def stdExposures_QE(ccd=None, feeControl=None,
+                    comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
 
     opticslab.monoSetSlitwidth(slitWidth)
 
@@ -257,22 +253,22 @@ def stdExposures_QE(comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
         opticslab.monoSetWavelength(wave)
 
         time.sleep(1.0)
-        ccdFuncs.wipe()
+        ccdFuncs.wipe(ccd)
 
-        ret = opticslab.pulseShutter(flatTime, wave)
+        ret = opticslab.pulseShutter(flatTime)
         print ret
-        stime, flux, current, energy = ret
-
+        stime, flux, current, wave, slitWidth = ret
+        
         cards = []
         cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
         cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
         cards.append(('HIERARCH QE.flux', flux, 'calibrated flux, W'),)
         cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
-        cards.append(('HIERARCH QE.energy', energy, 'calibrated total energy, J'),)
 
         expComment = "%s wave: %s" % (comment, wave)
-        im, imfile = ccdFuncs.readout('flat', expTime=flatTime,
-                                      feeControl=tweaks,
+        im, imfile = ccdFuncs.readout('flat', ccd=ccd,
+                                      expTime=flatTime,
+                                      feeControl=feeControl,
                                       extraCards=cards,
                                       comment=expComment)
         
@@ -454,10 +450,17 @@ def imStats(im):
         if osSig is np.nan:
             osSig = 0
         stats[a_i]['signal'] = signal = ampSig - osSig
-        stats[a_i]['flux'] = signal / exp.header['EXPTIME']
-        stats[a_i]['exptime'] = exp.header['EXPTIME']
-        stats[a_i]['preamptemp'] = exp.header['temps.PA']
-        stats[a_i]['ccd0temp'] = exp.header['temps.CCD0']
+        try:
+            exptime = exp.header['EXPTIME']
+        except:
+            exptime = 0.0
+        stats[a_i]['flux'] = signal / exptime
+        stats[a_i]['exptime'] = exptime
+        try:
+            stats[a_i]['preamptemp'] = exp.header['temps.PA']
+            stats[a_i]['ccd0temp'] = exp.header['temps.CCD0']
+        except:
+            pass
         stats[a_i]['sqrtSig'] = np.sqrt(signal)
         stats[a_i]['bias'] = osSig
 
