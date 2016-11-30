@@ -29,7 +29,9 @@ class CCD(FPGA):
                     'r':2,
                     'b':1}
     
-    def __init__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
+    def __init__(self, spectroId, dewarId,
+                 rootDir='/data/pfs', site=None,
+                 splitDetectors=False, adc18bit=1):
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
         if dewarId not in self.dewarNumbers:
@@ -42,8 +44,8 @@ class CCD(FPGA):
         self.splitDetectors = splitDetectors
 
         baseTemplate = '%(filePrefix)s%(seqno)06d'
-        self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
-                                                filePrefix='PFJA',
+        self.fileMgr = SeqPath.NightFilenameGen(rootDir,
+                                                filePrefix='PF%sA' % (site),
                                                 filePattern="%s%s.fits" % (baseTemplate,
                                                                            self.detectorName))
 
