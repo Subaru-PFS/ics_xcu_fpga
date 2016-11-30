@@ -285,7 +285,8 @@ def fastRevRead(rowBinning=10,
     
     return im, imfile
 
-def expSequence(nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
+def expSequence(ccd=None,
+                nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
                 darks=(), flats=(), 
                 feeControl=None,
                 clockFunc=None,
@@ -304,11 +305,13 @@ def expSequence(nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
     for i in range(nendbias):
         explist.append(('bias', 0),)
         
-    return expList(explist, nrows=nrows, ncols=ncols,
+    return expList(explist, ccd=ccd,
+                   nrows=nrows, ncols=ncols,
                    feeControl=feeControl, clockFunc=clockFunc,
                    comment=comment, title=title)
     
-def expList(explist, nrows=None, ncols=None,
+def expList(explist, ccd=None,
+            nrows=None, ncols=None,
             feeControl=None,
             clockFunc=None,
             comment='',
@@ -336,15 +339,17 @@ def expList(explist, nrows=None, ncols=None,
         print "%s %s" % (exptype, exp[1:])
         if exptype == 'wipe':
             exparg = expargs[0]
-            wipe(nrows=nrows, ncols=ncols, nwipes=exparg, feeControl=feeControl)
+            wipe(ccd=ccd,
+                 nrows=nrows, ncols=ncols, nwipes=exparg, feeControl=feeControl)
             continue
 
         # Wipe before all exposures, including in runs of biases.
-        wipe(nrows=nrows, ncols=ncols,
+        wipe(ccd=ccd,
+             nrows=nrows, ncols=ncols,
              feeControl=feeControl)
 
         if exptype == 'bias':
-            im, imfile = readout('bias',
+            im, imfile = readout('bias', ccd=ccd,
                                  nrows=nrows, ncols=ncols,
                                  clockFunc=clockFunc, 
                                  feeControl=feeControl,
@@ -352,7 +357,8 @@ def expList(explist, nrows=None, ncols=None,
         elif exptype == 'dark':
             darkTime = expargs[0]
             time.sleep(darkTime)
-            im, imfile = readout('dark', expTime=darkTime,
+            im, imfile = readout('dark', ccd=ccd,
+                                 expTime=darkTime,
                                  nrows=nrows, ncols=ncols,
                                  clockFunc=clockFunc, 
                                  feeControl=feeControl,
@@ -363,7 +369,8 @@ def expList(explist, nrows=None, ncols=None,
             flatTime = expargs[0]
             ret = opticslab.pulseShutter(flatTime)
             print ret
-            im, imfile = readout('flat', expTime=flatTime,
+            im, imfile = readout('flat', ccd=ccd,
+                                 expTime=flatTime,
                                  nrows=nrows, ncols=ncols,
                                  clockFunc=clockFunc, 
                                  feeControl=feeControl,
@@ -377,7 +384,8 @@ def expList(explist, nrows=None, ncols=None,
 
             ret = opticslab.pulseShutter(flatTime)
             print ret
-            im, imfile = fullExposure('flash', expTime=flatTime,
+            im, imfile = fullExposure('flash', ccd=ccd,
+                                      expTime=flatTime,
                                       nrows=nrows, ncols=ncols,
                                       clockFunc=clockFunc, 
                                       feeControl=feeControl,
