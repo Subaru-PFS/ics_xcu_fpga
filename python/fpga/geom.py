@@ -2,10 +2,10 @@ import itertools
 import logging
 import numpy as np
 
-import fitsio
+import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, nccds=2, copyExposure=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False):
         self.nccds = nccds
         self._setDefaultGeometry()
 
@@ -21,7 +21,9 @@ class Exposure(object):
                 self.image = self.image.copy()
                 self.header = self.header.copy()
         elif isinstance(obj, basestring):
-            self.image, self.header = fitsio.read(obj, header=True)
+            ffile = pyfits.open(obj)
+            self.image = ffile[0].data
+            self.header = ffile[0].header
             self.deduceGeometry()
             self.image = self.fixEdgeColsBug(self.image)
 
@@ -32,7 +34,9 @@ class Exposure(object):
         else:
             raise RuntimeError("do not know how to construct from a %s" % (type(obj)))
 
-
+        if dtype is not None:
+            self.image = self.image.astype(dtype, copy=False)
+            
     def fixEdgeColsBug(self, image):
         try:
             flag = self.header.get('geom.edgesOK')
@@ -55,7 +59,7 @@ class Exposure(object):
     def parseHeader(self):
         try:
             self.namps = self.header['geom.namps']
-            self.nccds = self.namps / 4
+            self.nccds = self.namps / 2
             
             self.leadinRows = self.header['geom.rows.leadin']
             self.overRows = self.header['geom.rows.overscan']
@@ -63,12 +67,13 @@ class Exposure(object):
             self.overCols = self.header['geom.cols.overscan']
             self.readDirection = self.header['geom.readDirection']
 
-            self.ccdRows = self.image.shape[0]
-            self.ampRows = self.image.shape[1]/self.namps
+            self.ccdRows = self.image.shape[0] - self.overRows
+            self.ampCols = self.image.shape[1]/self.namps - self.overCols
 
             return True
         except Exception as e:
             print("FAILED to parse geometry cards: %s" % (e))
+            print("header: %s" % (self.header))
             return False
         
     def deduceGeometry(self):
@@ -78,9 +83,7 @@ class Exposure(object):
             self._setDefaultGeometry()
         
         imh,imw = self.image.shape
-        self.overRows = imh - self.ccdRows
-        self.overCols = imw/self.namps - self.ampCols
-        if self.ncols * self.namps != imw:
+        if (self.ampCols + self.overCols)*self.namps != imw:
             raise RuntimeError("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
                                (self.namps, self.ampCols, self.overCols, imw))
                                
@@ -120,16 +123,16 @@ class Exposure(object):
     def ncols(self):
         return self.ampCols + self.overCols
 
-    def ampExtents(self, ampId, leadingCols=False, leadingRows=False):
-        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
-        x1 = ampId*self.ncols + self.ampCols
+    def ampExtents(self, ampId, leadingCols=False, leadingRows=False, overscan=False):
+        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
+        x1 = (ampId + 1)*self.ampCols + overscan*self.overCols
 
         if not self.readDirection or (self.readDirection & (1 << ampId)) == 0:
             xr = slice(x0, x1)
         else:
             xr = slice(x1-1, x0-1, -1)
 
-        yr = slice(self.leadinRows*(not leadingRows), self.ccdRows)
+        yr = slice(self.leadinRows*(not leadingRows), self.ccdRows + overscan*self.overRows)
 
         return yr, xr
 
@@ -152,7 +155,7 @@ class Exposure(object):
         return im[yr, xr]
 
     def overscanCols(self, ampId, leadingRows=False, overscanRows=False):
-        x0 = ampId*self.ncols + self.ampCols
+        x0 = (ampId+1)*self.ampCols
         x1 = x0 + self.overCols
 
         xr = slice(x0, x1)
@@ -162,8 +165,8 @@ class Exposure(object):
         return yr, xr
 
     def overscanRows(self, ampId, leadingCols=False, overscanCols=False):
-        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
-        x1 = ampId*self.ncols + self.ampCols + self.overCols*(overscanCols)
+        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
+        x1 = ampId*self.ampCols + self.ampCols + self.overCols*(overscanCols)
 
         xr = slice(x0, x1)
         yr = slice(self.ccdRows, self.ccdRows + self.overRows)
@@ -246,7 +249,7 @@ class Exposure(object):
 
         return osIms
 
-    def splitImage(self, doTrim=False, doFull=False):
+    def splitImage(self, doTrim=True, doFull=False):
 
         if doTrim and doFull:
             raise RuntimeError("cannot accept both doFull and doTrim")
@@ -288,7 +291,7 @@ class Exposure(object):
     
     def biasSubtract(self, bias=None):
         if bias is None:
-            bias = Exposure(self.image, copyExposure=True)
+            bias = Exposure(self.image, copyExposure=True, dtype='i4')
             biasParts = bias.splitImage()
             coreBiasParts = bias.splitImage(doTrim=True)
             for a_i in range(self.namps):
@@ -307,7 +310,7 @@ class Exposure(object):
         newOverCols = []
         
         for a_i in range(self.namps):
-            biasOffset = np.median(coreBiasParts[1][a_i]) - np.median(coreParts[1][a_i])
+            biasOffset = int(np.median(coreBiasParts[1][a_i]) - np.median(coreParts[1][a_i]))
 
             newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
             newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
@@ -381,7 +384,7 @@ def clippedStack(flist, dtype='i4'):
     
     """
 
-    exp = Exposure(flist[0])
+    exp = Exposure(flist[0], dtype=dtype)
     imshape = exp.image.shape
     imtype = exp.header['IMAGETYP']
     exptime = exp.header['EXPTIME']
@@ -398,11 +401,29 @@ def clippedStack(flist, dtype='i4'):
                      imtype, exptime))
             
         meds[i] = np.median(exp.image)
-        stack[i] = exp.image - meds[i]
+        stack[i] = exp.image - int(meds[i])
 
-    medimg = np.median(stack, axis=0)
-    return medimg + np.median(meds), meds
+    medimg = np.median(stack, axis=0) + np.median(meds)
+    return Exposure(medimg.astype(dtype), dtype=dtype)
+
+    # return medimg + np.median(meds), meds
                                                                                                             
+def superBias(flist):
+    biasParts = bias.splitImage(doTrim=False)
+    coreBiasParts = bias.splitImage(doTrim=True)
+
+    newAmps = []
+    newOverCols = []
+        
+    for a_i in range(self.namps):
+        biasOffset = int(np.median(coreBiasParts[1][a_i]) - np.median(coreParts[1][a_i]))
+        
+        newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
+        newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
+
+    print newAmps[0].shape, newOverCols[0].shape
+    return newAmps, newOverCols
+        
 def finalImage(exp, bias=None, dark=None, flat=None):
     exp = Exposure(exp)
     return exp.biasSubtract(bias)
@@ -423,3 +444,17 @@ def constructImage(ampIms, osColIms=None, osRowIms=None):
     ret = np.concatenate(orderedIms, axis=1)
     return ret
 
+def normAmpLevels(exp):
+    """ Using the overscan region, crudely normalize all amps to min=0. """
+
+    retexp = Exposure(exp.image, copyExposure=True, dtype='i4')
+
+    for i in range(retexp.namps):
+        yr,xr = retexp.ampExtents(i, leadingCols=True, leadingRows=True, overscan=True)
+
+        overscanImage = retexp.overscanColImage(i)
+        overscanLevel = int(np.rint(np.median(overscanImage)))
+        
+        retexp.image[yr,xr] -= overscanLevel
+
+    return retexp
