@@ -41,15 +41,21 @@ cdef extern from "fpga.h":
      void pokeWord(uint32_t addr, uint32_t data)
      int fifoRead(int nBlocks)
      int fifoWrite(int nBlocks)
-     
+
+logger = None
 def printProgress(row_i, image, errorMsg="OK", everyNRows=100, 
                   **kwargs):
     """ A sample end-of-row callback. Prints all errors and per-100 row progess lines. """
-
+    global logger
+    
+    if logger is None:
+        import logging
+        logger = logging.getLogger()
+        
     nrows, ncols = image.shape
 
     if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
-        sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
+        logger.info("line %05d %s", row_i, errorMsg)
     
 cdef class FPGA:
     def __cinit__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):

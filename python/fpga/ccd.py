@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import sys
 import time
@@ -29,13 +30,18 @@ class CCD(FPGA):
                     'r':2,
                     'b':1}
     
-    def __init__(self, spectroId, dewarId, splitDetectors=False, adc18bit=1):
+    def __init__(self, spectroId, dewarId,
+                 splitDetectors=False, adc18bit=1, logger=None):
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
         if dewarId not in self.dewarNumbers:
             raise RuntimeError('dewarId must be one of: ', self.dewarNumbers.keys())
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
+
+        if logger is None:
+            logger = logging.getLogger('ccd')
+        self.logger = logger
         
         self.dewarId = dewarId
         self.spectroId = spectroId
