@@ -288,7 +288,7 @@ class FeeControl(object):
 
         Args
         ----
-        cset    - one of our ChannelSets.
+        cset    - one of our ChannelSets, or its name.
 
 
         Notes
@@ -299,6 +299,9 @@ class FeeControl(object):
         
         status = OrderedDict()
 
+        if isinstance(cset, str):
+            cset = self.commands[cset]
+            
         if cset.getLetter is None:
             return status
 
@@ -354,8 +357,7 @@ class FeeControl(object):
             t0 = time.time()
             if csetName in skip:
                 continue
-            cset = self.commands[csetName]
-            cmdStatus = self.getCommandStatus(cset)
+            cmdStatus = self.getCommandStatus(csetName)
             newStatus.update(cmdStatus)
             t1 = time.time()
             print "get all %s: %0.2fs" % (csetName, t1-t0)
