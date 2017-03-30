@@ -1,5 +1,5 @@
 # CPL used c99 features, sorry.
-CFLAGS = -g -O3 --std=c99 -Wall
+CFLAGS = -g -O3 --std=c99 -Wall -D_DEFAULT_SOURCE
 
 all: libfpga.so reread
 
@@ -7,6 +7,16 @@ reread: bee_mem_file.h fpga.h reread.o libfpga.so
 	$(CC) $(CFLAGS) reread.o -L. -lfpga -o reread
 
 reread.o: fpga.h
+
+readtest: bee_mem_file.h fpga.h readtest.o libfpga.so
+	$(CC) $(CFLAGS) readtest.o -L. -lfpga -o readtest
+
+readtest.o: fpga.h
+
+fifotest: bee_mem_file.h fpga.h fifotest.o libfpga.so
+	$(CC) $(CFLAGS) fifotest.o -L. -lfpga -o fifotest
+
+fifotest.o: fpga.h
 
 peekpoke: bee_mem_file.h fpga.h peekpoke.o libfpga.so
 	$(CC) $(CFLAGS) peekpoke.o -L. -lfpga -o peekpoke
