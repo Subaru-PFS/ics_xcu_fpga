@@ -365,21 +365,21 @@ void pciReset(void)
 int fifoRead(int nBlocks)
 {
   int errCnt = 0;
-  uint32_t y;
+  uint32_t expect;
 
   readoutState = UNKNOWN;
 
-  y = 0xffffffff;
+  expect = 0;
   for (uint32_t i=0; i<nBlocks*1024/sizeof(uint32_t); i++) {
     uint32_t x = fpga[R_DDR_RD_DATA];
-    if (y+1 != x) {
+    if (expect != x) {
       errCnt += 1;
-      fprintf(stderr, "at %0x08x; 0x%04x followed 0x%04x\n", i, x, y);
+      fprintf(stderr, "at 0x%08x; read 0x%04x expected 0x%04x\n", i, x, expect);
     } else {
       errCnt = 0;
     }
 
-    y = x;
+    expect = x+1;
 
     if (errCnt > 100) {
       fprintf(stderr, "giving up after 100 consecutive errors\n");
