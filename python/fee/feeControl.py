@@ -343,6 +343,7 @@ class FeeControl(object):
             for k in csubs:       
                 status["%s.%s" % (cset.name, k)] = allVals[k]
 
+        self.status.update(status)
         return status
 
     def getAllStatus(self, skip=None):
