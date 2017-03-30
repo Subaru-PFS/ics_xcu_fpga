@@ -362,10 +362,10 @@ class FeeControl(object):
         return self.status
 
     def getTemps(self):
-        temps = []
+        temps = dict()
         for probe in 'FEE', 'PA', 'ccd0', 'ccd1':
             val = self.sendCommandStr('rt,%s' % (probe))
-            temps.append(float(val))
+            temps[probe] = float(val)
 
         return temps
                          
