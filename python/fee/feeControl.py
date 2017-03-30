@@ -829,12 +829,11 @@ class FeeControl(object):
 
     def setMode(self, newMode):
         ret = self.sendCommandStr('lp,%s' % (newMode))
-        self.activeMode = newMode
-
         return ret
 
     def getMode(self):
-        return self.activeMode
+        ret = self.sendCommandStr('gp')
+        return ret
     
     def setOffsets(self, amps, levels, leg='n', pause=0.0):
         if len(amps) != len(levels):
