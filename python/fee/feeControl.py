@@ -214,12 +214,8 @@ class FeeControl(object):
         self.lockConfig()
         self.defineCommands()
 
-        self.activeMode = None
         self.defineModes()
 
-        self.serials = None
-        self.revisions = None
-        
         if noConnect is True:
             return
         self.setDevice(port)
@@ -281,8 +277,6 @@ class FeeControl(object):
         
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
-
-        self.getSerials()
 
     def doGetAll(self, cset):
         pass
@@ -346,13 +340,6 @@ class FeeControl(object):
 
         return status
 
-    def getSerials(self):
-        cset = self.commands['serial']
-        self.serials = self.getCommandStatus(cset)
-
-        cset = self.commands['revision']
-        self.revisions = self.getCommandStatus(cset)
-
     def getAllStatus(self, skip=None):
         newStatus = OrderedDict()
 
@@ -361,12 +348,6 @@ class FeeControl(object):
         else:
             skip = set(skip)
     
-        if self.serials is not None:
-            skip.add('serial')
-            skip.add('revision')
-            newStatus.update(self.serials)
-            newStatus.update(self.revisions)
-            
         for csetName in self.commands.keys():
             t0 = time.time()
             if csetName in skip:
@@ -376,10 +357,6 @@ class FeeControl(object):
             newStatus.update(cmdStatus)
             t1 = time.time()
             print "get all %s: %0.2fs" % (csetName, t1-t0)
-            if csetName == 'serial':
-                self.serials = cmdStatus
-            if csetName == 'revision':
-                self.revisions = cmdStatus
                 
         self.status = newStatus
         return self.status
