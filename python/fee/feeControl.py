@@ -259,10 +259,12 @@ class FeeControl(object):
 
         self.saveModesOnFee()
         self.setMode('read')
+        time.sleep(1)
         self.raw('cal,CDS')
         self.raw('cal,bias')
+        self.setMode('idle')
         
-    def powerUp(self, preset='erase'):
+    def powerUp(self, preset='idle'):
         """ Bring the FEE up to a sane and useable configuration. 
 
         Specifically, and in order: 
