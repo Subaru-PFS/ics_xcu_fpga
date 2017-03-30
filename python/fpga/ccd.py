@@ -31,7 +31,8 @@ class CCD(FPGA):
                     'b':1}
     
     def __init__(self, spectroId, dewarId,
-                 splitDetectors=False, adc18bit=1, logger=None):
+                 rootDir='/data/pfs', site=None,
+                 splitDetectors=False, adc18bit=1):
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
         if dewarId not in self.dewarNumbers:
@@ -39,17 +40,14 @@ class CCD(FPGA):
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
 
-        if logger is None:
-            logger = logging.getLogger('ccd')
-        self.logger = logger
-        
+        self.headerVersion = 1
         self.dewarId = dewarId
         self.spectroId = spectroId
         self.splitDetectors = splitDetectors
 
         baseTemplate = '%(filePrefix)s%(seqno)06d'
-        self.fileMgr = SeqPath.NightFilenameGen('/data/pfs',
-                                                filePrefix='PFJA',
+        self.fileMgr = SeqPath.NightFilenameGen(rootDir,
+                                                filePrefix='PF%sA' % (site),
                                                 filePattern="%s%s.fits" % (baseTemplate,
                                                                            self.detectorName))
 
@@ -113,6 +111,7 @@ class CCD(FPGA):
         """ Return the full set of FITS cards to identify this detector (pair). """
 
         cards = []
+        cards.append(('HEADVERS', self.headerVersion, 'FITS header version'))
         cards.append(('HIERARCH versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
         cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))

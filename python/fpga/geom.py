@@ -5,7 +5,9 @@ import numpy as np
 import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False, simpleGeometry=False):
+        self.logger = logging.getLogger('geom.Exposure')
+        
         self.nccds = nccds
         self._setDefaultGeometry()
 
@@ -24,7 +26,7 @@ class Exposure(object):
             ffile = pyfits.open(obj)
             self.image = ffile[0].data
             self.header = ffile[0].header
-            self.deduceGeometry()
+            self.deduceGeometry(simpleGeometry)
             self.image = self.fixEdgeColsBug(self.image)
 
         elif isinstance(obj, np.ndarray):
@@ -36,22 +38,40 @@ class Exposure(object):
 
         if dtype is not None:
             self.image = self.image.astype(dtype, copy=False)
-            
+
+    def __str__(self):
+        return "Exposure(shape=%s, dtype=%s, rows=(%d,%d,%d) cols=(%d,%d,%d)*%d)" % (self.image.shape, self.image.dtype,
+                                                                                     self.leadinRows, self.activeRows,
+                                                                                     self.overRows,
+                                                                                     self.leadinCols, self.activeCols,
+                                                                                     self.overCols,
+                                                                                     self.namps)
+    
     def fixEdgeColsBug(self, image):
+        """ Fix extra 0th pixel in early raw images.
+        """
+        
         try:
             flag = self.header.get('geom.edgesOK')
         except:
             flag = False
             
         if not flag:
-            fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
-            fixedImage1[:,:-1] = image[:,1:]
-            fixedImage1[:,-1] = image[:,0]
+            self.logger.info('fixing corner pixel')
+            if False:
+                fixedImage1 = np.ndarray(shape=image.shape, dtype=image.dtype)
+                fixedImage1[:,:-1] = image[:,1:]
+                fixedImage1[:,-1] = image[:,0]
 
-            fixedImage = np.ndarray(shape=image.shape, dtype=image.dtype)
-            fixedImage[:-1,:] = fixedImage1[1:,:]
-            fixedImage[-1,:] = fixedImage1[0,:]
-
+                fixedImage = np.ndarray(shape=image.shape, dtype=image.dtype)
+                fixedImage[:-1,:] = fixedImage1[1:,:]
+                fixedImage[-1,:] = fixedImage1[0,:]
+            else:
+                fixedImage = np.ndarray(shape=image.size, dtype=image.dtype)
+                fixedImage[:-1] = image.flat[1:]
+                fixedImage[-1] = fixedImage[-2]
+                fixedImage.shape = image.shape
+                
             return fixedImage
         else:
             return image
@@ -72,15 +92,30 @@ class Exposure(object):
 
             return True
         except Exception as e:
-            print("FAILED to parse geometry cards: %s" % (e))
-            print("header: %s" % (self.header))
+            self.logger.warn("FAILED to parse geometry cards: %s", e)
+            self.logger.warn(("header: %s", self.header))
             return False
         
-    def deduceGeometry(self):
-        """ Use .image to generate geometry for an unbinned full-frame """
+    def deduceGeometry(self, simple=False):
+        """ Use .image to generate geometry for an unbinned full-frame. 
 
-        if not self.parseHeader():
+        Args
+        ----
+        simple : bool
+           If we do not have geometry in the header, generate one from the image shape,
+           assuming that it has .namps
+        """
+
+        hdrOk = self.parseHeader()
+        if not hdrOk:
+            self.header['geom.edgesOK'] = True
             self._setDefaultGeometry()
+            if simple:
+                self.overCols = self.overRows = 0
+                self.leadinCols = self.leadinRows = 0
+                self.readDirection = 0
+                self.ccdRows = self.image.shape[0]
+                self.ampCols = self.image.shape[1] / self.namps
         
         imh,imw = self.image.shape
         if (self.ampCols + self.overCols)*self.namps != imw:
@@ -99,6 +134,12 @@ class Exposure(object):
         
         self.namps = 4 * self.nccds
 
+    def forceLeadinRows(self, newLeadinRows):
+        self.leadinRows = newLeadinRows
+        if 'geom.rows.leadin' in self.header:
+            self.header['geom.rows.leadin'] = newLeadinRows
+
+
     @property
     def expType(self):
         return self.header.get('IMAGETYP', 'unknown').strip()
@@ -109,11 +150,11 @@ class Exposure(object):
 
     @property
     def activeRows(self):
-        self.ccdRows - self.leadinRows
+        return self.ccdRows - self.leadinRows
         
     @property
     def activeCols(self):
-        self.ampCols - self.leadinCols
+        return self.ampCols - self.leadinCols
         
     @property
     def nrows(self):
@@ -124,8 +165,24 @@ class Exposure(object):
         return self.ampCols + self.overCols
 
     def ampExtents(self, ampId, leadingCols=False, leadingRows=False, overscan=False):
-        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
-        x1 = (ampId + 1)*self.ampCols + overscan*self.overCols
+        """ Return the y,x slices covering the given amp. 
+        
+        Args
+        ----
+        ampId : int
+           The index of the amp. 0..self.namps
+        leadingCols : bool
+           Whether to include the leadin columns.
+        leadingRows : bool
+           Whether to include the leadin rows
+        overscan : bool
+           Whether to include the overscan pixels.
+
+        """
+        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
+        x1 = (ampId + 1)*self.ncols
+        if not overscan:
+            x1 -= self.overCols
 
         if not self.readDirection or (self.readDirection & (1 << ampId)) == 0:
             xr = slice(x0, x1)
@@ -136,17 +193,44 @@ class Exposure(object):
 
         return yr, xr
 
-    def finalAmpExtents(self, ampId):
-        activeCols = self.ampCols - self.leadinCols
-        x0 = ampId*activeCols
-        x1 = x0 + activeCols
+    def finalAmpExtents(self, ampId, leadingRows=True):
+        """ Return the y,x slices for the  
+        
+        Args
+        ----
+        ampId : int
+           The index of the amp. 0..self.namps
+        leadingRows : bool
+           Whether to include the leadin rows.
+        """
+        
+        x0 = ampId*self.activeCols
+        x1 = x0 + self.activeCols
 
         xr = slice(x0, x1)
-        yr = slice(0, self.ccdRows)
 
+        y0 = (not leadingRows)*self.leadinRows
+        y1 = y0 + self.activeRows + leadingRows*self.leadinRows
+        yr = slice(y0, y1)
+        
         return yr, xr
 
     def ampImage(self, ampId, im=None, leadingCols=False, leadingRows=False):
+        """ Return the image for a single amp.
+
+        Args
+        ----
+        ampId : int
+            The index of the desired amp. 0..7
+        im : ndarray of image, optional
+            If set, return the amp from the given image. Must have a geometry 
+            compatible with self.
+        leadingCols : bool
+            If set, include the leadin columns
+        leadingRows : bool
+            If set, include the leadin rows
+        """
+        
         if im is None:
             im = self.image
             
@@ -278,13 +362,13 @@ class Exposure(object):
 
         return ampIms, osColIms, osRowIms
 
-    def replaceActiveFlux(self, newFlux):
+    def replaceActiveFlux(self, newFlux, leadingRows=True):
         newImage = self.image.copy()
 
         for a_i in range(self.namps):
-            yslice, xslice = self.ampExtents(a_i, leadingRows=True)
-            inYslice, inXslice = self.finalAmpExtents(a_i)
-
+            yslice, xslice = self.ampExtents(a_i, leadingRows=leadingRows)
+            inYslice, inXslice = self.finalAmpExtents(a_i, leadingRows=leadingRows)
+            self.logger.debug("leadingRows=%s inYslice=%s", leadingRows, inYslice)
             newImage[yslice, xslice] = newFlux[inYslice,inXslice]
 
         return newImage
@@ -339,12 +423,10 @@ class Exposure(object):
         if byRow:
             imMed = np.median(im[osYr, osXr],
                               axis=1, keepdims=True).astype('i4')
-            print "%s: %s %s" % (ampId, osYr, osXr)
         else:
             osYr = slice(osYr.start + 500,
                          osYr.stop - 500)
             osXr = slice(osXr.start+3, osXr.stop)
-            print "%s: %s %s" % (ampId, osYr, osXr)
         
             imMed = int(np.median(im[osYr, osXr]))
 
@@ -403,10 +485,9 @@ def clippedStack(flist, dtype='i4'):
         meds[i] = np.median(exp.image)
         stack[i] = exp.image - int(meds[i])
 
-    medimg = np.median(stack, axis=0) + np.median(meds)
-    return Exposure(medimg.astype(dtype), dtype=dtype)
+    medimg = np.median(stack, axis=0)
 
-    # return medimg + np.median(meds), meds
+    return Exposure(medimg)
                                                                                                             
 def superBias(flist):
     biasParts = bias.splitImage(doTrim=False)
