@@ -3,7 +3,6 @@
 import argparse
 import inspect
 import logging
-import serial
 import sys
 import time
 
@@ -245,6 +244,8 @@ class FeeControl(object):
     def connectToDevice(self):
         """ Establish a new connection to the FEE. Any old connection is closed.  """
 
+        import serial
+        
         if self.device:
             self.device.close()
             self.device = None
