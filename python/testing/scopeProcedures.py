@@ -1,24 +1,43 @@
+from __future__ import absolute_import, division
+
+import collections
 import re
 
 import numpy as np
 import matplotlib.pyplot as plt
 import cPickle as pickle
+import shutil
+import subprocess
+import time
 
 import logging
 import os
 
+import astropy.io.fits as pyfits
+from matplotlib.backends.backend_pdf import PdfPages
+
 from fpga import SeqPath
-from fee import feeControl
+from fpga import ccdFuncs
+from fpga import nbFuncs
+
+from . import pfsScope
+reload(pfsScope)
+
+from . import scopeMux
+reload(scopeMux)
 
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
 class TestRig(object):
-    
-    def __init__(self, scope, dirName=None, seqno=None, root='/data/pfseng'):
+    def __init__(self, dirName=None, seqno=None, root='/data/pfseng'):
         self.rootDir = root
         self.fileMgr = SeqPath.NightFilenameGen(root,
                                                 filePrefix='xx',
                                                 filePattern="%(seqno)06d")
+
+        self.scope = None
+        self.mux = None
+        
         self.seqno = seqno
         self.dirName = dirName
 
@@ -29,24 +48,59 @@ class TestRig(object):
         else:
             raise RuntimeError("both dirName and seqno must be set, or neither")
 
-        self.setScope(scope)
+        self.newScope()
+        self.newMux()
 
-        self.tests = []
+        self.sequence = []
+        self.pdf = None
         
     def __str__(self):
-        return "TestRig(seqno=%s, dirName=%s, %d tests)" % (self.seqno,
-                                                            self.dirName,
-                                                            len(self.tests))
+        return "%s(seqno=%s, dirName=%s, %d tests)" % (self.__class__.__name__,
+                                                       self.seqno,
+                                                       self.dirName,
+                                                       len(self.sequence))
 
-    def setScope(self, scope):
-        self.scope = scope
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        if self.pdf is not None:
+            self.pdf.close()
+            self.pdf = None
+            
+        print "deleting mux...."
+        if self.mux is not None:
+            self.mux.mux.close()
+        del self.mux
+        self.mux = None
+        
+    def newScope(self):
+        reload(pfsScope)
+
+        if self.scope is not None:
+            del self.scope
+            self.scope = None
+            
+        self.scope = pfsScope.PfsCpo()
         self.scope.setProbes()
+        
+    def newMux(self):
+        reload(scopeMux)
+
+        if self.mux is not None:
+            self.mux.mux.close()
+            del self.mux
+            self.mux = None
+            
+        self.mux = scopeMux.ScopeMux()
         
     def loadSet(self, dirName, seqno):
         self.seqno = seqno
         dirName = os.path.join(self.fileMgr.rootDir, dirName)
         self.dirName = self.fileMgr.namesFunc(dirName, seqno)
 
+        self.seqNum = 0
+        
     def newSet(self):
         if self.seqno is not None:
             raise RuntimeError("this test set has already been created")
@@ -57,66 +111,9 @@ class TestRig(object):
         self.utday = os.path.split(dirName)[-2]
         os.makedirs(self.dirName, mode=02775)
 
-    def registerTest(self, test):
-        self.tests.append(test)
-
-    def unregisterTest(self, test):
-        self.tests.remove(test)
+        self.seqNum = 0
 
 class BenchRig(TestRig):
-    """ Test sequence:
-
-    Step 1: test the base voltages on the two CCDs
-    0,0 V0
-    1,0 V0
-
-    Step 2: test the serials and parallels on both CCDs
-    1,0 S0
-    0,0 S0
-    0,0 P0
-    1,0 P0
-
-    Step 3: test the secondary parallel signals on both CCDs
-    1,0 P1
-    0,0 P1
-
-    [ Back at CCD 0,0! ]
-
-    Step 4: make the S1 test there now.
-    0,0 S1
-    1,0 S1
-
-    Step 5: step through S0, S1, and V0 on the rest of the amps.
-    1,1 S1
-    1,1 S0
-    1,1 V0
-
-    1,2 V0
-    1,2 S0
-    1,2 S1
-    
-    1,3 S1
-    1,3 S0
-    1,3 V0
-
-    0,1 V0
-    0,1 S0
-    0,1 S1
-    
-    0,2 S1
-    0,2 S0
-    0,2 V0
-
-    0,3 V0
-    0,3 S0
-    0,3 S1
-    
-    Step 6: finish the stray parallel tests.
-
-    0,3 P2
-    1,3 P3
-    """
-
     leadNames = dict(C1='OG',
                      C2='RD',
                      
@@ -143,90 +140,241 @@ class BenchRig(TestRig):
 
     leadPins = {v:k for k,v in leadNames.items()}
     
-    def __init__(self, *argl, **argd):
-        TestRig.__init__(self, *argl, **argd)
+    def __init__(self, dewar=None, **argd):
+        """ a collection of tests to qualify PFS CCD ADCs
 
-        self.sequence = [[0, 0, V0Test, 'base voltage test for CCD0'],
-                         [1, 0, V0Test, 'base voltage test for CCD1'],
+        By default, creates a new, empty test rig and directory.
 
-                         [1, 0, S0Test, 'base serial test 0 for CCD1'],
-                         [0, 0, S0Test, 'base serial test 0 for CCD0'],
+        Args
+        ----
+        dewar : str
+          Name of piepan/dewar we are running on (default=b9)
+
+        """
+
+        TestRig.__init__(self, **argd)
+
+        if dewar is None:
+            dewar = 'b9'
+        self.dewar = dewar
+        
+        self.sequence = [[0, 0, SanityTest, None],
                          
-                         [0, 0, P0Test, 'base parallel test 0 for CCD0'],
-                         [1, 0, P0Test, 'base parallel test 0 for CCD1'],
+                         [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
+                         [0, 0, V0Test, None],
+                         [0, 0, S0Test, None],
+                         [0, 0, P0Test, None],
 
-                         [1, 0, P1Test, 'base parallel test 1 for CCD1'],
-                         [0, 0, P1Test, 'base parallel test 1 for CCD0'],
-                         
-                         [0, 0, S1Test, 'base serial test 1 for CCD0'],
-                         [1, 0, S1Test, 'base serial test 1 for CCD1'],
+                         [0, 0, None, 'insert terminators into all amp channels'],
+                         [0, 0, ReadnoiseTest, None],
 
-                         [1, 1, S1Test, None],
-                         [1, 1, S0Test, None],
+                         [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
+                         [1, 0, V0Test, None],
+                         [1, 0, S0Test, None],
+                         [1, 0, P0Test, None],
+                         [1, 0, P1Test, None],
+                         [1, 0, S1Test, None],
                          [1, 1, V0Test, None],
+                         [1, 1, S0Test, None],
+                         [1, 1, S1Test, None],
+                         [1, 0, P2Test, None],
+
+                         [1, 0, None, 'switch MUX leads to CCD1, amps 2,3'],
                          [1, 2, V0Test, None],
                          [1, 2, S0Test, None],
                          [1, 2, S1Test, None],
-                         [1, 3, S1Test, None],
-                         [1, 3, S0Test, None],
                          [1, 3, V0Test, None],
+                         [1, 3, S0Test, None],
+                         [1, 3, S1Test, None],
+
+                         [0, 0, None, 'switch MUX leads to CCD0, amps 0,1'],
+                         [0, 0, P1Test, None],
+                         [0, 0, S1Test, None],
                          [0, 1, V0Test, None],
                          [0, 1, S0Test, None],
                          [0, 1, S1Test, None],
-                         [0, 2, S1Test, None],
-                         [0, 2, S0Test, None],
+
+                         [0, 0, None, 'switch MUX leads to CCD0, amps 2,3'],
                          [0, 2, V0Test, None],
+                         [0, 2, S0Test, None],
+                         [0, 2, S1Test, None],
                          [0, 3, V0Test, None],
                          [0, 3, S0Test, None],
                          [0, 3, S1Test, None],
-    
-                         [0, 3, P2Test, 'stray parallel signals, CCD0'],
-                         [1, 3, P2Test, 'stray parallel signals, CCD1'],
+                         [0, 3, P2Test, None],
         ]
-        self.seqNum = 0
 
-    def describeSequence(self):
-        return
+        self.ccd = None
+        self.amp = None
+
+    def __str__(self):
+        """ describe all our tests and where the test pointer is. """
+        
+        superStr = TestRig.__str__(self)
+
+        return "%s\n\n%s" % (superStr, self.describeSequence())
     
     def describeTest(self, seqNum=None, withLeads=True):
         if seqNum is None:
             seqNum = self.seqNum
-
         ccd, amp, test, comment = self.sequence[seqNum]
+
         if comment is None:
-            comment = test.label
+            comment = "%s [ccd %d, amp %d]: %s" % (test.testName,
+                                                   ccd, amp,
+                                                   test.label)
 
-        comment = "%s [ccd %d, amp %d]" % (comment, ccd, amp)
+        fullComment = "%-2d %s %s" % (seqNum, "**" if seqNum == self.seqNum else "  ", comment)
+        if test is None:
+            return fullComment
+        
         if withLeads:
-            comment = "test %d: %s\n     leads: %s" % (seqNum,
-                                                       comment,
-                                                       test.describeLeads())
-        return comment
+            fullComment = "%s\n     leads: %s" % (fullComment,
+                                                  test.describeLeads())
+            
+        return fullComment
 
+    def describeSequence(self):
+        retList = []
+        for s_i in range(len(self.sequence)):
+            retList.append(self.describeTest(s_i, withLeads=False))
+
+        return '\n'.join(retList)
+                           
     def setTest(self, seqNum):
+        """set the sequence number of the next test to run.
+
+        Args
+        ----
+        seqNum : int
+           0-based index to the next test to run.
+           print() this object to see the sequence and pointer.
+        """
+
+        if seqNum < 0 or seqNum >= len(self.sequence):
+            raise IndexError('test number must be 0..%d' % (len(self.sequence)))
+        
         self.seqNum = seqNum
         return self.describeTest()
-    
-    def runTest(self, comment=''):
-        ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
 
-        if comment2 and not comment:
-            comment = comment2
+    def incrTest(self, incr=1):
+        """relatively move the index of the next test to run.
+
+        Args
+        ----
+        incr : int
+           how much to move the index. (default=next)
+        """
+
+        return self.setTest(self.seqNum + incr)
+        
+    def configMux(self, ccd, amp, test):
+        if self.mux is None:
+            self.mux = scopeMux.ScopeMux()
+            self.ccd = None
+            self.amp = None
             
-        print("running %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
+        if self.ccd != ccd or amp//2 != self.amp//2:
+            plist = test.leadNames()
+            if plist:
+                self.mux.setProbes(plist, amp//2 + 1)
+
+    def runTest(self, noRun=False, trigger=None):
+        """ run the current test
+
+        Args
+        ----
+        noRun : bool
+          If True, only print what we would do.
+        trigger : dict
+          Override the scope trigger for the test. Always is an edge trigger.
+          See, say, S0Test for an example, but you need to set:
+           source='chN' : the channel (N=1..4)
+           level=V : the trigger voltage
+           slope='rise'/'fall' : the trigger direction through the level.
+        """
+        
+        ccd, amp, testClass, comment = self.sequence[self.seqNum]
+
+        if testClass is None:
+            print("You need to %s" % (comment))
+            self.seqNum += 1
+            return True
+        
+        print("configuring MUX for %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
 
         test = testClass(self, ccd, amp,
+                         dewar=self.dewar,
                          comment=comment)
+        self.configMux(ccd, amp, test)
+
+        print("running %s%s\n" % (self.describeTest(withLeads=False), ("" if not comment else " (%s)" % comment)))
+
+        if noRun:
+            print("skipping actual scope run!")
+            return True
+
         try:
-            ret = self.scope.runTest(test)
+            if hasattr(test, 'runTest'):
+                ret = test.runTest(test)
+            else:
+                ret = self.scope.runTest(test, trigger=trigger)
         except Exception as e:
             print("test FAILED: %s" % (e))
-            return None
+            return False
 
-        return ret
+        test.save()
+        ret = test.plot()
+        fig, pl = ret
+        basePath, _ = os.path.splitext(test.fullPath)
+        pdfPath = "%s.pdf" % (basePath)
+
+        if fig is not None:
+            if self.pdf is None:
+                self.pdf = PdfPages(os.path.join(self.dirName, 'report-%0.5d.pdf' % (self.seqno)))
+
+            fig.savefig(pdfPath)
+            self.pdf.savefig(fig)
+            print("PDF is at %s" % (pdfPath))
+
+        self.seqNum += 1
         
+        return test
+
+    def runBlock(self, noRun=False, muxOK=False):
+        """ run tests until failure or the next MUX reconfiguration
+
+        Args
+        ---
+        noRun : bool
+          if True, only print what we would do.
+        muxOK: bool
+          if True and we start at a MUX reconfiguration step, assume
+          that the MUX has already been configured, and skip that step.
+
+        """
+        ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
+        if testClass is None and muxOK:
+            self.incrTest()
+
+        while True:
+            ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
+            if testClass is None:
+                print("MUX reconfiguration: you need to %s" % (comment2))
+                return True
+
+            ret = self.runTest(noRun=noRun)
+            if ret is False:
+                print("STOPPING at failed test.")
+                return
+        
+                
 class OneTest(object):
-    def __init__(self, rig, channel, amp, ccd='X', comment='', revision=1):
+    def __init__(self, rig, channel, amp, ccd='X', comment='', dewar=None, revision=1):
+        self.logger = logging.getLogger('testrig')
+        self.logger.setLevel(logging.INFO)
+        
+        self.dewar = dewar
         self.initTest()
 
         self.rig = rig
@@ -240,7 +388,19 @@ class OneTest(object):
         self.revision = revision
 
     @classmethod
+    def leadNames(self, leads=None):
+        if isinstance(self.leads, str):
+            return []
+
+        if leads is None:
+            leads = self.leads
+        return [BenchRig.leadPins[l] for l in leads]
+    
+    @classmethod
     def describeLeads(self):
+        if isinstance(self.leads, str):
+            return self.leads
+        
         leads = [("%s(%s)" % (l, BenchRig.leadPins[l])) for l in self.leads]
         return ", ".join(leads)
     
@@ -248,6 +408,9 @@ class OneTest(object):
     def scope(self):
         return self.rig.scope
 
+    def initTest(self):
+        pass
+    
     def fullName(self):
         return "%s-%s-%s_%02d" % (self.testName, 
                                   self.channel,
@@ -269,7 +432,15 @@ class OneTest(object):
         self.amp = m['amp']
         self.revision = m['revision']
 
+    @property
     def fullPath(self):
+        dirName = self.rig.dirName
+        name = self.fullName()
+        path = os.path.join(dirName, "%s.pck" % (name))
+
+        return path
+        
+    def newPath(self):
         dirName = self.rig.dirName
         while self.revision < 100:
             name = self.fullName()
@@ -289,7 +460,7 @@ class OneTest(object):
         if self.testData is None:
             raise RuntimeError("no data to save yet")
 
-        path = self.fullPath()
+        path = self.newPath()
         with open(path, "w+") as f:
             pickle.dump(self.testData, f, protocol=-1)
 
@@ -336,8 +507,8 @@ class OneTest(object):
     def plot(self):
         """ Default plot -- all channels, autoscaled. """
 
-        sigplot(self.testData['waveforms'], xscale=1.0, noWide=True, 
-                showLimits=True, title=self.title)
+        return sigplot(self.testData['waveforms'], xscale=1.0, noWide=True, 
+                       showLimits=True, title=self.title)
 
     @property
     def title(self):
@@ -346,104 +517,357 @@ class OneTest(object):
                                                                  self.rig.utday, self.rig.seqno,
                                                                  self.revision,
                                                                  self.label)
+def oneCmd(actor, cmdStr, doPrint=True):
+    fullCmdStr = "oneCmd.py %s %s" % (actor, cmdStr)
 
-class S0Test(OneTest):
-    testName = 'S0'
-    label = "serial clocks, no averaging"
-    leads = ('RG', 'S1', 'S2', 'SW')
-    
-    def initTest(self):
-        pass
-    
-    def setup(self):
-        self.scope.setAcqMode(numAvg=0)
-        self.delayTime = 13.920*1e-6 * 10
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
-        self.scope.setEdgeTrigger(source='ch3',
-                                  level=2, slope='fall', holdoff='10e-6')
+    output = subprocess.check_output(fullCmdStr, shell=True, universal_newlines=True)
+    p = subprocess.Popen(fullCmdStr, shell=True, bufsize=1,
+                         universal_newlines=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    output = []
+    while True:
+        p.poll()
+        if p.returncode is not None:
+            break
+        l = p.stdout.readline()
+        if not l:
+            break
+        if doPrint:
+            print l.strip()
 
-        # C4 C5 C7 C9
-        self.scope.setWaveform(1, 'RG', scale=2)
-        self.scope.setWaveform(2, 'S1', scale=2)
-        self.scope.setWaveform(3, 'S2', scale=2)
-        self.scope.setWaveform(4, 'SW', scale=2)
-    
-    def plot(self):
-        sigplot(self.testData['waveforms'], xscale=1e-6,
-                noWide=True,
-                xlim=(-0.2,1.7), ylim=(-8,4), 
-                showLimits=True, title=self.title)        
+        output.append(l)
 
-        return sigplot(self.testData['waveforms'], xscale=1e-6,
-                       noWide=False,
-                       xlim=(-0.5,14), ylim=(-8,4), 
-                       showLimits=True, title=self.title)        
+    return output
 
-class S1Test(OneTest):
-    testName = 'S1'
-    label = "Alternate serial clocks"
-    leads = ('RG', 'S1.2', 'S2.2', 'OS')
+def getCardValue(cards, name, cnv=None):
+    cardRe = re.compile(' ([wi:f]) (%s)=(.*)' % (name))
+
+    for c in cards:
+        m = re.search(cardRe, c)
+        if m is not None:
+            flag = m.group(1)
+            val = m.group(3)
+            if val.startswith('"') or val.startswith("'"):
+                val = val[1:-1]
+            if cnv:
+                val = cnv(val)
+            return flag, val
         
+    raise KeyError('%s not found in cards' % (name))
+
+class FakeCcd(object):
+    def ampidx(self, ampid, im=None):
+        if im is not None:
+            nrows, ncols = im.shape
+                
+        ampCols = ncols / 8
+        # return slice(ampCols*ampid, ampCols*(ampid+1))
+        return np.arange(ampCols*ampid, ampCols*(ampid+1), dtype='i4')
+    
+class SanityTest(OneTest):
+    testName = 'Sanity'
+    label = 'serials and voltages'
+    leads = ''
+    timeout = 30
+    
     def initTest(self):
         pass
 
-    def setup(self):
-        self.scope.setAcqMode(numAvg=1)
-        self.delayTime = 13.920*1e-6 * 10
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
-        self.scope.setEdgeTrigger(source='ch3',
-                                  level=2, slope='fall', holdoff='10e-6')
+    def setup(self, trigger=None):
+        pass
 
-        # C4 C6 C8 C10
-        self.scope.setWaveform(1, 'RG', scale=2)
-        self.scope.setWaveform(2, 'S1.2', scale=2)
-        self.scope.setWaveform(3, 'S2.2', scale=2)
-        self.scope.setWaveform(4, 'OS', scale=2)
+    @staticmethod
+    def asciiCnv(val):
+        return val.decode('ascii')
+                
+    @staticmethod
+    def base10Cnv(val):
+        return int(val, base=10)
+        
+    def checkSerials(self, cards):
+        """ Check all chain serial numbers, etc. """
+        
+        errors = []
+
+        for n in 'fee', 'adc', 'pa0':
+            try:
+                flag, numVal = getCardValue(cards, 'serial_%s' % (n), self.base10Cnv)
+            except KeyError:
+                errors.append(n)
+                self.logger.warning('could not get serial ID for %s', n)
+                continue
+            except ValueError:
+                errors.append(n)
+                flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
+                self.logger.warning('serial ID for %s is not an integer: %s', n, rawVal)
+                continue
+
+            if numVal == 2**32 - 1:
+                errors.append(n)
+                self.logger.warning('serial ID for %s has not been set: %s', n, numVal)
+                continue
+
+            self.logger.info('OK %s serial: %s', n, numVal)
+            
+        for n in 'ccd0', 'ccd1':
+            try:
+                flag, asciiVal = getCardValue(cards, 'serial_%s' % (n), self.asciiCnv)
+            except KeyError:
+                errors.append(n)
+                self.logger.warning('could not get serial ID for %s', n)
+                continue
+            except UnicodeDecodeError:
+                errors.append(n)
+                flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
+                self.logger.warning('serial ID for %s is garbage or has not been set: %r', n, rawVal)
+                continue
+
+            self.logger.info('OK %s serial: %s', n, asciiVal)
+
+        for error in errors:
+            self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
+                                 error, self.dewar, error.upper())
+
+        return len(errors) == 0
+
+    def checkVoltages(self, cards):
+
+        Voltage = collections.namedtuple('Voltage', ['name', 'nominal', 'lo', 'hi'])
+        vlist = [
+            Voltage(name='3v3m', nominal=3.3, lo=0.02, hi=0.02),
+            Voltage(name='3v3', nominal=3.3, lo=0.02, hi=0.02),
+            Voltage(name='5vp', nominal=5.0, lo=0.03, hi=0.03),
+            Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
+            Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
+            Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
+            Voltage(name='12vp', nominal=12.0, lo=0.03, hi=0.03),
+            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.04),
+            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.05),
+            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.10),
+        ]
+        errors = []
+
+        for v in vlist:
+            try:
+                flag, numVal = getCardValue(cards, 'voltage_%s' % (v.name), float)
+            except KeyError:
+                errors.append(v.name)
+                self.logger.warning('could not get measured voltage %s', v.name)
+                continue
+            except ValueError:
+                errors.append(v.name)
+                flag, rawVal = getCardValue(cards, 'voltage_%s' % (v.name))
+                self.logger.warning('voltage %s is not a float: %s', v.name, rawVal)
+                continue
+
+            loLimit = v.nominal - v.nominal*v.lo
+            hiLimit = v.nominal + v.nominal*v.hi
+            if loLimit > hiLimit:
+                loLimit, hiLimit = hiLimit, loLimit
+                
+            if numVal < loLimit or numVal > hiLimit:
+                errors.append(v.name)
+                self.logger.warning('voltage %s is out of range %0.3fV vs. [%0.3fV, %0.3fV]',
+                                    v.name, numVal, loLimit, hiLimit)
+                continue
+
+            self.logger.info('OK voltage %s: %0.3fV (%0.1fV %+0.1f%%)',
+                             v.name, numVal, v.nominal, 100*(numVal/v.nominal - 1))
+
+        for error in errors:
+            self.logger.critical('FIX voltage %s', error)
+
+        return len(errors) == 0
+
+    def runTest(self, trigger=None):
+        cards = oneCmd('ccd_%s' % (self.dewar), '--level=i fee status', doPrint=False)
+        if not self.checkSerials(cards):
+            raise RuntimeError('serial number checks failed!')
+        if not self.checkVoltages(cards):
+            raise RuntimeError('voltage checks failed!')
+            
+    def fetchData(self):
+        pass
     
-    def plot(self):
-        sigplot(self.testData['waveforms'], xscale=1e-6,
-                noWide=True,
-                xlim=(-0.2,1.7), ylim=(-8,4), 
-                showLimits=True, title=self.title)        
+    def save(self, comment=''):
+        pass
+    
+    def plot(self, fitspath=None):
+        return None, None
 
-        return sigplot(self.testData['waveforms'], xscale=1e-6,
-                       noWide=False,
-                       xlim=(-0.5,14), ylim=(-8,4), 
-                       showLimits=True, title=self.title)        
+class ReadnoiseTest(OneTest):
+    testName = 'Readnoise'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+    
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None):
+        self.logger.info("calling for a wipe")
+        oneCmd('ccd_%s' % (self.dewar), 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd('ccd_%s' % (self.dewar), 'read bias nrows=500 ncols=500')
+
+        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
+        self.fitspath = None
+        for l in output:
+            m = re.search('.*filepath=(.*\.fits).*', l)
+            if m:
+                pathparts = m.group(1)
+                self.fitspath = os.path.join(*pathparts.split(','))
+                print("set filepath to: %s" % self.fitspath)
+            
+    def fetchData(self):
+        pass
+    
+    def save(self, comment=''):
+        if self.fitspath is not None:
+            shutil.copy(self.fitspath, os.path.join(self.rig.dirName,
+                                                    os.path.basename(self.fitspath)))
+    
+    def plot(self, fitspath=None):
+        if fitspath is None:
+            fitspath = self.fitspath
+        plt.ioff()
+        im = pyfits.getdata(fitspath)
+        fig, gs = nbFuncs.rawAmpGrid(im, FakeCcd(),
+                                     title=fitspath,
+                                     cols=slice(50,None))
+        return fig, gs
+
 
 class V0Test(OneTest):
     testName = 'V0'
-    label = "power up, all modes, readout, power off"
+    label = "power up, all modes, power off"
     leads = ('OG', 'RD', 'OD', 'BB')
+    timeout = 30
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test V0' % (self.dewar), shell=True)
+        time.sleep(1)
+        subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
+        time.sleep(3.5)
+        subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
     
     def initTest(self):
         self.delayTime = 0 # 13.920*1e-6 * 10
 
-    def setup(self):
-        # C1 C2 C11 M11
+    def setup(self, trigger=None):
         self.scope.setWaveform(1, 'OG', scale=5)
         self.scope.setWaveform(2, 'RD', scale=5)
         self.scope.setWaveform(3, 'OD', scale=5)
         self.scope.setWaveform(4, 'BB', scale=5)
 
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=1, pos=10, triggerPos=10, delayMode=0, delayTime=0)
-        self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
+        self.scope.setSampling(scale=2.0, pos=10, triggerPos=10, delayMode=0, delayTime=0)
+        if trigger is None:
+            self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
 
+        print("powering FEE down....")
+        subprocess.call('oneCmd.py xcu_%s power off fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
 
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1.0, 
                        xlim=(-1,15), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
-class P0Test(OneTest):
-    def initTest(self):
-        self.testName = 'P0'
-        self.label = "Main parallel clocks"
+class S0Test(OneTest):
+    testName = 'S0'
+    label = "main serial clocks"
+    leads = ('RG', 'S1', 'S2', 'SW')
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
+    def setup(self, trigger=None):
+        self.scope.setAcqMode(numAvg=0)
+        self.delayTime = 13.920*1e-6 * 10
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
+        if trigger is None:
+            self.scope.setEdgeTrigger(source='ch3',
+                                      level=2.0, slope='fall', holdoff='10e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
 
-    def setup(self):
-        # M10 M4 M5 M6
-        self.leads = ('TG', 'P1', 'P2', 'P3')
+        # C4 C5 C7 C9
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1', scale=2)
+        self.scope.setWaveform(3, 'S2', scale=2)
+        self.scope.setWaveform(4, 'SW', scale=2)
+
+        subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        time.sleep(1.1)
+
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       noWide=False,
+                       xlim=(-0.5,14),
+                       ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
+class S1Test(OneTest):
+    testName = 'S1'
+    label = "alternate serial clocks"
+    leads = ('RG', 'S1.2', 'S2.2', 'OS')
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
+        
+    def setup(self, trigger=None):
+        self.scope.setAcqMode(numAvg=1)
+        self.delayTime = 13.920*1e-6 * 10
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
+        if trigger is None:
+            self.scope.setEdgeTrigger(source='ch3',
+                                      level=2, slope='fall', holdoff='10e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
+
+        # C4 C6 C8 C10
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1.2', scale=2)
+        self.scope.setWaveform(3, 'S2.2', scale=2)
+        self.scope.setWaveform(4, 'OS', scale=2)
+
+        subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        time.sleep(1.1)
+    
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       noWide=False,
+                       xlim=(-0.5,14), ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
+class P0Test(OneTest):
+    testName = 'P0'
+    label = "main parallel clocks"
+    leads = ('TG', 'P1', 'P2', 'P3')
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
+
+    def setup(self, trigger=None):
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1', scale=2)
         self.scope.setWaveform(3, 'P2', scale=2)
@@ -452,21 +876,32 @@ class P0Test(OneTest):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
 
-        self.scope.setEdgeTrigger(level=0.0, slope='fall', holdoff='250e-6')
+        if trigger is None:
+            self.scope.setEdgeTrigger(level=0.0, slope='fall', holdoff='250e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
+
+        subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        time.sleep(1.1)
         
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
-                       xlim=(-50,250), ylim=(-7,7), 
+                       xlim=(-50,250), ylim=(-7,7),
+                       xoffset=-40e-6,
                        showLimits=True, title=self.title)        
 
 class P1Test(OneTest):
-    def initTest(self):
-        self.testName = 'P1'
-        self.label = "Storage parallel clocks"
+    testName = 'P1'
+    leads = ('TG', 'P1S', 'P2S', 'P3S')
+    label = "storage parallel clocks"
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
 
-    def setup(self):
-        # M10 M7 M8 M9
-        self.leads = ('TG', 'P1S', 'P2S', 'P3S')
+    def setup(self, trigger=None):
         self.scope.setWaveform(1, 'TG', scale=5)
         self.scope.setWaveform(2, 'P1S', scale=2)
         self.scope.setWaveform(3, 'P2S', scale=2)
@@ -475,21 +910,31 @@ class P1Test(OneTest):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
 
-        self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        if trigger is None:
+            self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
         
+        subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        time.sleep(1.1)
+
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
                        xlim=(-50,250), ylim=(-7,7), 
                        showLimits=True, title=self.title)        
 
 class P2Test(OneTest):
-    def initTest(self):
-        self.testName = 'P2'
-        self.label = "Storage parallel clocks"
+    testName = 'P2'
+    leads = ('TG', 'ISV', 'IG1', 'IG2')
+    label = "strays"
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
 
-    def setup(self):
-        # M10 M1 M2 M3
-        self.leads = ('TG', 'ISV', 'IG1', 'IG2')
+    def setup(self, trigger=None):
         self.scope.setWaveform(1, 'TG', scale=2)
         self.scope.setWaveform(2, 'ISV', scale=2)
         self.scope.setWaveform(3, 'IG1', scale=5)
@@ -499,44 +944,19 @@ class P2Test(OneTest):
         self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
 
         self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
+
+        if trigger is None:
+            subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        else:
+            self.scope.setEdgeTrigger(**trigger)
+            
+        time.sleep(1.1)
         
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
                        xlim=(-50,250), ylim=(-7,7), 
                        showLimits=True, title=self.title)        
 
-class P3Test(OneTest):
-    def initTest(self):
-        self.testName = 'P3'
-        self.label = "ISV,IG1V,IG2V"
-        self.probes = (('TG', 'Misc 10'),
-                       ('ISV', 'Misc 1'),
-                       ('IG1', 'Misc 2'),
-                       ('IG2', 'Misc 3'))
-        fee = feeControl.FeeControl(noConnect=True)
-        mode = fee.presets['read']
-        self.volts = dict(TG=(3.0,-5.0),
-                          ISV=(-10.0,),
-                          IG1=(5.0,),
-                          IG2=(mode.presets['P_off'], mode.presets['P_on']))
-        
-    def setup(self):
-        self.scope.setWaveform(1, 'TG', scale=2)
-        self.scope.setWaveform(2, 'ISV', scale=2)
-        self.scope.setWaveform(3, 'IG1', scale=2)
-        self.scope.setWaveform(4, 'IG2', scale=5)
-
-        self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
-
-        self.scope.setEdgeTrigger(level=0, slope='fall', holdoff='250e-6')
-        
-    def plot(self):
-        fig, plots = sigplot(self.testData['waveforms'], xscale=1e-6,
-                             xlim=(-50,250), ylim=(-7,7), 
-                             showLimits=True, title=self.title)
-        return fig, plots
-            
 class Switch1Test(OneTest):
     def initTest(self):
         self.testName = 'Switch1A'
@@ -546,13 +966,16 @@ class Switch1Test(OneTest):
         self.pixTime = 13.920 * 1e-6
         self.delayTime = (0 * rowTime +  0 * self.pixTime)
         
-    def setup(self):
+    def setup(self, trigger=None):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=20e-9, # recordLength=1000000,
                                triggerPos=20,
                                delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
 
-        self.scope.setEdgeTrigger(source='ch2', level=1.3, slope='rise', holdoff='10e-6')
+        if trigger is None:
+            self.scope.setEdgeTrigger(source='ch2', level=1.3, slope='rise', holdoff='10e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
 
         self.scope.setWaveform(1, 'DCR', scale=0.2)
         self.scope.setWaveform(2, 'IR', scale=1.0)
@@ -599,13 +1022,16 @@ class Switch2Test(OneTest):
         pixTime = 13.920 * 1e-6
         self.delayTime = (0 * rowTime +  0 * pixTime)
         
-    def setup(self):
+    def setup(self, trigger=None):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=20e-9, # recordLength=1000000,
                                triggerPos=0.2,
                                delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
 
-        self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
+        if trigger is None:
+            self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
 
         self.scope.setWaveform(1, 'DCR', scale=1.0)
         self.scope.setWaveform(2, 'IR', scale=1.0)
@@ -658,7 +1084,7 @@ def sigplot(waves,
         channels = range(4)
     if offsets is None:
         offsets = np.zeros(4)
-        
+
     colors = waveColors
     
     if noWide:
@@ -676,7 +1102,7 @@ def sigplot(waves,
     for i in channels:
         chan = waves['ch%d' % (i+1)]
         x = chan['x']
-        print "x %d: %g %g %s %s %s" % (i, x.min(), x.max(), xoffset, xlim, xdatalim) 
+        # print "x %d: %g %g %s %s %s" % (i, x.min(), x.max(), xoffset, xlim, xdatalim) 
         x = x - xoffset
         if xlim is not None:
             xslice = (x >= xdatalim[0]) & (x <= xdatalim[1])
@@ -724,6 +1150,9 @@ def sigplot(waves,
     if title:
         p0.set_title(title, loc='center')
 
+    plt.ioff()
+    fig.show()
+    
     return fig, plist
 
 def clockplot(fig, plot, waves, clocks):
