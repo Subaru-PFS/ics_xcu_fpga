@@ -139,6 +139,12 @@ class BenchRig(TestRig):
                      M11='BB')
 
     leadPins = {v:k for k,v in leadNames.items()}
+
+    # per-amp bias levels measured with the bench fake CCD, which
+    # should always be the same.
+    #
+    expectedLevels = (6200, 5050, 3725, 2570,
+                      6140, 5010, 4000, 2630)
     
     def __init__(self, dewar=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
@@ -739,6 +745,7 @@ class ReadnoiseTest(OneTest):
         im = pyfits.getdata(fitspath)
         fig, gs = nbFuncs.rawAmpGrid(im, FakeCcd(),
                                      title=fitspath,
+                                     expectedLevels=self.rig.expectedLevels,
                                      cols=slice(50,None))
         return fig, gs
 
