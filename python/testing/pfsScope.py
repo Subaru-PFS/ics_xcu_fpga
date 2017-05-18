@@ -256,11 +256,11 @@ class PfsCpo(object):
             if t1-t0 > timeout:
                 raise RuntimeError('timeout waiting for operation end')
 
-    def runTest(self, test, debug=False):
+    def runTest(self, test, debug=False, trigger=None):
         startLevel = self.logger.level
 
         self.logger.info('running test %s', test.testName)
-        test.setup()
+        test.setup(trigger=trigger)
 
         self.logger.info('starting test %s (timer=%s)', test.testName, self.triggerAfter)
 
@@ -271,6 +271,10 @@ class PfsCpo(object):
             self.logger.info('forcing trigger')
             self.scope.write('trigger force')
 
+        if hasattr(test, 'triggerCB'):
+            self.logger.info('calling test trigger...')
+            test.triggerCB()
+            
         self.logger.info('waiting for end of test %s', test.testName)
         self.busyWait()
 
