@@ -40,6 +40,8 @@ class CCD(FPGA):
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
 
+        self.logger = logging.getLogger('ccd')
+        
         self.headerVersion = 1
         self.dewarId = dewarId
         self.spectroId = spectroId

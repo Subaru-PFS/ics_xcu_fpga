@@ -71,7 +71,7 @@ class PfsCpo(object):
     modes = {'sample', 'average', 'envelope'}
 
     def __init__(self, host='10.1.1.52'):
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('scope')
         self.host = host
         self.resourceManager = None
         self.scope = None
@@ -202,16 +202,16 @@ class PfsCpo(object):
         self.write('ch%d:invert %s' % (channel, invert))
 
     def query(self, qstr, verbose=logging.INFO):
-        self.logger.debug('query send: %s', qstr)
+        self.logger.debug('query send: %r', qstr)
         ret = self.scope.query(qstr)
-        self.logger.debug('query recv: %s', ret)
+        self.logger.debug('query recv: %r', ret)
 
         return ret
 
     def write(self, wstr, verbose=logging.INFO):
-        self.logger.debug('write send: %s', wstr)
+        self.logger.debug('write send: %r', wstr)
         ret = self.scope.write(wstr)
-        self.logger.debug('write recv: %s', ret)
+        self.logger.debug('write recv: %r', ret)
 
         return ret
 
