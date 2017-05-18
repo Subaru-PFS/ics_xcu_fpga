@@ -62,7 +62,7 @@ class ModePreset(object):
 
     def saveToFee(self, fee, channels=(0,1)):
         oldTimeout = fee.device.timeout
-        fee.device.setTimeout(5.0)
+        fee.device.timeout = 5.0
         if False and self.preload:
             fee.sendCommandStr('lp,%s' % (self.name))
         for ch in channels:
@@ -70,7 +70,7 @@ class ModePreset(object):
                 if v is not None:
                     fee.doSet('bias', k, v, ch)
         fee.sendCommandStr('sp,%s' % (self.name))
-        fee.device.setTimeout(oldTimeout)
+        fee.device.timeout = oldTimeout
 
 class FeeSet(object):
     channels = []
