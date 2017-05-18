@@ -12,9 +12,9 @@ import numpy as np
 
 import fitsio
 
-from . import ccd as ccdMod
+from fpga import ccd as ccdMod
 from fee import feeControl as feeMod
-from . import opticslab
+from fpga import opticslab
 
 reload(ccdMod)
 
@@ -191,8 +191,9 @@ def readout(imtype, ccd=None, expTime=0,
         feeControl = feeMod.fee
 
     t0 = time.time()
-    feeControl.setMode('read')
-    time.sleep(1)               # Per JEG
+    if doModes:
+        feeControl.setMode('read')
+        time.sleep(1)               # Per JEG
     t1 = time.time()
     
     feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime)
@@ -202,8 +203,9 @@ def readout(imtype, ccd=None, expTime=0,
                                clockFunc=clockFunc, doSave=doSave,
                                comment=comment, addCards=feeCards)
     t2 = time.time()
-    feeControl.setMode('idle')
-    time.sleep(0.5)
+    if doModes:
+        feeControl.setMode('idle')
+        time.sleep(0.5)
     t3 = time.time()
     
     print "file : %s" % (imfile)
