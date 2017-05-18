@@ -276,7 +276,8 @@ class PfsCpo(object):
             test.triggerCB()
             
         self.logger.info('waiting for end of test %s', test.testName)
-        self.busyWait()
+        timeout = test.timeout if hasattr(test, 'timeout') else 30.0
+        self.busyWait(timeout=timeout)
 
         self.logger.info('fetching data for test %s', test.testName)
 
