@@ -184,7 +184,7 @@ class CCD(FPGA):
                   doAmpMap=True, 
                   doReread=False,
                   rowFunc=None, rowFuncArgs=None,
-                  doReset=True, doSave=True, 
+                  doReset=False, doSave=True, 
                   comment=None, addCards=None,
                   clockFunc=None):
                   
