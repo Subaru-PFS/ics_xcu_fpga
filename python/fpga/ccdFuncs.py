@@ -149,13 +149,33 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         feeControl.setMode('expose')
         time.sleep(0.25)
 
+def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
+    """ Configure and start the clocks for nrows of ncols. """
+
+    if nrows is None:
+        nrows = 2*1024*1024*1024 - 1
+        
+    if ccd is None:
+        ccd = ccdMod.ccd
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+
+    ccd.pciReset()
+    readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
+                                    clockFunc=getReadClocks())
+    if cmd is not None:
+        cmd.inform('text="started clocking %d rows of %d columns: %0.2fs or so"' % (nrows, ncols, readTime))
+    
+    
 def readout(imtype, ccd=None, expTime=0, 
             nrows=None, ncols=None,
             clockFunc=None,
             doSave=True, comment='',
             extraCards=(),
             feeControl=None, cmd=None,
-            rowStatsFunc=None):
+            rowStatsFunc=None,
+            doModes=True):
 
     """ Wrap a complete detector readout: no wipe, but with a log note, FITS cards and left in idle mode.  """
     
