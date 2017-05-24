@@ -86,12 +86,16 @@ def fnote(fname, ftype='', notes=''):
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
-def fetchCards(exptype=None, feeControl=None, expTime=0.0):
+def fetchCards(exptype=None, feeControl=None, expTime=0.0, getCards=True):
     """ Generate all FEE exposure cards, included times and IMAGETYP. """
 
     if feeControl is None:
         feeControl = feeMod.fee
-    feeCards = feeControl.statusAsCards()
+
+    if getCards:
+        feeCards = feeControl.statusAsCards()
+    else:
+        feeCards = []
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
         feeCards.insert(0, ('IMAGETYP', exptype, ''))
@@ -173,6 +177,7 @@ def readout(imtype, ccd=None, expTime=0,
             clockFunc=None,
             doSave=True, comment='',
             extraCards=(),
+            doFeeCards=True,
             feeControl=None, cmd=None,
             rowStatsFunc=None,
             doModes=True):
@@ -193,10 +198,12 @@ def readout(imtype, ccd=None, expTime=0,
     t0 = time.time()
     if doModes:
         feeControl.setMode('read')
-        time.sleep(1)               # Per JEG
+        time.sleep(0.5)               # 1s per JEG
     t1 = time.time()
     
-    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime)
+    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
+                          doCards=doFeeCards)
+
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
@@ -221,7 +228,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
                  nrows=None, ncols=None,
                  clockFunc=None, doWipe=True,
                  doSave=True, comment='',
-                 extraCards=(),
+                 extraCards=(), doFeeCards=True,
                  feeControl=None, cmd=None):
 
     """ Wrap a complete exposure, including wipe, sleep, and readout. 
@@ -256,6 +263,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     im, imfile = readout(imtype, ccd=ccd, expTime=expTime,
                          nrows=nrows, ncols=ncols,
                          clockFunc=clockFunc, doSave=doSave,
+                         doFeeCards=doFeeCards,
                          comment=comment, extraCards=extraCards,
                          rowStatsFunc=False, cmd=cmd,
                          feeControl=feeControl)
