@@ -298,7 +298,7 @@ def tuneLevels(ccd, fee, amps=None,
                sleepTime=0.5, clockFunc=None,legs='n',
                doZero=True, doUnwrap=65000):
     nAllAmps = 8
-    
+
     if amps is None:
         amps = range(nAllAmps)
     if isinstance(amps, int):
@@ -443,13 +443,13 @@ def tuneLevels(ccd, fee, amps=None,
         
     return offsets, devs, gains
 
-def gainCurve(ccd, fee, amps=None, 
+def gainCurve(ccd=None, fee=None, amps=None, 
               statCols=None, nrows=200, 
               doUnwrap=False, leg='n', clockFunc=None,
               stepSize=19.9*2, offLimit=199, sleepTime=0.1):
-    
+
     if amps is None:
-        amps = np.arange(namps)
+        amps = np.arange(8)
     if isinstance(amps, int):
         amps = np.zeros(8, dtype='i2') + amps
 
@@ -476,7 +476,7 @@ def gainCurve(ccd, fee, amps=None,
         im, files = ccdFuncs.fullExposure('bias', ccd=ccd, feeControl=fee,
                                           nrows=nrows,
                                           # rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict,
-                                          doSave=False,
+                                          doSave=False, doReset=False,
                                           clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')
