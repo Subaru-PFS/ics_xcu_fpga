@@ -750,6 +750,54 @@ class ReadnoiseTest(OneTest):
         return fig, gs
 
 
+class OffsetTest(OneTest):
+    testName = 'Offsets'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+    
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None):
+        self.logger.info("calling for a wipe")
+        oneCmd('ccd_%s' % (self.dewar), 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd('ccd_%s' % (self.dewar), 'read bias nrows=500 ncols=500')
+
+        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
+        self.fitspath = None
+        for l in output:
+            m = re.search('.*filepath=(.*\.fits).*', l)
+            if m:
+                pathparts = m.group(1)
+                self.fitspath = os.path.join(*pathparts.split(','))
+                print("set filepath to: %s" % self.fitspath)
+            
+    def fetchData(self):
+        pass
+    
+    def save(self, comment=''):
+        if self.fitspath is not None:
+            shutil.copy(self.fitspath, os.path.join(self.rig.dirName,
+                                                    os.path.basename(self.fitspath)))
+    
+    def plot(self, fitspath=None):
+        if fitspath is None:
+            fitspath = self.fitspath
+        plt.ioff()
+        im = pyfits.getdata(fitspath)
+        fig, gs = nbFuncs.rawAmpGrid(im, FakeCcd(),
+                                     title=fitspath,
+                                     expectedLevels=self.rig.expectedLevels,
+                                     cols=slice(50,None))
+        return fig, gs
+
+
 class V0Test(OneTest):
     testName = 'V0'
     label = "power up, all modes, power off"
