@@ -153,8 +153,8 @@ class CCD(FPGA):
                 self.logger.warning("failed to add card to header: %s", e)
                 self.logger.warning("failed card: %r", card)
             
-    def writeImageFiles(self, im, 
-                        comment=None, addCards=None):
+    def writeImageFile(self, im, 
+                       comment=None, addCards=None):
 
         fnames = self.fileMgr.getNextFileset()
         fname = fnames[0]
@@ -233,8 +233,8 @@ class CCD(FPGA):
         print("readTime = %g; expected %g" % (t1-t0, expectedTime))
 
         if doSave:
-            files = self.writeImageFiles(im, comment=comment, addCards=addCards)
+            imfile = self.writeImageFile(im, comment=comment, addCards=addCards)
         else:
-            files = []
+            imfile = None
 
-        return im, files
+        return im, imfile
