@@ -8,9 +8,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from fpga import ccd as ccdMod
-from fee import feeControl as feeMod
-
 from fpga import ccdFuncs
 reload(ccdFuncs)
 
