@@ -12,7 +12,7 @@ import time
 
 import logging
 import os
-
+import sys
 import astropy.io.fits as pyfits
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -30,11 +30,13 @@ waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
 class TestRig(object):
     def __init__(self, dirName=None, seqno=None, root='/data/pfseng'):
+        self.logger = logging.getLogger('testrig')
+        self.logger.setLevel(logging.INFO)
+
         self.rootDir = root
         self.fileMgr = SeqPath.NightFilenameGen(root,
                                                 filePrefix='xx',
                                                 filePattern="%(seqno)06d")
-
         self.scope = None
         self.mux = None
         
@@ -309,12 +311,12 @@ class BenchRig(TestRig):
             self.seqNum += 1
             return True
         
-        print("configuring MUX for %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
-
         test = testClass(self, ccd, amp,
                          dewar=self.dewar,
                          comment=comment)
-        self.configMux(ccd, amp, test)
+        if test.leadNames():
+            print("configuring MUX for %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
+            self.configMux(ccd, amp, test)
 
         print("running %s%s\n" % (self.describeTest(withLeads=False), ("" if not comment else " (%s)" % comment)))
 
@@ -415,7 +417,9 @@ class BenchRig(TestRig):
         while True:
             ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
             if testClass is None:
-                print("MUX reconfiguration: you need to %s" % (comment2))
+                print
+                print("============= MUX reconfiguration: you need to %s" % (comment2))
+                print
                 return True
 
             ret = self.runTest(noRun=noRun)
