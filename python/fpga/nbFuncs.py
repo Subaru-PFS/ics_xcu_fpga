@@ -30,7 +30,7 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.show()
 
 def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, 
-             peaks=None, clipPeaks=True):
+             peaks=None, clipPeaks=True, linestyle='-+'):
 
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
@@ -68,7 +68,7 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     for a in amps:
         normedIm = normed(im[:, cols + a*imcols])
         seg = normedIm[row]
-        plt.plot(cols, seg+yoff, '-+')
+        plt.plot(cols, seg+yoff, linestyle)
 
         if peaks is not None:
             for ii in range(-3,4):
