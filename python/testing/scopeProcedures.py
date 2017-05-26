@@ -141,7 +141,7 @@ class BenchRig(TestRig):
     leadPins = {v:k for k,v in leadNames.items()}
 
     # per-amp bias levels measured with the bench fake CCD, which
-    # should always be the same.
+    # should always be the same, well within 1%.
     #
     expectedLevels = (6200, 5050, 3725, 2570,
                       6140, 5010, 4000, 2630)
@@ -647,24 +647,21 @@ class SanityTest(OneTest):
             Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
             Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=12.0, lo=0.03, hi=0.03),
-            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.04),
-            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.05),
-            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.10),
+            Voltage(name='12vp', nominal=12.0, lo=0.04, hi=0.01),
+            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.01),
+            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.01),
+            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.01),
         ]
-        errors = []
 
         for v in vlist:
             try:
                 flag, numVal = getCardValue(cards, 'voltage_%s' % (v.name), float)
             except KeyError:
-                errors.append(v.name)
-                self.logger.warning('could not get measured voltage %s', v.name)
+                self.voltages.append(self.CheckedValue(v.name, 'missing', 'could not read'))
                 continue
             except ValueError:
-                errors.append(v.name)
                 flag, rawVal = getCardValue(cards, 'voltage_%s' % (v.name))
-                self.logger.warning('voltage %s is not a float: %s', v.name, rawVal)
+                self.voltages.append(self.CheckedValue(v.name, str(rawVal), 'not a valid float'))
                 continue
 
             loLimit = v.nominal - v.nominal*v.lo

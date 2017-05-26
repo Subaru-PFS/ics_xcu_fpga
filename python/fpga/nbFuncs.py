@@ -185,7 +185,7 @@ def rawAmpGrid(im, ccd, amps=None,
                   transform=im_p.transAxes)
 
         if expectedLevels is not None:
-            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.05*expectedLevels[a_i]
+            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.01*expectedLevels[a_i]
             color = 'black' if inspec else 'red'
         else:
             color = 'black'
