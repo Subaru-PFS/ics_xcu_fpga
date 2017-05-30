@@ -77,7 +77,7 @@ class Clocks(object):
         for i in range(len(self.enabled)):
             newState = signal in self.enabled[i]
             logging.debug('%s new :%s %s %s', signal, self.ticks[i], lastState, newState)
-            if newState != lastState:
+            if newState != lastState or i == len(self.enabled)-1:
                 ticks.append(self.ticks[i])
                 transitions.append(newState)
                 lastState = newState
