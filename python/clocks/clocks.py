@@ -291,7 +291,7 @@ class Clocks(object):
 
         return sorted(signals, cmp=_sort)
 
-    def outputAt(self, at, setBits):
+    def outputAt(self, at, turnOn, mask):
         """ set the given sets of bits at the given time.. 
 
         Parameters
@@ -302,10 +302,59 @@ class Clocks(object):
            the Bits to enable for the new state.
         """
 
-        if len(self.ticks) == 0 and at != 0:
-            self.outputAt(0,set())
-        self.enabled.append(setBits)
-        self.ticks.append(at)
+        # If set last event was for a duration, finish it.
+        if len(self.ticks) > len(self.enabled):
+            self.enabled.append(self.enabled[-1].copy())
+
+        # If necessary, define a tick=0 set.
+        if len(self.ticks) == 0:
+            if self.initSet is not None:
+                newSet = self.initSet.copy()
+            else:
+                newSet = set()
+            self.ticks.append(0)
+            self.enabled.append(newSet)
+
+        if at < self.ticks[-1]:
+            raise ValueError('new at time cannot be before last defined time. (%d vs %d)' %
+                             (lastTick, at))
+
+        # if our new time is the same as the last event, modify that in place.
+        if at == self.ticks[-1]:
+            self.enabled[-1] = self.enabled[-1] - mask
+            self.enabled[-1] |= turnOn
+        else:
+            self.enabled.append(turnOn)
+            self.ticks.append(at)
+
+    def outputFor(self, duration, turnOn, mask):
+        """ set the given sets of bits for the given duration. 
+
+        Parameters
+        ----------
+        duration : int
+           the number of ticks to run the new state for
+        setBits : iterable of Bits
+           the Bits to enable for the new state.
+        """
+
+        if len(self.ticks) == 0:
+            newSet = self.initSet.copy() if self.initSet else set()
+            newSet -= mask
+            newSet |= turnOn
+            self.enabled.append(newSet)
+            self.ticks.append(0)
+
+        elif len(self.ticks) == len(self.enabled):
+            self.enabled[-1] -= mask
+            self.enabled[-1] |= turnOn
+        else:
+            newSet = self.enabled[-1].copy()
+            newSet -= mask
+            newSet |= turnOn
+            self.enabled.append(newSet)
+        
+        self.ticks.append(self.ticks[-1]+duration)
 
     def changeAt(self, at, turnOn=None, turnOff=None):
         """ turn on and off the given sets of bits at a given time
@@ -321,41 +370,25 @@ class Clocks(object):
         """
 
         if len(self.enabled) == 0:
-            newSet = self.initSet.copy()
+            lastSet = self.initSet.copy()
         else:
-            newSet = self.enabled[-1].copy()
+            lastSet = self.enabled[-1].copy()
 
         turnOn = set() if turnOn is None else set(turnOn)
         turnOff = set() if turnOff is None else set(turnOff)
+        mask = turnOff | turnOn
         
-        thisSet = newSet.copy()
-        newSet.difference_update(turnOff)
-        newSet.update(turnOn)
+        newSet = lastSet.copy()
+        newSet -= turnOff
+        newSet |= turnOn
         
         self.logger.debug("  %04x: %08x -> %08x on=%08x, off=%08x",
                           at,
-                          self.stateMask(thisSet), 
+                          self.stateMask(lastSet), 
                           self.stateMask(newSet),
                           self.stateMask(turnOn), 
                           self.stateMask(turnOff))
-        self.outputAt(at, newSet)
-        
-
-    def outputFor(self, duration, setBits):
-        """ set the given sets of bits for the given duration. 
-
-        Parameters
-        ----------
-        duration : int
-           the number of ticks to run the new state for
-        setBits : iterable of Bits
-           the Bits to enable for the new state.
-        """
-
-        self.enabled.append(setBits)
-        if len(self.ticks) == 0:
-            self.ticks.append(0)
-        self.ticks.append(self.ticks[-1]+duration)
+        self.outputAt(at, newSet, mask)
 
     def changeFor(self, duration, turnOn=None, turnOff=None):
         """ turn on and off  the given sets of bits for the given duration. 
@@ -377,6 +410,7 @@ class Clocks(object):
 
         turnOn = set() if turnOn is None else set(turnOn)
         turnOff = set() if turnOff is None else set(turnOff)
+        mask = turnOn | turnOff
         
         thisSet = newSet.copy()
         newSet.difference_update(turnOff)
@@ -388,7 +422,7 @@ class Clocks(object):
                           self.stateMask(newSet),
                           self.stateMask(turnOn), 
                           self.stateMask(turnOff))
-        self.outputFor(duration, newSet)
+        self.outputFor(duration, newSet, mask)
         
 def genRowClocks(ncols, clocksFunc, rowBinning=1):
     """ Instantiate a complete row of clock times and opcodes. 
