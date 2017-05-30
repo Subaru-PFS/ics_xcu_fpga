@@ -116,8 +116,8 @@ def readClocks():
                  turnOff=[P2,TG])
     insertIdlePixels(par, parPhasePixCnt)
 
-    par.changeAt(at=5*parPhaseTicks,
-                 turnOn=[P3])
+    par.changeFor(16,
+                  turnOn=[P3])
 
     return pre, pix, par
 
