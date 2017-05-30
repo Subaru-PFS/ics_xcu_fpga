@@ -1,5 +1,7 @@
 from clocks import Clocks
 
+from clockIDs import *
+
 def insertIdlePixels(clks, cnt):
     """ Insert a number of complete pixel clockings, without shift or conversion. 
 
