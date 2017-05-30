@@ -223,7 +223,7 @@ class Clocks(object):
 
         # Start with ASCII characters, extend into Unicode if we have to.
         names = [chr(ord('A')+n) for n in range(26)]
-        _names = [unichr(xc) for xc in range(0x100, 0x1ff)]
+        _names = [unichr(xc) for xc in range(0x100, 0x2ff)]
         names2 = [n for n in _names if not n.islower()]
         names.extend(names2)
 
