@@ -12,6 +12,22 @@ except:
     
 import SeqPath
 
+class FakeCCD(object):
+    def ampidx(self, ampid, im):
+        """ Return an ndarray mask for a single amp. 
+
+        Examples
+        --------
+
+        >>> amp1mask = ccd.ampidx(1, im)
+        >>> amp1inRow100 = im[100, amp1mask]
+        >>> amp1forFullImage = im[:, amp1mask]
+        """
+
+        nrows, ncols = im.shape
+        ampCols = ncols / 8
+        return np.arange(ampCols*ampid, ampCols*(ampid+1))
+        
 class CCD(FPGA):
     """Top-level wrapper for FPGA control and readout. 
 
