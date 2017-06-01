@@ -15,20 +15,23 @@ class Clocks(object):
     """
 
     tickTime = 40e-9
-    
+
     def __init__(self, tickTime=None, initFrom=None, logLevel=logging.INFO):
         self.clear()
 
         if tickTime is not None:
             self.tickTime = tickTime
         self.initSet = set() if initFrom is None else initFrom.enabled[-1]
-        self.logLevel = logLevel
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('clocks')
+        self.logger.setLevel(logLevel)
 
     def clear(self):
         self.enabled = []
         self.ticks = []
         self.sent = False
+
+    def setNames(self, m):
+        return sorted([sig.label for sig in m])
 
     def stateMask(self, m):
         if len(m) is 0:
@@ -57,28 +60,26 @@ class Clocks(object):
         if includeInit:
             ticks.append(-1)
             transitions.append(signal in self.initSet)
-            found = signal in self.initSet
+            lastState = signal in self.initSet
         else:
-            found = False
-        logging.debug('%s init:%s %s %s', signal, ticks, transitions, [s.label for s in self.initSet])
+            lastState = False
 
-        lastState = None
+        self.logger.debug('%s init:%s %s %s %s',
+                          signal, ticks, lastState, transitions, [s.label for s in self.initSet])
+
+
         for i in range(len(self.enabled)):
             newState = signal in self.enabled[i]
-            logging.debug('%s new :%s %s %s', signal, self.ticks[i], lastState, newState)
-            if newState != lastState or i == len(self.enabled)-1:
+            self.logger.debug('%s new :%s %s %s', signal, self.ticks[i], lastState, newState)
+            if newState != lastState or i == 0 or i == len(self.ticks)-1:
                 ticks.append(self.ticks[i])
                 transitions.append(newState)
                 lastState = newState
-                found = True
-
-        if not found:
-            raise KeyError("signal %r not found" % (signal))
 
         if len(self.enabled) < len(self.ticks):
             ticks.append(self.ticks[-1])
             transitions.append(transitions[-1])
-            
+
         return ticks, transitions
 
     def allSignals(self):
@@ -129,8 +130,9 @@ class Clocks(object):
 
                 dticks = (thisTick - lastTick)/tickDiv
                 dticks_f = (thisTick - lastTick)/float(tickDiv)
-                assert (thisTick <= 0 or dticks > 0), ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
-                                                       (sig, t_i, lastTick, thisTick))
+                assert (thisTick <= 0 or dticks > 0), \
+                    ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
+                     (sig, t_i, lastTick, thisTick))
                 assert (lastTick < 0 or dticks == dticks_f), \
                     ("dticks (%s) for %s at slot %s, tick %s to %s by %s is non-integer!" % 
                      (dticks_f, sig, t_i, lastTick, thisTick, tickDiv))
@@ -164,11 +166,11 @@ class Clocks(object):
             # set spos = next spos where all traces are '.'
             next_s_matches = [re.search('[.]', traces[sig][spos:]) for sig in signals]
             if any([m is None for m in next_s_matches]):
-                logging.debug('break due to missing spos match at %d: %s', spos, next_s_matches)
+                self.logger.debug('break due to missing spos match at %d: %s', spos, next_s_matches)
                 break
             span1 = max([m.start() for m in next_s_matches])
             assert span1 > 0, "next '.' is 0 chars out at %d" % (spos)
-            logging.debug('moving spos from %d by %d', spos, span1)
+            self.logger.debug('moving spos from %d by %d', spos, span1)
             spos += span1
             opos += span1
             
@@ -179,12 +181,12 @@ class Clocks(object):
                           else len(traces[sig][spos:]) for sig in signals]
             nextChange = min(next_e_pos)
             epos = spos + nextChange
-            logging.debug('setting epos to %d = %d + %d', epos, spos, nextChange)
+            self.logger.debug('setting epos to %d = %d + %d', epos, spos, nextChange)
 
             # if epos - spos >= cutAfter, replace with '|'
             opos += epos - spos
             if epos - spos >= cutAfter:
-                logging.info('trimming %d to %d', spos, epos)
+                self.logger.info('trimming %d to %d', spos, epos)
                 for sig in signals:
                     ts = traces[sig]
                     traces[sig] = ts[:spos] + '|' + ts[epos:]
@@ -199,7 +201,7 @@ class Clocks(object):
 
         # Patch up cut ends
         if traces[list(signals)[0]][-1] == '|':
-            logging.info('patching cut ends')
+            self.logger.info('patching cut ends')
             for sig in signals:
                 ts = traces[sig]
                 traces[sig] = ts + '.'
@@ -287,13 +289,18 @@ class Clocks(object):
         ----------
         at : int
            the ticks to run the new state at
-        setBits : iterable of Bits
+        turnOn : iterable of Bits
            the Bits to enable for the new state.
+        mask : iterable of Bits
+           the Bits we are setting
         """
 
         # If set last event was for a duration, finish it.
         if len(self.ticks) > len(self.enabled):
             self.enabled.append(self.enabled[-1].copy())
+
+        assert len(self.ticks) == len(self.enabled), \
+            "output at time: ticks and enabled lists must have same length"
 
         # If necessary, define a tick=0 set.
         if len(self.ticks) == 0:
@@ -323,8 +330,10 @@ class Clocks(object):
         ----------
         duration : int
            the number of ticks to run the new state for
-        setBits : iterable of Bits
+        turnOn : iterable of Bits
            the Bits to enable for the new state.
+        mask : iterable of Bits
+           the Bits we are setting.
         """
 
         if len(self.ticks) == 0:
@@ -342,8 +351,11 @@ class Clocks(object):
             newSet -= mask
             newSet |= turnOn
             self.enabled.append(newSet)
-        
+
         self.ticks.append(self.ticks[-1]+duration)
+
+        assert len(self.ticks) == len(self.enabled)+1, \
+            "output for time: number of ticks must be one greater than number of sets"
 
     def changeAt(self, at, turnOn=None, turnOff=None):
         """ turn on and off the given sets of bits at a given time
@@ -359,25 +371,24 @@ class Clocks(object):
         """
 
         if len(self.enabled) == 0:
-            lastSet = self.initSet.copy()
+            newSet = self.initSet.copy()
         else:
-            lastSet = self.enabled[-1].copy()
+            newSet = self.enabled[-1].copy()
 
         turnOn = set() if turnOn is None else set(turnOn)
         turnOff = set() if turnOff is None else set(turnOff)
         mask = turnOff | turnOn
         
-        newSet = lastSet.copy()
         newSet -= turnOff
         newSet |= turnOn
         
-        self.logger.debug("  %04x: %08x -> %08x on=%08x, off=%08x",
-                          at,
-                          self.stateMask(lastSet), 
-                          self.stateMask(newSet),
-                          self.stateMask(turnOn), 
-                          self.stateMask(turnOff))
         self.outputAt(at, newSet, mask)
+        self.logger.debug(" at  % 5d to % 5d (%2d/%2d): on=%08x, off=%08x, net=%s",
+                          at, self.ticks[-1],
+                          len(self.ticks), len(self.enabled),
+                          self.stateMask(turnOn),
+                          self.stateMask(turnOff),
+                          self.setNames(self.enabled[-1]))
 
     def changeFor(self, duration, turnOn=None, turnOff=None):
         """ turn on and off  the given sets of bits for the given duration. 
@@ -400,24 +411,22 @@ class Clocks(object):
         turnOn = set() if turnOn is None else set(turnOn)
         turnOff = set() if turnOff is None else set(turnOff)
         mask = turnOn | turnOff
-        
-        thisSet = newSet.copy()
-        newSet.difference_update(turnOff)
-        newSet.update(turnOn)
-        
-        self.logger.debug("  %04x: %08x -> %08x on=%08x, off=%08x",
-                          duration,
-                          self.stateMask(thisSet), 
-                          self.stateMask(newSet),
-                          self.stateMask(turnOn), 
-                          self.stateMask(turnOff))
+
+        newSet -= turnOff
+        newSet |= turnOn
+
         self.outputFor(duration, newSet, mask)
-        
+        self.logger.debug(" for % 5d to % 5d (%2d/%2d): on=%08x, off=%08x, net=%s",
+                          duration, self.ticks[-1],
+                          len(self.ticks), len(self.enabled),
+                          self.stateMask(turnOn),
+                          self.stateMask(turnOff),
+                          self.setNames(self.enabled[-1]))
+
 def genRowClocks(ncols, clocksFunc, rowBinning=1):
     """ Instantiate a complete row of clock times and opcodes. 
-    
     """
-    
+
     ticksList = []
     opcodesList = []
 
