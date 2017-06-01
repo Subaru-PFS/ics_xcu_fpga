@@ -66,6 +66,7 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
         normedIm = normed(im[:, cols + a*imcols])
         seg = normedIm[row]
         plt.plot(cols, seg+yoff, linestyle)
+        plt.hlines(yoff, cols[0], cols[-1], alpha=0.3)
 
         if peaks is not None:
             for ii in range(-3,4):
