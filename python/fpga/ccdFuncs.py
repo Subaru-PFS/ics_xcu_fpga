@@ -202,7 +202,7 @@ def readout(imtype, ccd=None, expTime=0,
     t1 = time.time()
     
     feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
-                          doCards=doFeeCards)
+                          getCards=doFeeCards)
 
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
