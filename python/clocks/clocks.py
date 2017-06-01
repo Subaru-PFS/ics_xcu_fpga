@@ -1,22 +1,11 @@
+from __future__ import absolute_import
+
 from collections import OrderedDict
 import logging
 import numpy as np
 import re
 
-class Signal(object):
-    def __init__(self, bit, label, description, group=None, order=0):
-        self.bit = bit
-        self.label = label
-        self.description = description
-        self.group = group
-        self.order = order
-
-    def __str__(self):
-        return "Signal(%s:%d)" % (self.label, self.bit)
-
-    @property 
-    def mask(self):
-        return 1 << self.bit
+from . import clockIDs
 
 class Clocks(object):
     """ Access the FPGA's clocking sequences.
