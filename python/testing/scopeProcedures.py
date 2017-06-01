@@ -836,11 +836,12 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
+        statCols = slice(8,None)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
                                      expectedLevels=self.rig.expectedLevels,
-                                     cols=slice(35,None))
-        levels, devs = nbFuncs.ampStats(im, cols=slice(35,None), ccd=fakeCcd)
+                                     cols=statCols)
+        levels, devs = nbFuncs.ampStats(im, cols=statCols, ccd=fakeCcd)
         mdfile = self.rig.frontPage
         mdfile.write('## Noise\n')
         mdfile.write('\n')
