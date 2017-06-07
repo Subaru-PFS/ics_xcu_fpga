@@ -1,4 +1,23 @@
-from clocks import Signal
+class Signal(object):
+    def __init__(self, bit, label, description, group=None, order=0):
+        self.bit = bit
+        self.label = label
+        self.description = description
+        self.group = group
+        self.order = order
+
+    def __str__(self):
+        return "Signal(%s:%d)" % (self.label, self.bit)
+
+    def __repr__(self):
+        return "Signal(%s,%s,%s,%s,%s)" % (self.bit, self.label,
+                                           self.description,
+                                           self.group, self.order)
+    
+    @property 
+    def mask(self):
+        return 1 << self.bit
+
 
 CRC = Signal(15, 'CRC', 'CRC Control', group='FPGA', order=0)
 P1  = Signal(16, 'P1', 'Parallel 1', group='Parallel', order=0)
