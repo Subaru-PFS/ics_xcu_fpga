@@ -681,6 +681,18 @@ class SanityTest(OneTest):
             self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
 
         haveErrors = False
+        for n in 'fee',:
+            try:
+                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
+            except KeyError:
+                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
+                continue
+            except UnicodeDecodeError:
+                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
+                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
+                continue
+            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
+        
         for s in self.serials:
             if s.status != 'OK':
                 self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
