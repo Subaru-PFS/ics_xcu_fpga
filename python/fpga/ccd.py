@@ -12,6 +12,22 @@ except:
     
 import SeqPath
 
+class FakeCCD(object):
+    def ampidx(self, ampid, im):
+        """ Return an ndarray mask for a single amp. 
+
+        Examples
+        --------
+
+        >>> amp1mask = ccd.ampidx(1, im)
+        >>> amp1inRow100 = im[100, amp1mask]
+        >>> amp1forFullImage = im[:, amp1mask]
+        """
+
+        nrows, ncols = im.shape
+        ampCols = ncols / 8
+        return np.arange(ampCols*ampid, ampCols*(ampid+1))
+        
 class CCD(FPGA):
     """Top-level wrapper for FPGA control and readout. 
 
@@ -40,6 +56,8 @@ class CCD(FPGA):
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
 
+        self.logger = logging.getLogger('ccd')
+        
         self.headerVersion = 1
         self.dewarId = dewarId
         self.spectroId = spectroId
@@ -142,25 +160,37 @@ class CCD(FPGA):
 
         if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
             sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
-    
-    def writeImageFiles(self, im, 
-                        comment=None, addCards=None):
+
+    def addHeaderCards(self, hdr, cards):
+        for card in cards:
+            try:
+                hdr.append(card)
+            except Exception as e:
+                self.logger.warning("failed to add card to header: %s", e)
+                self.logger.warning("failed card: %r", card)
+            
+    def writeImageFile(self, im, 
+                       comment=None, addCards=None):
 
         fnames = self.fileMgr.getNextFileset()
         fname = fnames[0]
         
+        self.logger.warning('creating fits file: %s', fname)
+
         hdr = pyfits.Header()
-
-        hdr.extend(self.idCards())
-        hdr.extend(self.geomCards())
-        
+        self.addHeaderCards(hdr, self.idCards())
+        self.addHeaderCards(hdr, self.geomCards())
+            
         if comment is not None:
-            hdr.add_comment(comment)
+            self.addHeaderCards(hdr, [comment])
         if addCards is not None:
-            for card in addCards:
-                hdr.append(card)
-
-        pyfits.writeto(fname, im, hdr, checksum=True)
+            self.addHeaderCards(hdr, addCards)
+                    
+        try:
+            pyfits.writeto(fname, im, hdr, checksum=True)
+        except Exception as e:
+            self.logger.warn('failed to write fits file %s: %s', fname, e)
+            self.logger.warn('hdr : %s', hdr)
         
         return fname
 
@@ -219,8 +249,8 @@ class CCD(FPGA):
         print("readTime = %g; expected %g" % (t1-t0, expectedTime))
 
         if doSave:
-            files = self.writeImageFiles(im, comment=comment, addCards=addCards)
+            imfile = self.writeImageFile(im, comment=comment, addCards=addCards)
         else:
-            files = []
+            imfile = None
 
-        return im, files
+        return im, imfile

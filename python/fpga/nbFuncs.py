@@ -1,10 +1,14 @@
+from __future__ import absolute_import
+
 import logging
 import time
 import sys
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
-import ccdFuncs
+from fpga import ccdFuncs
 reload(ccdFuncs)
 
 def normed(arr):
@@ -23,7 +27,7 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.show()
 
 def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, 
-             peaks=None, clipPeaks=True):
+             peaks=None, clipPeaks=True, linestyle='-+'):
 
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
@@ -61,7 +65,8 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     for a in amps:
         normedIm = normed(im[:, cols + a*imcols])
         seg = normedIm[row]
-        plt.plot(cols, seg+yoff, '-+')
+        plt.plot(cols, seg+yoff, linestyle)
+        plt.hlines(yoff, cols[0], cols[-1], alpha=0.3)
 
         if peaks is not None:
             for ii in range(-3,4):
@@ -74,63 +79,159 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 
     plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
                                                   cols[0],cols[-1]))
-
-def rawAmpGrid(im, ccd, cols=None, rows=None, 
-               showFfts=False,
-               fig=None, figWidth=None):
-    print "in rawAmpGrid"
-    sys.stdout.flush()
+    fig.show()
     
-    if fig is None:
-        fig = plt.figure('amp_hists', figsize=(figWidth, figWidth*2), tight_layout=True)
-    fig.clf()
+    return fig
 
-    #if figWidth is not None:
-    #    fig.set_figwidth(figWidth*2)
-
+def rawAmpGrid(im, ccd, amps=None,
+               title=None,
+               cols=None, rows=None, 
+               noiseLim=0.8,
+               expectedLevels=None,
+               fig=None, figSize=None):
+    
+    if amps is None:
+        amps = range(8)
+        
     if cols is None:
         cols = slice(0,-1)
     if rows is None:
         rows = slice(0,-1)
 
-    fig.subplots_adjust(hspace=0.1, wspace=0.05)
-    if showFfts:
-        r = 8
-        c = 2
-    else:
-        r = 4
-        c = 2
-        
-    for a in range(8):
+    figRows = 5
+    figCols = 5
+    
+    if fig is None:
+        figsize = (8, 11) if figSize is None else figSize
+        fig = plt.figure(figsize=figsize)
+        gs = gridspec.GridSpec(nrows=figRows, ncols=figCols,
+                               top=0.9, bottom=0.05, left=0.05, right=0.9,
+                               height_ratios=[1.0,1.0, 0.05, 1.0,1.0],
+                               width_ratios=[1.0,1.0,1.0,1.0, 0.1],
+                               wspace=0, hspace=0.25)
+
+    ai_std = None
+    bestAmp = None
+    for a_i, a in enumerate(amps):
         ampCols = ccd.ampidx(a, im)[cols]
         ampIm = im[rows][:, ampCols]
-        if showFfts:
-            p = fig.add_subplot(r, c, 2*a + 1)
-        else:
-            p = fig.add_subplot(r, c, a + 1)
+        nAmpIm = ampIm - np.trunc(np.median(ampIm))
 
-        p.xaxis.set_visible(False)
-        p.yaxis.set_visible(False)
-        nAmpIm = ampIm - np.median(ampIm)
-        ai_std = np.std(nAmpIm)
-        pp = p.imshow(nAmpIm, aspect='equal')
-        pp.set_clim(-3*ai_std, 3*ai_std)
-        plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
-
-        if showFfts:
-            p = fig.add_subplot(r, c, 2*a + 2)
-            p.xaxis.set_visible(False)
-            p.yaxis.set_visible(False)
-            
+        newBest = False
+        ai_std1 = np.std(nAmpIm)
+        if ai_std is None:
+            if ai_std1 > 0:
+                ai_std = ai_std1
+                bestAmp = a
+                newBest = True
+        else:        
+            if ai_std1 > 0 and ai_std1 < ai_std:
+                ai_std = ai_std1
+                bestAmp = a
+                newBest = True
+        if newBest:
             normArr = ampIm - ampIm.mean()
-            yhat = np.log10(np.absolute(np.fft.fft(normArr)))
-            yh_mean = np.mean(yhat)
-            yh_std = np.std(yhat)
-            fp = p.imshow(yhat, aspect='equal')
-            fp.set_clim(yh_mean-3*yh_std, yh_mean+3*yh_std)
-            plt.title('amp %d fft' % (a))
+            bestYhat = np.log10(np.absolute(np.fft.fft(normArr)))
 
-    return fig
+    pixRange = np.trunc(2*ai_std)+1
+    dataNorm = mpl.colors.Normalize(vmin=-pixRange,
+                                    vmax=pixRange,
+                                    clip=True)
+    
+    for a_i, a in enumerate(amps):
+        ampCols = ccd.ampidx(a, im)[cols]
+        ampIm = im[rows][:, ampCols]
+
+        row = a_i // 4
+        col = a_i % 4
+        im_gs = gs[row, col]
+        im_p = fig.add_subplot(im_gs)
+        im_p.set_xticks([])
+        im_p.set_yticks([])
+        im_p.xaxis.set_visible(False)
+        im_p.yaxis.set_visible(False)
+        ai_med1 = np.trunc(np.median(ampIm))
+        nAmpIm = ampIm - ai_med1
+
+        im_pp = im_p.imshow(nAmpIm, aspect='equal',
+                            norm=dataNorm, interpolation='none')
+        # lo_w = np.where(nAmpIm < -pixRange)
+        # hi_w = np.where(nAmpIm > pixRange)
+        # im_p.plot(lo_w[1], lo_w[0], 'b,', alpha=0.3)
+        offscale_w = np.where((nAmpIm < -pixRange) | (nAmpIm > pixRange))
+        im_p.plot(offscale_w[1], offscale_w[0], 'r,', alpha=0.3)
+        
+        if col == 0:
+            im_p.text(0, 0.5, 'CCD %d' % (row),
+                      size=12,
+                      horizontalalignment='right',
+                      verticalalignment='center',
+                      rotation='vertical',
+                      transform=im_p.transAxes)
+
+        if row == 0:
+            im_p.set_title('Amp %d' % (col), fontsize=12)
+
+        if row in (0,1) and col == figCols-2:
+            cax = fig.add_subplot(gs[row,figCols-1])
+            fig.colorbar(im_pp, cax=cax, ticks=[-pixRange,0,pixRange])
+            cax.set_yticklabels([str(-pixRange),'0',str(pixRange)])
+            
+        ai_std1 = np.std(nAmpIm)
+        im_p.text(0.99, -0.05, 'sig=%0.2f' % (ai_std1),
+                  color=('black' if ai_std1 <= noiseLim else 'red'),
+                  weight='bold',
+                  horizontalalignment='right',
+                  verticalalignment='top',
+                  transform=im_p.transAxes)
+
+        if expectedLevels is not None:
+            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.01*expectedLevels[a_i]
+            color = 'black' if inspec else 'red'
+        else:
+            color = 'black'
+            
+        im_p.text(0.02, -0.05, 'med=%d' % (ai_med1),
+                  color=color,
+                  weight='bold',
+                  horizontalalignment='left',
+                  verticalalignment='top',
+                  transform=im_p.transAxes)
+
+        fftRow = row + 3
+        fft_gs = gs[fftRow, col]
+        fft_p = fig.add_subplot(fft_gs)
+        fft_p.xaxis.set_visible(False)
+        fft_p.yaxis.set_visible(False)
+
+        normArr = ampIm - ampIm.mean()
+        yhat = np.log10(np.absolute(np.fft.fft(normArr)))
+        if a_i == 0:
+            fft_mean = np.mean(bestYhat)
+            fft_pixRange = 3*np.std(bestYhat)
+            fftNorm = mpl.colors.Normalize(vmin=fft_mean - fft_pixRange,
+                                           vmax=fft_mean + fft_pixRange,
+                                           clip=True)
+        fp = fft_p.imshow(yhat, aspect='equal',
+                          norm=fftNorm, interpolation='none')
+
+        if col == 0:
+            fft_p.text(0, 0.5, 'CCD %d' % (row),
+                       size='large',
+                       horizontalalignment='right',
+                       verticalalignment='center',
+                       rotation='vertical',
+                       transform=fft_p.transAxes)
+            
+        if row == 0:
+            fft_p.set_title('Amp %d' % (col))
+
+    if title is not None:
+        fig.suptitle(title, fontsize=14, fontweight='bold')
+        
+    fig.show()
+    
+    return fig, gs
 
 def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=None):
     if fig is None:
@@ -195,7 +296,7 @@ def tuneLevels(ccd, fee, amps=None,
                sleepTime=0.5, clockFunc=None,legs='n',
                doZero=True, doUnwrap=65000):
     nAllAmps = 8
-    
+
     if amps is None:
         amps = range(nAllAmps)
     if isinstance(amps, int):
@@ -340,13 +441,13 @@ def tuneLevels(ccd, fee, amps=None,
         
     return offsets, devs, gains
 
-def gainCurve(ccd, fee, amps=None, 
+def gainCurve(ccd=None, fee=None, amps=None, 
               statCols=None, nrows=200, 
               doUnwrap=False, leg='n', clockFunc=None,
               stepSize=19.9*2, offLimit=199, sleepTime=0.1):
-    
+
     if amps is None:
-        amps = np.arange(namps)
+        amps = np.arange(8)
     if isinstance(amps, int):
         amps = np.zeros(8, dtype='i2') + amps
 
@@ -373,7 +474,7 @@ def gainCurve(ccd, fee, amps=None,
         im, files = ccdFuncs.fullExposure('bias', ccd=ccd, feeControl=fee,
                                           nrows=nrows,
                                           # rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict,
-                                          doSave=False,
+                                          doSave=False, doReset=False,
                                           clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')

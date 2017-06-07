@@ -71,7 +71,7 @@ class PfsCpo(object):
     modes = {'sample', 'average', 'envelope'}
 
     def __init__(self, host='10.1.1.52'):
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('scope')
         self.host = host
         self.resourceManager = None
         self.scope = None
@@ -202,16 +202,16 @@ class PfsCpo(object):
         self.write('ch%d:invert %s' % (channel, invert))
 
     def query(self, qstr, verbose=logging.INFO):
-        self.logger.debug('query send: %s', qstr)
+        self.logger.debug('query send: %r', qstr)
         ret = self.scope.query(qstr)
-        self.logger.debug('query recv: %s', ret)
+        self.logger.debug('query recv: %r', ret)
 
         return ret
 
     def write(self, wstr, verbose=logging.INFO):
-        self.logger.debug('write send: %s', wstr)
+        self.logger.debug('write send: %r', wstr)
         ret = self.scope.write(wstr)
-        self.logger.debug('write recv: %s', ret)
+        self.logger.debug('write recv: %r', ret)
 
         return ret
 
@@ -256,11 +256,11 @@ class PfsCpo(object):
             if t1-t0 > timeout:
                 raise RuntimeError('timeout waiting for operation end')
 
-    def runTest(self, test, debug=False):
+    def runTest(self, test, debug=False, trigger=None):
         startLevel = self.logger.level
 
         self.logger.info('running test %s', test.testName)
-        test.setup()
+        test.setup(trigger=trigger)
 
         self.logger.info('starting test %s (timer=%s)', test.testName, self.triggerAfter)
 
@@ -271,8 +271,13 @@ class PfsCpo(object):
             self.logger.info('forcing trigger')
             self.scope.write('trigger force')
 
+        if hasattr(test, 'triggerCB'):
+            self.logger.info('calling test trigger...')
+            test.triggerCB()
+            
         self.logger.info('waiting for end of test %s', test.testName)
-        self.busyWait()
+        timeout = test.timeout if hasattr(test, 'timeout') else 30.0
+        self.busyWait(timeout=timeout)
 
         self.logger.info('fetching data for test %s', test.testName)
 

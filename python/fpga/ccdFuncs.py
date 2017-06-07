@@ -12,9 +12,9 @@ import numpy as np
 
 import fitsio
 
-from . import ccd as ccdMod
+from fpga import ccd as ccdMod
 from fee import feeControl as feeMod
-from . import opticslab
+from fpga import opticslab
 
 reload(ccdMod)
 
@@ -86,12 +86,16 @@ def fnote(fname, ftype='', notes=''):
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
-def fetchCards(exptype=None, feeControl=None, expTime=0.0):
+def fetchCards(exptype=None, feeControl=None, expTime=0.0, getCards=True):
     """ Generate all FEE exposure cards, included times and IMAGETYP. """
 
     if feeControl is None:
         feeControl = feeMod.fee
-    feeCards = feeControl.statusAsCards()
+
+    if getCards:
+        feeCards = feeControl.statusAsCards()
+    else:
+        feeCards = []
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
         feeCards.insert(0, ('IMAGETYP', exptype, ''))
@@ -149,13 +153,34 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         feeControl.setMode('expose')
         time.sleep(0.25)
 
+def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
+    """ Configure and start the clocks for nrows of ncols. """
+
+    if nrows is None:
+        nrows = 2*1024*1024*1024 - 1
+        
+    if ccd is None:
+        ccd = ccdMod.ccd
+
+    if feeControl is None:
+        feeControl = feeMod.fee
+
+    ccd.pciReset()
+    readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
+                                    clockFunc=getReadClocks())
+    if cmd is not None:
+        cmd.inform('text="started clocking %d rows of %d columns: %0.2fs or so"' % (nrows, ncols, readTime))
+    
+    
 def readout(imtype, ccd=None, expTime=0, 
             nrows=None, ncols=None,
             clockFunc=None,
             doSave=True, comment='',
             extraCards=(),
+            doFeeCards=True,
             feeControl=None, cmd=None,
-            rowStatsFunc=None):
+            rowStatsFunc=None,
+            doModes=True):
 
     """ Wrap a complete detector readout: no wipe, but with a log note, FITS cards and left in idle mode.  """
     
@@ -171,19 +196,23 @@ def readout(imtype, ccd=None, expTime=0,
         feeControl = feeMod.fee
 
     t0 = time.time()
-    feeControl.setMode('read')
-    time.sleep(1)               # Per JEG
+    if doModes:
+        feeControl.setMode('read')
+        time.sleep(0.5)               # 1s per JEG
     t1 = time.time()
     
-    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime)
+    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
+                          getCards=doFeeCards)
+
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
                                clockFunc=clockFunc, doSave=doSave,
                                comment=comment, addCards=feeCards)
     t2 = time.time()
-    feeControl.setMode('idle')
-    time.sleep(0.5)
+    if doModes:
+        feeControl.setMode('idle')
+        time.sleep(0.5)
     t3 = time.time()
     
     print "file : %s" % (imfile)
@@ -199,7 +228,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
                  nrows=None, ncols=None,
                  clockFunc=None, doWipe=True,
                  doSave=True, comment='',
-                 extraCards=(),
+                 extraCards=(), doFeeCards=True,
                  feeControl=None, cmd=None):
 
     """ Wrap a complete exposure, including wipe, sleep, and readout. 
@@ -234,6 +263,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     im, imfile = readout(imtype, ccd=ccd, expTime=expTime,
                          nrows=nrows, ncols=ncols,
                          clockFunc=clockFunc, doSave=doSave,
+                         doFeeCards=doFeeCards,
                          comment=comment, extraCards=extraCards,
                          rowStatsFunc=False, cmd=cmd,
                          feeControl=feeControl)

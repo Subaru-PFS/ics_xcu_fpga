@@ -12,7 +12,7 @@ import time
 
 import logging
 import os
-
+import sys
 import astropy.io.fits as pyfits
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -30,11 +30,13 @@ waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
 class TestRig(object):
     def __init__(self, dirName=None, seqno=None, root='/data/pfseng'):
+        self.logger = logging.getLogger('testrig')
+        self.logger.setLevel(logging.INFO)
+
         self.rootDir = root
         self.fileMgr = SeqPath.NightFilenameGen(root,
                                                 filePrefix='xx',
                                                 filePattern="%(seqno)06d")
-
         self.scope = None
         self.mux = None
         
@@ -139,6 +141,12 @@ class BenchRig(TestRig):
                      M11='BB')
 
     leadPins = {v:k for k,v in leadNames.items()}
+
+    # per-amp bias levels measured with the bench fake CCD, which
+    # should always be the same, well within 1%.
+    #
+    expectedLevels = (6200, 5050, 3725, 2570,
+                      6140, 5010, 4000, 2630)
     
     def __init__(self, dewar=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
@@ -207,6 +215,8 @@ class BenchRig(TestRig):
         self.ccd = None
         self.amp = None
 
+        self._frontPage = None
+        
     def __str__(self):
         """ describe all our tests and where the test pointer is. """
         
@@ -301,12 +311,12 @@ class BenchRig(TestRig):
             self.seqNum += 1
             return True
         
-        print("configuring MUX for %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
-
         test = testClass(self, ccd, amp,
                          dewar=self.dewar,
                          comment=comment)
-        self.configMux(ccd, amp, test)
+        if test.leadNames():
+            print("configuring MUX for %s%s\n" % (self.describeTest(), ("" if not comment else " (%s)" % comment)))
+            self.configMux(ccd, amp, test)
 
         print("running %s%s\n" % (self.describeTest(withLeads=False), ("" if not comment else " (%s)" % comment)))
 
@@ -323,24 +333,71 @@ class BenchRig(TestRig):
             print("test FAILED: %s" % (e))
             return False
 
+        if ret is False:
+            print("test FAILED, stopping.")
+            return False
+        
         test.save()
         ret = test.plot()
-        fig, pl = ret
         basePath, _ = os.path.splitext(test.fullPath)
         pdfPath = "%s.pdf" % (basePath)
 
-        if fig is not None:
-            if self.pdf is None:
-                self.pdf = PdfPages(os.path.join(self.dirName, 'report-%0.5d.pdf' % (self.seqno)))
-
-            fig.savefig(pdfPath)
-            self.pdf.savefig(fig)
-            print("PDF is at %s" % (pdfPath))
+        if isinstance(ret, str):
+            self.logger.warn('not yet formatting Markdown output')
+        else:
+            fig, pl = ret
+            if fig is not None:
+                fig.savefig(pdfPath)
+                print("PDF is at %s" % (pdfPath))
 
         self.seqNum += 1
         
         return test
 
+    @property
+    def frontPagePath(self):
+        return os.path.join(self.dirName, 'frontpage.md')
+    
+    @property
+    def frontPage(self):
+        if self._frontPage is None:
+            self._frontPage = self._startfrontPage()
+        return self._frontPage
+
+    def _startfrontPage(self):
+        fname = self.frontPagePath
+        f = open(fname, 'w', buffering=1)
+
+        d, testSeq = os.path.split(self.dirName)
+        d, testDate = os.path.split(d)
+        
+        f.write('# DAQ test %s on %s\n\n' % (testSeq, testDate))
+
+        f.write('**Path**: `%s`\n\n' % (self.dirName))
+        f.write('**Date**: %s\n\n' % (time.strftime("%Y-%m-%d %H:%M:%S")))
+        
+        return f
+
+    @property
+    def ourPath(self):
+        import inspect
+        here, _ = os.path.split(inspect.getsourcefile(self.__class__))
+        return here
+    
+    def finishFrontPage(self):
+        mdName = self.frontPagePath
+        self.frontPage.close()
+        self._frontPage = None
+        
+        pdfName = "%s.pdf" % (os.path.splitext(mdName)[0])
+        texName = "%s.tex" % (os.path.splitext(mdName)[0])
+        subprocess.call('pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
+                                                                               pdfName, mdName), shell=True)
+        subprocess.call('pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
+                                                                               texName, mdName), shell=True)
+        print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
+                                                                         texName, mdName))
+        
     def runBlock(self, noRun=False, muxOK=False):
         """ run tests until failure or the next MUX reconfiguration
 
@@ -360,7 +417,9 @@ class BenchRig(TestRig):
         while True:
             ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
             if testClass is None:
-                print("MUX reconfiguration: you need to %s" % (comment2))
+                print
+                print("============= MUX reconfiguration: you need to %s" % (comment2))
+                print
                 return True
 
             ret = self.runTest(noRun=noRun)
@@ -562,7 +621,6 @@ class FakeCcd(object):
             nrows, ncols = im.shape
                 
         ampCols = ncols / 8
-        # return slice(ampCols*ampid, ampCols*(ampid+1))
         return np.arange(ampCols*ampid, ampCols*(ampid+1), dtype='i4')
     
 class SanityTest(OneTest):
@@ -570,9 +628,12 @@ class SanityTest(OneTest):
     label = 'serials and voltages'
     leads = ''
     timeout = 30
+
+    CheckedValue = collections.namedtuple('CheckedValue', ['name', 'value', 'status'])
     
     def initTest(self):
-        pass
+        self.voltages = []
+        self.serials = []
 
     def setup(self, trigger=None):
         pass
@@ -588,48 +649,57 @@ class SanityTest(OneTest):
     def checkSerials(self, cards):
         """ Check all chain serial numbers, etc. """
         
-        errors = []
-
         for n in 'fee', 'adc', 'pa0':
             try:
                 flag, numVal = getCardValue(cards, 'serial_%s' % (n), self.base10Cnv)
             except KeyError:
-                errors.append(n)
+                self.serials.append(self.CheckedValue(n, 'missing', 'cannot read'))
                 self.logger.warning('could not get serial ID for %s', n)
                 continue
             except ValueError:
-                errors.append(n)
                 flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
-                self.logger.warning('serial ID for %s is not an integer: %s', n, rawVal)
+                self.serials.append(self.CheckedValue(n, rawVal, 'is not an integer'))
                 continue
 
             if numVal == 2**32 - 1:
-                errors.append(n)
-                self.logger.warning('serial ID for %s has not been set: %s', n, numVal)
+                self.serials.append(self.CheckedValue(n, numVal, 'has not been set'))
                 continue
 
-            self.logger.info('OK %s serial: %s', n, numVal)
-            
+            self.serials.append(self.CheckedValue(n, numVal, 'OK'))
+
         for n in 'ccd0', 'ccd1':
             try:
                 flag, asciiVal = getCardValue(cards, 'serial_%s' % (n), self.asciiCnv)
             except KeyError:
-                errors.append(n)
-                self.logger.warning('could not get serial ID for %s', n)
+                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
                 continue
             except UnicodeDecodeError:
-                errors.append(n)
                 flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
-                self.logger.warning('serial ID for %s is garbage or has not been set: %r', n, rawVal)
+                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
                 continue
 
-            self.logger.info('OK %s serial: %s', n, asciiVal)
+            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
 
-        for error in errors:
-            self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
-                                 error, self.dewar, error.upper())
+        haveErrors = False
+        for n in 'fee',:
+            try:
+                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
+            except KeyError:
+                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
+                continue
+            except UnicodeDecodeError:
+                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
+                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
+                continue
+            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
+        
+        for s in self.serials:
+            if s.status != 'OK':
+                self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
+                                     s.name, self.dewar, s.name)
+                haveErrors = True
 
-        return len(errors) == 0
+        return not haveErrors
 
     def checkVoltages(self, cards):
 
@@ -641,24 +711,21 @@ class SanityTest(OneTest):
             Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
             Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=12.0, lo=0.03, hi=0.03),
-            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.04),
-            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.05),
-            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.10),
+            Voltage(name='12vp', nominal=12.0, lo=0.04, hi=0.01),
+            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.01),
+            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.01),
+            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.01),
         ]
-        errors = []
 
         for v in vlist:
             try:
                 flag, numVal = getCardValue(cards, 'voltage_%s' % (v.name), float)
             except KeyError:
-                errors.append(v.name)
-                self.logger.warning('could not get measured voltage %s', v.name)
+                self.voltages.append(self.CheckedValue(v.name, 'missing', 'could not read'))
                 continue
             except ValueError:
-                errors.append(v.name)
                 flag, rawVal = getCardValue(cards, 'voltage_%s' % (v.name))
-                self.logger.warning('voltage %s is not a float: %s', v.name, rawVal)
+                self.voltages.append(self.CheckedValue(v.name, str(rawVal), 'not a valid float'))
                 continue
 
             loLimit = v.nominal - v.nominal*v.lo
@@ -667,32 +734,83 @@ class SanityTest(OneTest):
                 loLimit, hiLimit = hiLimit, loLimit
                 
             if numVal < loLimit or numVal > hiLimit:
-                errors.append(v.name)
-                self.logger.warning('voltage %s is out of range %0.3fV vs. [%0.3fV, %0.3fV]',
-                                    v.name, numVal, loLimit, hiLimit)
+                self.voltages.append(self.CheckedValue(v.name, '% 0.3fV' % (numVal),
+                                                       'out of range [% 0.3fV, % 0.3fV]' % (loLimit, hiLimit)))
                 continue
 
-            self.logger.info('OK voltage %s: %0.3fV (%0.1fV %+0.1f%%)',
-                             v.name, numVal, v.nominal, 100*(numVal/v.nominal - 1))
+            self.voltages.append(self.CheckedValue(v.name,
+                                                   '% 0.3fV (% 0.1fV %+0.1f%%)' % (numVal, v.nominal,
+                                                                                   100*(numVal/v.nominal - 1)),
+                                                   'OK'))
 
-        for error in errors:
-            self.logger.critical('FIX voltage %s', error)
+        try:
+            flag, numVal = getCardValue(cards, 'bias_ch0_bb', float)
+            if numVal < 9:
+                raise RuntimeError('!!!! FEE has not been calibrated!!!!!')
+        except KeyError:
+            self.voltages.append(self.CheckedValue('VBB', 'missing', 'could not read'))
+        except ValueError:
+            flag, rawVal = getCardValue(cards, 'bias_ch0_bb')
+            self.voltages.append(self.CheckedValue('VBB', str(rawVal), 'not a valid float'))
+        
+        haveErrors = False
+        for s in self.voltages:
+            if s.status != 'OK':
+                self.logger.critical('FIX voltage %s', s.name)
+                haveErrors = True
 
-        return len(errors) == 0
+        return not haveErrors
 
+    def formatCheckedValues(self):
+        lines = []
+
+        nameLen = max([len(s.name) for s in self.serials])
+        valueLen = max([len(str(s.value)) for s in self.serials])
+        statusLen = max([len(s.status) for s in self.serials])
+        
+        fmt = "%%-%ds | %%-%ds | %%-%ds" % (nameLen, valueLen, statusLen)
+        lines.append('## Serial numbers')
+        lines.append('')
+        lines.append(fmt % ('Name', 'Value', 'Status'))
+        lines.append(fmt % ('-'*nameLen, '-'*valueLen, '-'*statusLen))
+        for s in self.serials:
+            lines.append(fmt % (s.name, s.value, s.status))
+
+        nameLen = max([len(s.name) for s in self.voltages])
+        valueLen = max([len(str(s.value)) for s in self.voltages])
+        statusLen = max([len(s.status) for s in self.voltages])
+        fmt = "%%-%ds | %%-%ds | %%-%ds" % (nameLen, valueLen, statusLen)
+        
+        lines.append('')
+        lines.append('## Voltages')
+        lines.append('')
+        lines.append(fmt % ('Name', 'Value', 'Status'))
+        lines.append(fmt % ('-'*nameLen, '-'*valueLen, '-'*statusLen))
+        for s in self.voltages:
+            lines.append(fmt % (s.name, s.value, s.status))
+        lines.append('')
+
+        return '\n'.join(lines)
+    
     def runTest(self, trigger=None):
         cards = oneCmd('ccd_%s' % (self.dewar), '--level=i fee status', doPrint=False)
-        if not self.checkSerials(cards):
-            raise RuntimeError('serial number checks failed!')
-        if not self.checkVoltages(cards):
-            raise RuntimeError('voltage checks failed!')
+        ok1 = self.checkSerials(cards)
+        ok2 = self.checkVoltages(cards)
+        ok = ok1 and ok2
+        
+        print self.formatCheckedValues()
+        print
+        return ok
             
     def fetchData(self):
         pass
     
     def save(self, comment=''):
-        pass
-    
+        mdfile = self.rig.frontPage
+        mdfile.write(self.formatCheckedValues())
+        mdfile.write('\n')
+        mdfile.flush()
+        
     def plot(self, fitspath=None):
         return None, None
 
@@ -731,14 +849,88 @@ class ReadnoiseTest(OneTest):
         if self.fitspath is not None:
             shutil.copy(self.fitspath, os.path.join(self.rig.dirName,
                                                     os.path.basename(self.fitspath)))
-    
     def plot(self, fitspath=None):
         if fitspath is None:
             fitspath = self.fitspath
-        plt.ioff()
+        # plt.ioff()
+
+        fakeCcd = FakeCcd()
+        
+        im = pyfits.getdata(fitspath)
+        statCols = slice(8,None)
+        fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
+                                     title=fitspath,
+                                     expectedLevels=self.rig.expectedLevels,
+                                     cols=statCols)
+        levels, devs = nbFuncs.ampStats(im, cols=statCols, ccd=fakeCcd)
+        mdfile = self.rig.frontPage
+        mdfile.write('## Noise\n')
+        mdfile.write('\n')
+        mdfile.write('Amp ID | Bias    | Stdev\n')
+        mdfile.write('------ | ------- | -----\n')
+        fmt = "%-6s | %0.2f | %0.2f\n"
+        for i in range(len(levels)):
+            mdfile.write(fmt % ('ccd%d/%d' % (i/4, i%4), levels[i], devs[i]))
+        mdfile.write('\n')
+
+        row = im.shape[0]//2
+        cols = np.arange(50)
+        
+        f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
+        f2.savefig('starts.pdf')
+        
+        cols = np.arange(30,im.shape[1]//8)
+        f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
+        f3.savefig('levels.pdf')
+        
+        self.rig.finishFrontPage()
+        
+        return fig, gs
+
+class OffsetTest(OneTest):
+    testName = 'Offsets'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+    
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None):
+        self.logger.info("calling for a wipe")
+        oneCmd('ccd_%s' % (self.dewar), 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd('ccd_%s' % (self.dewar), 'read bias nrows=500 ncols=500')
+
+        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
+        self.fitspath = None
+        for l in output:
+            m = re.search('.*filepath=(.*\.fits).*', l)
+            if m:
+                pathparts = m.group(1)
+                self.fitspath = os.path.join(*pathparts.split(','))
+                print("set filepath to: %s" % self.fitspath)
+            
+    def fetchData(self):
+        pass
+    
+    def save(self, comment=''):
+        if self.fitspath is not None:
+            shutil.copy(self.fitspath, os.path.join(self.rig.dirName,
+                                                    os.path.basename(self.fitspath)))
+        
+    def plot(self, fitspath=None):
+        if fitspath is None:
+            fitspath = self.fitspath
+        # plt.ioff()
         im = pyfits.getdata(fitspath)
         fig, gs = nbFuncs.rawAmpGrid(im, FakeCcd(),
                                      title=fitspath,
+                                     expectedLevels=self.rig.expectedLevels,
                                      cols=slice(50,None))
         return fig, gs
 
@@ -780,7 +972,7 @@ class V0Test(OneTest):
 
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1.0, 
-                       xlim=(-1,15), ylim=(-20,20), 
+                       xlim=(-1,10), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
 class S0Test(OneTest):
