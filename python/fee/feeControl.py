@@ -663,7 +663,7 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=True):
+    def sendImage(self, path, verbose=True, doWait=True, sendReset=False):
         """ Download an image file. """
 
         eol = chr(0x0a)
@@ -672,9 +672,13 @@ class FeeControl(object):
         lineNumber = 1
         maxRetries = 5
 
+        if sendReset:
+            ret = self.sendCommandStr('reboot')
+            
         if doWait:
-            self.device.timeout = 15
-            ret = self.device.readline()
+            if not sendReset:
+                self.device.timeout = 15
+                ret = self.device.readline()
             retline = ret.strip()
             isBootLoader = 'Bootloader' in retline
             if not isBootLoader:
@@ -691,6 +695,8 @@ class FeeControl(object):
         if not ret.startswith('*Waiting for Data...'):
             self.logger.warn('at bootloader *, got %r' % (ret))
             ret = self.device.readline()
+            if not ret.startswith('*Waiting for Data...'):
+                raise RuntimeError('could not get *Waiting for Data')
 
         logLevel = self.logger.level
         self.logger.setLevel(logging.INFO)
