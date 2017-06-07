@@ -740,10 +740,19 @@ class SanityTest(OneTest):
 
             self.voltages.append(self.CheckedValue(v.name,
                                                    '% 0.3fV (% 0.1fV %+0.1f%%)' % (numVal, v.nominal,
-                                                                                 100*(numVal/v.nominal - 1)),
+                                                                                   100*(numVal/v.nominal - 1)),
                                                    'OK'))
 
-
+        try:
+            flag, numVal = getCardValue(cards, 'bias_ch0_bb', float)
+            if numVal < 9:
+                raise RuntimeError('!!!! FEE has not been calibrated!!!!!')
+        except KeyError:
+            self.voltages.append(self.CheckedValue('VBB', 'missing', 'could not read'))
+        except ValueError:
+            flag, rawVal = getCardValue(cards, 'bias_ch0_bb')
+            self.voltages.append(self.CheckedValue('VBB', str(rawVal), 'not a valid float'))
+        
         haveErrors = False
         for s in self.voltages:
             if s.status != 'OK':
