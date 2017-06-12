@@ -175,6 +175,7 @@ class BenchRig(TestRig):
 
                          [0, 0, None, 'insert terminators into all amp channels'],
                          [0, 0, ReadnoiseTest, None],
+                         [0, 0, OffsetTest, None],
 
                          [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
                          [1, 0, V0Test, None],
@@ -616,6 +617,8 @@ def getCardValue(cards, name, cnv=None):
     raise KeyError('%s not found in cards' % (name))
 
 class FakeCcd(object):
+    namps = 8
+    
     def ampidx(self, ampid, im=None):
         if im is not None:
             nrows, ncols = im.shape
@@ -841,7 +844,8 @@ class ReadnoiseTest(OneTest):
                 pathparts = m.group(1)
                 self.fitspath = os.path.join(*pathparts.split(','))
                 print("set filepath to: %s" % self.fitspath)
-            
+
+        
     def fetchData(self):
         pass
     
@@ -887,6 +891,12 @@ class ReadnoiseTest(OneTest):
         
         return fig, gs
 
+def calcOffsets(target, current):
+    m = np.round((target - current) / 30, 1)
+    r = np.round(m * 40.0/57.0)
+    
+    return m, r
+            
 class OffsetTest(OneTest):
     testName = 'Offsets'
     label = "terminated readout"
@@ -899,41 +909,65 @@ class OffsetTest(OneTest):
     def setup(self, trigger=None):
         pass
 
-    def runTest(self, trigger=None):
-        self.logger.info("calling for a wipe")
-        oneCmd('ccd_%s' % (self.dewar), 'wipe')
-        self.logger.info("done with wipe")
-        self.logger.info("calling for a read")
-        output = oneCmd('ccd_%s' % (self.dewar), 'read bias nrows=500 ncols=500')
-
-        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
-        self.fitspath = None
+    def getPath(self, output):
         for l in output:
             m = re.search('.*filepath=(.*\.fits).*', l)
             if m:
                 pathparts = m.group(1)
-                self.fitspath = os.path.join(*pathparts.split(','))
-                print("set filepath to: %s" % self.fitspath)
-            
+                fitspath = os.path.join(*pathparts.split(','))
+                return fitspath
+        return None
+        
+    def runTest(self, trigger=None):
+        ccdName = "ccd_%s" % (self.dewar)
+        for leg in 'n', 'p':
+            for i, v in enumerate(np.linspace(0.0, 399.9, 5)):
+                vlist = tuple([v]*8)
+                if leg == 'p':
+                    print("====== offset test, ref=%0.2f master=0.00" % (v))
+                    oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
+                else:
+                    print("====== offset test, ref=0.00 master=%0.2f" % (v))
+                    oneCmd(ccdName, 'fee setOffsets p=0,0,0,0,0,0,0,0 n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
+                oneCmd(ccdName, 'wipe ncols=100')
+                output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
+
+                fitspath = self.getPath(output)
+                shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                                   os.path.basename(fitspath)))
+
+                if leg == 'n' and i == 0:
+                    im = pyfits.getdata(fitspath)
+                    fakeCcd = FakeCcd()
+                    means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                    
+        m, r = calcOffsets(1000,means)
+        print("applying master: %s" % (m))
+        print("applying refs  : %s" % (r))
+
+        vlist = tuple(m) + tuple(r)
+        oneCmd(ccdName,
+               'fee setOffsets n=%f,%f,%f,%f,%f,%f,%f,%f p=%f,%f,%f,%f,%f,%f,%f,%f' % vlist)
+        oneCmd(ccdName, 'wipe ncols=100')
+        output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
+
+        fitspath = self.getPath(output)
+        shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                           os.path.basename(fitspath)))
+        im = pyfits.getdata(fitspath)
+        fakeCcd = FakeCcd()
+        means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+        print("file : %s" % (fitspath))
+        print("adjusted means: %s" % (means))
+        
     def fetchData(self):
         pass
     
     def save(self, comment=''):
-        if self.fitspath is not None:
-            shutil.copy(self.fitspath, os.path.join(self.rig.dirName,
-                                                    os.path.basename(self.fitspath)))
+        pass
         
     def plot(self, fitspath=None):
-        if fitspath is None:
-            fitspath = self.fitspath
-        # plt.ioff()
-        im = pyfits.getdata(fitspath)
-        fig, gs = nbFuncs.rawAmpGrid(im, FakeCcd(),
-                                     title=fitspath,
-                                     expectedLevels=self.rig.expectedLevels,
-                                     cols=slice(50,None))
-        return fig, gs
-
+        return None, None
 
 class V0Test(OneTest):
     testName = 'V0'
