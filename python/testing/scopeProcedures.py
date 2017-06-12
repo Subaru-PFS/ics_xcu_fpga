@@ -580,7 +580,6 @@ class OneTest(object):
 def oneCmd(actor, cmdStr, doPrint=True):
     fullCmdStr = "oneCmd.py %s %s" % (actor, cmdStr)
 
-    output = subprocess.check_output(fullCmdStr, shell=True, universal_newlines=True)
     p = subprocess.Popen(fullCmdStr, shell=True, bufsize=1,
                          universal_newlines=True,
                          stdout=subprocess.PIPE,
