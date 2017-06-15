@@ -224,7 +224,42 @@ class BenchRig(TestRig):
         superStr = TestRig.__str__(self)
 
         return "%s\n\n%s" % (superStr, self.describeSequence())
-    
+
+    def setSerials(self, PA0=None, ADC=None, CCD0=None, CCD1=None):
+        serials = dict(PA0=PA0, ADC=ADC, CCD0=CCD0, CCD1=CCD1)
+        
+        for s in serials.keys():
+            if serials[s] is not None:
+                oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
+                
+    def calibrateFee(self):
+        subprocess.call('oneCmd.py ccd_%s fee calibrate' % (self.dewar), shell=True)
+
+    def powerDown(self):
+        subprocess.call('oneCmd.py xcu_%s power off fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+
+    def powerUp(self, delay=3.5):
+        subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
+        time.sleep(delay)
+        subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+            
+    def burnFee(self):
+        feePath = "/home/pfs/fee/current.hex"
+        print "downloading fee firmware....."
+        self.powerDown()
+        subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+        subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+        
+        oneCmd('ccd_%s' % (self.dewar), '--level=d fee download pathname="%s"' % (feePath))
+        print "done downloading fee firmware, we hope...."
+
+        self.powerDown()
+        self.powerUp()
+        
     def describeTest(self, seqNum=None, withLeads=True):
         if seqNum is None:
             seqNum = self.seqNum
