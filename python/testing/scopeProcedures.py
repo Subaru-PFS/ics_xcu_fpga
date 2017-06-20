@@ -434,7 +434,7 @@ class BenchRig(TestRig):
         print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                          texName, mdName))
         
-    def runBlock(self, noRun=False, muxOK=False):
+    def runBlock(self, noRun=False, muxOK=True):
         """ run tests until failure or the next MUX reconfiguration
 
         Args
@@ -685,6 +685,18 @@ class SanityTest(OneTest):
         
     def checkSerials(self, cards):
         """ Check all chain serial numbers, etc. """
+
+        for n in 'fee',:
+            try:
+                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
+            except KeyError:
+                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
+                continue
+            except UnicodeDecodeError:
+                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
+                self.serials.append(self.CheckedValue(n, repr(rawVal), 'garbage or has not been set'))
+                continue
+            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
         
         for n in 'fee', 'adc', 'pa0':
             try:
@@ -712,28 +724,16 @@ class SanityTest(OneTest):
                 continue
             except UnicodeDecodeError:
                 flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
-                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
+                self.serials.append(self.CheckedValue(n, repr(rawVal)[:15], 'garbage or has not been set'))
                 continue
 
             self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
 
         haveErrors = False
-        for n in 'fee',:
-            try:
-                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
-            except KeyError:
-                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
-                continue
-            except UnicodeDecodeError:
-                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
-                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
-                continue
-            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
-        
         for s in self.serials:
             if s.status != 'OK':
-                self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
-                                     s.name, self.dewar, s.name)
+                self.logger.critical('MUST set %s serial number with: rig.setSerials(%s=VALUE)',
+                                     s.name, s.name.upper())
                 haveErrors = True
 
         return not haveErrors
