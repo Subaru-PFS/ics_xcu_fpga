@@ -771,7 +771,9 @@ class SanityTest(OneTest):
                 loLimit, hiLimit = hiLimit, loLimit
                 
             if numVal < loLimit or numVal > hiLimit:
-                self.voltages.append(self.CheckedValue(v.name, '% 0.3fV' % (numVal),
+                self.voltages.append(self.CheckedValue(v.name,
+                                                       '% 0.3fV (% 0.1fV %+0.1f%%)' % (numVal, v.nominal,
+                                                                                       100*(numVal/v.nominal - 1)),
                                                        'out of range [% 0.3fV, % 0.3fV]' % (loLimit, hiLimit)))
                 continue
 
