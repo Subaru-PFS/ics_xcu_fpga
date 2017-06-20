@@ -917,7 +917,7 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
-        statCols = slice(8,None)
+        statCols = slice(100,None)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
                                      expectedLevels=self.rig.expectedLevels,
@@ -935,11 +935,10 @@ class ReadnoiseTest(OneTest):
 
         row = im.shape[0]//2
         cols = np.arange(50)
-        
         f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
         f2.savefig('starts.pdf')
         
-        cols = np.arange(30,im.shape[1]//8)
+        cols = np.arange(10,im.shape[1]//8)
         f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
         f3.savefig('levels.pdf')
         
