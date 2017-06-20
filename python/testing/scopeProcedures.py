@@ -836,23 +836,38 @@ class SanityTest(OneTest):
         return '\n'.join(lines)
     
     def runTest(self, trigger=None):
-        cards = oneCmd('ccd_%s' % (self.dewar), '--level=i fee status', doPrint=False)
+        self.rig.powerDown()
+        self.rig.powerUp()
+        oneCmd('ccd_%s' % (self.dewar), '--level=d fee setMode idle', doPrint=True)
+        time.sleep(3)
+        
+        cards = oneCmd('ccd_%s' % (self.dewar), '--level=d fee status', doPrint=False)
+        if 'command echo mismatch' in ' '.join(cards):
+            print("################################################################")
+            print("  cannot read FEE revision: has FEE firmware been downloaded?")
+            print("  if not, please download with 'rig burnFee'")
+            print("################################################################")
+            return False
+    
         ok1 = self.checkSerials(cards)
         ok2 = self.checkVoltages(cards)
         ok = ok1 and ok2
         
         print self.formatCheckedValues()
         print
+
+        mdfile = self.rig.frontPage
+        mdfile.write(self.formatCheckedValues())
+        mdfile.write('\n')
+        mdfile.flush()
+        
         return ok
             
     def fetchData(self):
         pass
     
     def save(self, comment=''):
-        mdfile = self.rig.frontPage
-        mdfile.write(self.formatCheckedValues())
-        mdfile.write('\n')
-        mdfile.flush()
+        pass
         
     def plot(self, fitspath=None):
         return None, None
