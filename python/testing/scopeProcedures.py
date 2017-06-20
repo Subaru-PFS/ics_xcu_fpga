@@ -224,7 +224,42 @@ class BenchRig(TestRig):
         superStr = TestRig.__str__(self)
 
         return "%s\n\n%s" % (superStr, self.describeSequence())
-    
+
+    def setSerials(self, PA0=None, ADC=None, CCD0=None, CCD1=None):
+        serials = dict(PA0=PA0, ADC=ADC, CCD0=CCD0, CCD1=CCD1)
+        
+        for s in serials.keys():
+            if serials[s] is not None:
+                oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
+                
+    def calibrateFee(self):
+        subprocess.call('oneCmd.py ccd_%s fee calibrate' % (self.dewar), shell=True)
+
+    def powerDown(self):
+        subprocess.call('oneCmd.py xcu_%s power off fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+
+    def powerUp(self, delay=3.5):
+        subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
+        time.sleep(delay)
+        subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+            
+    def burnFee(self):
+        feePath = "/home/pfs/fee/current.hex"
+        print "downloading fee firmware....."
+        self.powerDown()
+        subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+        subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
+        
+        oneCmd('ccd_%s' % (self.dewar), '--level=d fee download pathname="%s"' % (feePath))
+        print "done downloading fee firmware, we hope...."
+
+        self.powerDown()
+        self.powerUp()
+        
     def describeTest(self, seqNum=None, withLeads=True):
         if seqNum is None:
             seqNum = self.seqNum
@@ -399,7 +434,7 @@ class BenchRig(TestRig):
         print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                          texName, mdName))
         
-    def runBlock(self, noRun=False, muxOK=False):
+    def runBlock(self, noRun=False, muxOK=True):
         """ run tests until failure or the next MUX reconfiguration
 
         Args
@@ -650,6 +685,18 @@ class SanityTest(OneTest):
         
     def checkSerials(self, cards):
         """ Check all chain serial numbers, etc. """
+
+        for n in 'fee',:
+            try:
+                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
+            except KeyError:
+                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
+                continue
+            except UnicodeDecodeError:
+                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
+                self.serials.append(self.CheckedValue(n, repr(rawVal), 'garbage or has not been set'))
+                continue
+            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
         
         for n in 'fee', 'adc', 'pa0':
             try:
@@ -677,28 +724,16 @@ class SanityTest(OneTest):
                 continue
             except UnicodeDecodeError:
                 flag, rawVal = getCardValue(cards, 'serial_%s' % (n))
-                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
+                self.serials.append(self.CheckedValue(n, repr(rawVal)[:15], 'garbage or has not been set'))
                 continue
 
             self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
 
         haveErrors = False
-        for n in 'fee',:
-            try:
-                flag, asciiVal = getCardValue(cards, 'revision_%s' % (n), self.asciiCnv)
-            except KeyError:
-                self.serials.append(self.CheckedValue(n, 'missing', 'could not read'))
-                continue
-            except UnicodeDecodeError:
-                flag, rawVal = getCardValue(cards, 'revision_%s' % (n))
-                self.serials.append(n, repr(rawVal), 'garbage or has not been set')
-                continue
-            self.serials.append(self.CheckedValue(n, asciiVal, 'OK'))
-        
         for s in self.serials:
             if s.status != 'OK':
-                self.logger.critical('MUST set %s serial number with: !oneCmd.py ccd_%s fee setSerials %s=VALUE',
-                                     s.name, self.dewar, s.name)
+                self.logger.critical('MUST set %s serial number with: rig.setSerials(%s=VALUE)',
+                                     s.name, s.name.upper())
                 haveErrors = True
 
         return not haveErrors
@@ -709,14 +744,14 @@ class SanityTest(OneTest):
         vlist = [
             Voltage(name='3v3m', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='3v3', nominal=3.3, lo=0.02, hi=0.02),
-            Voltage(name='5vp', nominal=5.0, lo=0.03, hi=0.03),
+            Voltage(name='5vp', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
             Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=12.0, lo=0.04, hi=0.01),
-            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.01),
-            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.01),
-            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.01),
+            Voltage(name='12vp', nominal=12.0, lo=0.02, hi=0.02),
+            Voltage(name='12vn', nominal=-12.0, lo=0.02, hi=0.02),
+            Voltage(name='24vn', nominal=-24.0, lo=0.02, hi=0.02),
+            Voltage(name='54vp', nominal=54.0, lo=0.02, hi=0.02),
         ]
 
         for v in vlist:
@@ -736,7 +771,9 @@ class SanityTest(OneTest):
                 loLimit, hiLimit = hiLimit, loLimit
                 
             if numVal < loLimit or numVal > hiLimit:
-                self.voltages.append(self.CheckedValue(v.name, '% 0.3fV' % (numVal),
+                self.voltages.append(self.CheckedValue(v.name,
+                                                       '% 0.3fV (% 0.1fV %+0.1f%%)' % (numVal, v.nominal,
+                                                                                       100*(numVal/v.nominal - 1)),
                                                        'out of range [% 0.3fV, % 0.3fV]' % (loLimit, hiLimit)))
                 continue
 
@@ -748,6 +785,10 @@ class SanityTest(OneTest):
         try:
             flag, numVal = getCardValue(cards, 'bias_ch0_bb', float)
             if numVal < 9:
+                print("################################################################")
+                print("   FEE has not been calibrated (VBB=%s). " % (numVal))
+                print("   if you want to, run 'rig.calibrateFee()'")
+                print("################################################################")
                 raise RuntimeError('!!!! FEE has not been calibrated!!!!!')
         except KeyError:
             self.voltages.append(self.CheckedValue('VBB', 'missing', 'could not read'))
@@ -795,23 +836,38 @@ class SanityTest(OneTest):
         return '\n'.join(lines)
     
     def runTest(self, trigger=None):
-        cards = oneCmd('ccd_%s' % (self.dewar), '--level=i fee status', doPrint=False)
+        self.rig.powerDown()
+        self.rig.powerUp()
+        oneCmd('ccd_%s' % (self.dewar), '--level=d fee setMode idle', doPrint=True)
+        time.sleep(3)
+        
+        cards = oneCmd('ccd_%s' % (self.dewar), '--level=d fee status', doPrint=False)
+        if 'command echo mismatch' in ' '.join(cards):
+            print("################################################################")
+            print("  cannot read FEE revision: has FEE firmware been downloaded?")
+            print("  if not, please download with 'rig burnFee'")
+            print("################################################################")
+            return False
+    
         ok1 = self.checkSerials(cards)
         ok2 = self.checkVoltages(cards)
         ok = ok1 and ok2
         
         print self.formatCheckedValues()
         print
+
+        mdfile = self.rig.frontPage
+        mdfile.write(self.formatCheckedValues())
+        mdfile.write('\n')
+        mdfile.flush()
+        
         return ok
             
     def fetchData(self):
         pass
     
     def save(self, comment=''):
-        mdfile = self.rig.frontPage
-        mdfile.write(self.formatCheckedValues())
-        mdfile.write('\n')
-        mdfile.flush()
+        pass
         
     def plot(self, fitspath=None):
         return None, None
@@ -830,11 +886,15 @@ class ReadnoiseTest(OneTest):
 
     def runTest(self, trigger=None):
         ccdName = "ccd_%s" % (self.dewar)
+        if False:
+            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
+        else:
+            oneCmd(ccdName, 'fee setMode offset')
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=500 ncols=500')
+        output = oneCmd(ccdName, 'read bias nrows=500 ncols=600')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
         self.fitspath = None
@@ -861,7 +921,7 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
-        statCols = slice(8,None)
+        statCols = slice(100,None)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
                                      expectedLevels=self.rig.expectedLevels,
@@ -879,11 +939,10 @@ class ReadnoiseTest(OneTest):
 
         row = im.shape[0]//2
         cols = np.arange(50)
-        
         f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
         f2.savefig('starts.pdf')
         
-        cols = np.arange(30,im.shape[1]//8)
+        cols = np.arange(10,im.shape[1]//8)
         f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
         f3.savefig('levels.pdf')
         
