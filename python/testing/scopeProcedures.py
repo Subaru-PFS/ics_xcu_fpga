@@ -744,14 +744,14 @@ class SanityTest(OneTest):
         vlist = [
             Voltage(name='3v3m', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='3v3', nominal=3.3, lo=0.02, hi=0.02),
-            Voltage(name='5vp', nominal=5.0, lo=0.03, hi=0.03),
+            Voltage(name='5vp', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
             Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
             Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=12.0, lo=0.04, hi=0.01),
-            Voltage(name='12vn', nominal=-12.0, lo=0.04, hi=0.01),
-            Voltage(name='24vn', nominal=-24.0, lo=0.05, hi=0.01),
-            Voltage(name='54vp', nominal=54.0, lo=0.10, hi=0.01),
+            Voltage(name='12vp', nominal=12.0, lo=0.02, hi=0.02),
+            Voltage(name='12vn', nominal=-12.0, lo=0.02, hi=0.02),
+            Voltage(name='24vn', nominal=-24.0, lo=0.02, hi=0.02),
+            Voltage(name='54vp', nominal=54.0, lo=0.02, hi=0.02),
         ]
 
         for v in vlist:
