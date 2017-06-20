@@ -785,6 +785,10 @@ class SanityTest(OneTest):
         try:
             flag, numVal = getCardValue(cards, 'bias_ch0_bb', float)
             if numVal < 9:
+                print("################################################################")
+                print("   FEE has not been calibrated (VBB=%s). " % (numVal))
+                print("   if you want to, run 'rig.calibrateFee()'")
+                print("################################################################")
                 raise RuntimeError('!!!! FEE has not been calibrated!!!!!')
         except KeyError:
             self.voltages.append(self.CheckedValue('VBB', 'missing', 'could not read'))
