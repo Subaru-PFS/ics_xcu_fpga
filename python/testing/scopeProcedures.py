@@ -886,11 +886,15 @@ class ReadnoiseTest(OneTest):
 
     def runTest(self, trigger=None):
         ccdName = "ccd_%s" % (self.dewar)
+        if False:
+            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
+        else:
+            oneCmd(ccdName, 'fee setMode offset')
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=500 ncols=500')
+        output = oneCmd(ccdName, 'read bias nrows=500 ncols=600')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
         self.fitspath = None
