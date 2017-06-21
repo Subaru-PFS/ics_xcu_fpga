@@ -254,7 +254,7 @@ class CCD(FPGA):
         imShape = im.shape
         im = im.ravel()
         im[:-1] = im[1:]
-        im.reshape(imShape)
+        im = im.reshape(imShape)
 
         if doSave:
             imfile = self.writeImageFile(im, comment=comment, addCards=addCards)
