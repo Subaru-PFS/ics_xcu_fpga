@@ -218,6 +218,13 @@ class CCD(FPGA):
 
         print("readTime = %g; expected %g" % (t1-t0, expectedTime))
 
+        # INSTRM-40: Paper over an FPGA bug which we have not found, where there is
+        # a spurious 0th pixel, which effectively wraps the rest of the pixels.
+        imShape = im.shape
+        im = im.ravel()
+        im[:-1] = im[1:]
+        im.reshape(imShape)
+        
         if doSave:
             files = self.writeImageFiles(im, comment=comment, addCards=addCards)
         else:
