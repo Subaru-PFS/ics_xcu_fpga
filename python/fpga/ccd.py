@@ -104,7 +104,7 @@ class CCD(FPGA):
         return 2
 
     def fpgaVersion(self):
-        return "0x%08x" % self.peekWord(0)
+        return "0x%08x" % ((self.peekWord(0) & 0xffff) + 1)
     
     def ampidx(self, ampid, im=None):
         """ Return an ndarray mask for a single amp. 
@@ -131,6 +131,7 @@ class CCD(FPGA):
         cards = []
         cards.append(('HEADVERS', self.headerVersion, 'FITS header version'))
         cards.append(('HIERARCH versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
+        cards.append(('HIERARCH W_VERSIONS_FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
         cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))
         cards.append(('DETNUM', self.detectorNum, "Detector number: 0/1, or 2 if both detectors."))
@@ -247,6 +248,13 @@ class CCD(FPGA):
         t1 = time.time()
 
         print("readTime = %g; expected %g" % (t1-t0, expectedTime))
+
+        # INSTRM-40: Paper over an FPGA bug which we have not found, where there is
+        # a spurious 0th pixel, which effectively wraps the rest of the pixels.
+        imShape = im.shape
+        im = im.ravel()
+        im[:-1] = im[1:]
+        im = im.reshape(imShape)
 
         if doSave:
             imfile = self.writeImageFile(im, comment=comment, addCards=addCards)
