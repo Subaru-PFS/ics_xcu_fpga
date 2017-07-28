@@ -86,7 +86,7 @@ def fnote(fname, ftype='', notes=''):
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
     
-def fetchCards(exptype=None, feeControl=None, expTime=0.0, getCards=True):
+def fetchCards(exptype=None, feeControl=None, expTime=0.0, darkTime=None, getCards=True):
     """ Generate all FEE exposure cards, included times and IMAGETYP. """
 
     if feeControl is None:
@@ -98,6 +98,7 @@ def fetchCards(exptype=None, feeControl=None, expTime=0.0, getCards=True):
         feeCards = []
     if exptype is not None:
         feeCards.insert(0, ('EXPTIME', expTime, ''))
+        feeCards.insert(0, ('DARKTIME', darkTime if darkTime is not None else expTime, ''))
         feeCards.insert(0, ('IMAGETYP', exptype, ''))
         feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
     return feeCards
@@ -172,7 +173,8 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
         cmd.inform('text="started clocking %d rows of %d columns: %0.2fs or so"' % (nrows, ncols, readTime))
     
     
-def readout(imtype, ccd=None, expTime=0, 
+def readout(imtype, ccd=None,
+            expTime=0, darkTime=None,
             nrows=None, ncols=None,
             clockFunc=None,
             doSave=True, comment='',
@@ -200,8 +202,9 @@ def readout(imtype, ccd=None, expTime=0,
         feeControl.setMode('read')
         time.sleep(0.5)               # 1s per JEG
     t1 = time.time()
-    
+
     feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
+                          darkTime=darkTime,
                           getCards=doFeeCards)
 
     feeCards.extend(extraCards)
