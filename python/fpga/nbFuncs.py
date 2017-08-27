@@ -4,6 +4,8 @@ import logging
 import time
 import sys
 import numpy as np
+import scipy
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -83,6 +85,21 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     
     return fig
 
+def fftAmp(im, ccd, amps=None, cols=None, rows=None):
+    if amps is None:
+        amps = range(8)
+
+    if cols is None:
+        cols = slice(0,-1)
+    if rows is None:
+        rows = slice(0,-1)
+
+    for a_i, a in enumerate(amps):
+        ampCols = ccd.ampidx(a, im)[cols]
+        ampIm = im[rows][:, ampCols]
+        nAmpIm = ampIm - np.trunc(np.median(ampIm))
+
+        
 def rawAmpGrid(im, ccd, amps=None,
                title=None,
                cols=None, rows=None, 
@@ -592,4 +609,29 @@ def plotTopPeriods(arr, plot=None, topN=5):
                   verticalalignment='bottom')
 
     return freqs, yhat, top_ii
-        
+
+def detrend(v, order=2):
+    x = np.arange(len(v))
+    
+    fit = np.poly1d(np.polyfit(x, v, order))
+    trend = fit(x)
+
+    return v-trend
+    
+def plotTopFreqs(im, plot=None, topN=5, fs=1/13.92e-6, label=None):
+    """ Plot the FFT of a given vector, and identify the first few
+    """
+
+    if plot is None:
+        f, plot = plt.subplots(1,1)
+
+    freqs, psd = scipy.signal.periodogram(im[0], fs)
+    for l in im[1:]:
+        _, psd1 = scipy.signal.periodogram(l, fs)
+        psd += psd1
+    psd /= len(im)
+
+    
+    plot.semilogy(freqs[1:], psd[1:], label=label)
+
+    return plot, freqs, psd
