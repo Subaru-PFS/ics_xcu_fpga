@@ -51,31 +51,31 @@ class FeeTweaks(object):
             self.modes[mode][k] = v
 
 def stdExposures_biases(ccd=None,
-                        nwipes=0,
-                        nbias=10,
+                        nbias=21,
                         feeControl=None,
                         comment='biases'):
 
     ccdFuncs.expSequence(ccd=ccd,
-                         nwipes=nwipes, 
                          nbias=nbias,
                          feeControl=feeControl,
                          comment=comment,
                          title='%d biases' % (nbias))
-    
-def stdExposures_base(ccd=None, feeControl=None,
-                      nrows=None, ncols=None, comment='base exposures'):
+
+def stdExposures_darks(ccd=None,
+                       ndarks=21, darkTime=150,
+                       feeControl=None,
+                       comment='darks'):
 
     ccdFuncs.expSequence(ccd=ccd,
-                         nrows=nrows, ncols=ncols,
-                         nwipes=0, 
-                         nbias=20, 
-                         nendbias=20, 
-                         darks=[300,300,300,300, 1200,1200, 3600,3600], 
-                         flats=[2,2,2,10,10,10], 
+                         darks=[darkTime]*ndarks,
                          feeControl=feeControl,
                          comment=comment,
-                         title='base sequence')
+                         title='%d %gs darks' % (ndarks, darkTime))
+
+def stdExposures_base(ccd=None, feeControl=None):
+
+    stdExposures_biases(ccd=ccd, feeControl=feeControl)
+    stdExposures_darks(ccd=ccd, feeControl=feeControl)
 
 def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          nrows=None, ncols=None,
