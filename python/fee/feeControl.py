@@ -277,6 +277,7 @@ class FeeControl(object):
         self.setMode(preset)
         self.sendCommandStr('se,all,on')
         self.sendCommandStr('se,Clks,on')
+        self.setMode('offset')
         
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
@@ -847,7 +848,7 @@ class FeeControl(object):
         ret = self.sendCommandStr('gp')
         return ret
     
-    def setOffsets(self, amps, levels, leg='n', pause=0.0):
+    def setOffsets(self, amps, levels, leg='n', pause=0.0, doSave=True):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
@@ -861,6 +862,9 @@ class FeeControl(object):
                 raise RuntimeError('setLevels command returned: %s' % (ret))
             if pause > 0:
                 time.sleep(pause)
+
+            if doSave:
+                self.sendCommandStr('sp,offset')
 
     def zeroOffsets(self, amps=None, leg=True):
         if amps is None:
