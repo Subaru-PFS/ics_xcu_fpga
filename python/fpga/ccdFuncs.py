@@ -315,7 +315,7 @@ def fastRevRead(rowBinning=10,
     return im, imfile
 
 def expSequence(ccd=None,
-                nrows=None, ncols=None, nwipes=1, nbias=2, nendbias=0,
+                nrows=None, ncols=None, nwipes=0, nbias=2, nendbias=0,
                 darks=(), flats=(), 
                 feeControl=None,
                 clockFunc=None,
