@@ -77,6 +77,16 @@ def stdExposures_base(ccd=None, feeControl=None):
     stdExposures_biases(ccd=ccd, feeControl=feeControl)
     stdExposures_darks(ccd=ccd, feeControl=feeControl)
 
+def stdExposures_hours(ccd=None, feeControl=None, hours=4):
+    darkTime = 900
+    for i in range(hours):
+        ccdFuncs.expSequence(ccd=ccd,
+                             biases=5,
+                             darks=[900]*4,
+                             feeControl=feeControl,
+                             comment=comment,
+                             title='1 hour %fs dark loop' % (darkTime))
+
 def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
