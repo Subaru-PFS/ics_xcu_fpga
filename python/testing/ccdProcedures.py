@@ -83,13 +83,11 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
 
     ccdFuncs.expSequence(ccd=ccd,
                          nrows=nrows, ncols=ncols,
-                         nwipes=0, 
-                         nbias=6, 
-                         flats=[], 
+                         nbias=3, 
                          feeControl=feeControl,
                          comment=comment,
                          title='pre-VOD/VOG tuning biases')
-            
+
     for VOD in -21, -21.25, -21.5, -21.75, -22:
         for VOG in -4, -4.25, -4.5, -4.75, -5:
             tweaks = FeeTweaks()
@@ -97,13 +95,12 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
 
             ccdFuncs.expSequence(ccd=ccd,
                                  nrows=nrows, ncols=ncols,
-                                 nwipes=0, 
-                                 nbias=0, 
-                                 flats=[3,3], 
+                                 nbias=1, 
+                                 flats=[2], 
                                  feeControl=tweaks,
                                  comment=comment,
                                  title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
-            
+
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
 
     explist = (('bias', 0),
