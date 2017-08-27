@@ -91,6 +91,8 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
 
+    opticslab.setup(ccd.arm, flux=2000, wavelength=5500)
+
     ccdFuncs.expSequence(ccd=ccd,
                          nrows=nrows, ncols=ncols,
                          nbias=3, 
@@ -112,124 +114,112 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                                  title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
 
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
+    """ Canonical bright flats sequence. 
+
+    At 500ADU/s, take flats running up past saturation.
+    """
+    
+    opticslab.setup(ccd.arm, flux=500, wavelength=5500)
 
     explist = (('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
+               ('dark', 100),
+               
+               ('flat', 100),
+               ('flat', 1),
+               ('flat', 2),
+               ('flat', 3),
+               ('flat', 5),
+               ('flat', 7),
 
-               ('flat', 2),
-               ('flat', 2),
-               ('flat', 4),
-               ('flat', 4),
-               ('flat', 6),
-               ('flat', 8),
-               ('flat', 8),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 12),
-               ('flat', 16),
-               ('flat', 16),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 24),
-               ('flat', 32),
-               ('flat', 32),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 48),
-               ('flat', 64),
-               ('flat', 64),
-               ('flat', 2),
-               
-               ('bias', 0),
+               ('flat', 100),
+               ('flat', 10),
+               ('flat', 14),
+               ('flat', 20),
+               ('flat', 28),
+               ('flat', 40),
+
+               ('flat', 100),
+               ('flat', 50),
+               ('flat', 60),
+               ('flat', 70),
                ('flat', 80),
-               ('flat', 96),
-               ('flat', 112),
-               ('flat', 112),
-               ('flat', 128),
-               ('flat', 128),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 144),
-               ('flat', 160),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 192),
-               ('flat', 256),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0))
+               ('flat', 90),
 
-    
+               ('flat', 100),
+               ('flat', 110),
+               ('flat', 120),
+               ('flat', 130),
+               ('flat', 140),
+
+               ('flat', 100),
+               ('flat', 160),
+               ('flat', 180),
+               ('flat', 200),
+               ('flat', 220),
+               
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100))
+
     ccdFuncs.expList(explist, ccd=ccd,
                      feeControl=feeControl,
                      comment=comment,
                      title='bright flats')
-    
 
 def stdExposures_lowFlats(ccd=None, feeControl=None,
                           comment='low flats'):
-    explist = []
+    """ Canonical low flats sequence. 
 
-    for i in range(10):
-        explist.append(('bias', 0),)
+    At 20 ADU/s, take flats running up to ~4000 ADU.
+    """
 
-    for i in range(1,31):
-        explist.append(('flat', i),)
-        explist.append(('flat', i),)
+    opticslab.setup(ccd.arm, flux=20, wavelength=5500)
 
-        if i > 0 and i % 10 == 0:
-            explist.append(('bias', 0),)
-            explist.append(('bias', 0),)
-            explist.append(('flat', 2),)
-            explist.append(('flat', 2),)
+    explist = (('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100),
+               
+               ('flat', 112),
+               ('flat', 1),
+               ('flat', 2),
+               ('flat', 3),
+               ('flat', 5),
+               ('flat', 7),
 
-    for i in range(10):
-        explist.append(('bias', 0),)
-    
-    ccdFuncs.expList(explist, ccd=ccd, 
+               ('flat', 112),
+               ('flat', 10),
+               ('flat', 14),
+               ('flat', 20),
+               ('flat', 28),
+               ('flat', 40),
+
+               ('flat', 112),
+               ('flat', 56),
+               ('flat', 80),
+               ('flat', 112),
+               ('flat', 224),
+               
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100))
+
+    ccdFuncs.expList(explist, ccd=ccd,
                      feeControl=feeControl,
                      comment=comment,
                      title='low flats')
-    
-
-def stdExposures_wipes(comment=''):
-    tweaks = FeeTweaks()
-
-    explist = (('wipe', 1),
-               
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('flat', 10),
-               ('bias', 0),
-               
-               ('flat', 16),
-               ('bias', 0))
-
-    ccdFuncs.expList(explist,
-                     feeControl=feeControl,
-                     comment='wipe tests',
-                     title='wipe tests')
 
 def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     explist = []
