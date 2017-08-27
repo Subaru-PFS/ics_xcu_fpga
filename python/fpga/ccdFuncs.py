@@ -249,7 +249,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     if doWipe:
         if cmd is not None:
             cmd.inform('exposureState="wiping", 5.0')
-        wipe(ccd=ccd, ncols=ncols, nrows=nrows, feeControl=feeControl)
+        wipe(ccd=ccd, feeControl=feeControl)
 
     # This cannot be used in real life!
     t1 = time.time()
@@ -368,14 +368,11 @@ def expList(explist, ccd=None,
         print "%s %s" % (exptype, exp[1:])
         if exptype == 'wipe':
             exparg = expargs[0]
-            wipe(ccd=ccd,
-                 nrows=nrows, ncols=ncols, nwipes=exparg, feeControl=feeControl)
+            wipe(ccd=ccd, nwipes=exparg, feeControl=feeControl)
             continue
 
         # Wipe before all exposures, including in runs of biases.
-        wipe(ccd=ccd,
-             nrows=nrows, ncols=ncols,
-             feeControl=feeControl)
+        wipe(ccd=ccd, feeControl=feeControl)
 
         if exptype == 'bias':
             im, imfile = readout('bias', ccd=ccd,
