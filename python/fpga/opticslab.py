@@ -1,21 +1,96 @@
+import logging
 import socket
 import time
 
-def opticsLabCommand(cmdStr):
-    host = '127.0.0.1'
+"""
+### COMMAND SET, as of 2017-08-18
+
+## to change wavelength
+# monoCommand( 'wave 650' ) where the number is wavelength in nanometers
+# monoCommand( 'wave ?' ) query current wavelength
+
+
+## to change slit width
+# monoCommand( 'slit 5' ) where the number is slit width in millimeters uswe 0.5 - 5
+# monoCommand( 'slit ?' ) query slit width
+## switch lamp -- switches mono mirror and input shutter
+# monoCommand( 'lamp arc' ) switches to arc lamp
+# monoCommand( 'lamp qth' ) switches to qth lamp
+# monoCommand( 'lamp ?') query current lamp
+# monoCommand( 'lamp state' ) query lamp on or off
+
+
+## to open the shutter indefinitely
+# monoCommand( 'open' )
+## to close an open shutter
+# monoCommand( 'close' )
+## to pulse the shutter open
+# monoCommand( 'pulse 5' ) where the number is the duration in seconds
+# returns
+# "OK %s %s %g %g %g %g" % (command, number, current, flux, WAVELENGTH, SLITWIDTH))
+
+
+
+
+## remote power on for lamp
+# monoCommand( 'pon') power on
+# monoCommand( 'poff') power off
+
+
+
+
+## thorlabs filter wheel
+# monoCommand( 'filter n' ) n filter numbers 1 - 6
+# monoCommand( 'filter ?' ) query current filter
+
+
+
+## Fe 55
+# monoCommand( 'fe55 n') n angle to move iron source to 0 - 90 in degrees
+# monoCommand( 'fe55 home') move source out of way
+# monoCommand( 'fe55 ?') query current angle
+
+
+
+## SMB
+# monoCommand( 'temp' ) return detector temperature
+
+"""
+
+logger = logging.getLogger('opticsLab')
+logger.setLevel(logging.DEBUG)
+
+
+def opticsLabCommand(cmdStr, timeout=30.0):
+    host = 'tron.pfs'
     port = 50000
 
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((host, port))
+        s = socket.create_connection((host, port), 3.0)
+    except:
+        raise
+
+    t0 = time.time()
+    try:
+        s.settimeout(timeout)
         s.send('%s\n' % (cmdStr))
         data = s.recv(1024)
         data = data.strip()
     finally:
         s.close()
-        
+    t1 = time.time()
+
+    logger.debug("cmd: %r dt=%0.2f", cmdStr, t1-t0)
+    
     return data
 
+def query(system, valType):
+    ret = opticsLabCommand('%s ?' % (system), timeout=1.0)
+    _, val = ret.split()
+    if _ != system:
+        raise RuntimeError("unexpected response to %s query: %s" % (system, ret))
+    return valType(val)
+    
 def pulseShutter(stime):
     """ Open the shutter for a given time.
 
