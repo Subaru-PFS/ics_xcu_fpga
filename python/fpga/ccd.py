@@ -45,21 +45,28 @@ class CCD(FPGA):
                     'blue':1,
                     'r':2,
                     'b':1}
-    
-    def __init__(self, spectroId, dewarId,
+
+    armNames = {'red':'red',
+                'blue':'blue',
+                'r':'red',
+                'b':'blue'}
+
+    def __init__(self, spectroId, arm,
                  rootDir='/data/pfs', site=None,
                  splitDetectors=False, adc18bit=1):
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
-        if dewarId not in self.dewarNumbers:
-            raise RuntimeError('dewarId must be one of: ', self.dewarNumbers.keys())
+        try:
+            arm = self.armNames[arm]
+        except KeyError:
+            raise RuntimeError('arm must be one of: ', self.armNames.keys())
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
 
         self.logger = logging.getLogger('ccd')
         
         self.headerVersion = 1
-        self.dewarId = dewarId
+        self.arm = arm
         self.spectroId = spectroId
         self.splitDetectors = splitDetectors
 
@@ -96,7 +103,7 @@ class CCD(FPGA):
         """ The 2-digit name for this device. Used for the FITS file name. """
         
         return "%1d%1d" % (self.spectroId,
-                           self.dewarNumbers[self.dewarId])
+                           self.dewarNumbers[self.arm])
 
     @property
     def detectorNum(self):
@@ -132,7 +139,8 @@ class CCD(FPGA):
         cards.append(('HEADVERS', self.headerVersion, 'FITS header version'))
         cards.append(('HIERARCH versions.FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
-        cards.append(('DEWARNAM', self.dewarId, "Dewar name: 'blue', 'red', 'NIR'"))
+        cards.append(('DEWARNAM', self.arm, "DEPRECATED: use ARM"))
+        cards.append(('ARM', self.arm, "Dewar name: 'blue', 'red', 'NIR'"))
         cards.append(('DETNUM', self.detectorNum, "Detector number: 0/1, or 2 if both detectors."))
 
         return cards
