@@ -98,9 +98,10 @@ def pulseShutter(stime):
        pos : 'in' or 'out'
     """
     t0 = time.time()
-    ret = opticsLabCommand('pulse %g' % (stime))
+    ret = opticsLabCommand('pulse %g' % (stime), max(8, stime+5))
+    
     parts = ret.split()
-    if parts[0] != 'OK' or parts[1] != 'pulse':
+    if len(parts) != 7 or parts[0] != 'OK' or parts[1] != 'pulse':
         raise RuntimeError('something went wrong, got %r' % (ret))
 
     # "OK %s %s %g %g %g %g\n" % (command, number, current, flux, WAVELENGTH, SLITWIDTH)
@@ -117,26 +118,55 @@ def pulseShutter(stime):
     
     return stime, flux, current, wavelength, slitwidth
 
-def monoSetWavelength(wave):
-    ret = opticsLabCommand('wave %d' % (wave))
+def getWavelength():
+    return query('wave', float)
+
+def getSlitwidth():
+    return query('slit', float)
+
+def getFilter():
+    return query('filter', int)
+
+def getLamp():
+    return query('lamp', str)
+
+def getTemp():
+    return query('temp', float)
+
+def setFilter(filt):
+    currSlot = getFilter()
+    if filt == currSlot:
+        return filt
+
+    if filt < 1 or filt > 6:
+        raise KeyError("filter slots are 1..6")
+    
+    ret = opticsLabCommand('filter %d' % (filt), timeout=10.0)
+    if ret != 'filter %d' % (filt):
+        raise RuntimeError('failed to move filter: %r' % (ret))
+
+    return filt
+
+def setWavelength(wave):
+    ret = opticsLabCommand('wave %d' % (wave), timeout=5.0)
     if ret != 'moved to %4.0f' % (wave):
         raise RuntimeError('failed to adjust monochrometer: %r' % (ret))
 
     return wave
 
-def monoSetSlitwidth(mm):
+def setSlitwidth(mm):
     """ Set the monochrometer slit width
 
     Args:
        mm : slit width.
     """
-    ret = opticsLabCommand('slit %g' % (mm))
-    if ret != 'slit width %1.2f' % (mm):
+    ret = opticsLabCommand('slit %g' % (mm), timeout=10.0)
+    if ret != 'slit %1.2f' % (mm):
         raise RuntimeError('failed to adjust slit width: %r' % (ret))
         
     return mm
 
-def monoSetLamp(lamp):
+def setLamp(lamp):
     """ Choose the monochrometer lamp.
 
     Args:
@@ -145,7 +175,7 @@ def monoSetLamp(lamp):
     knownLamps = {'qth', 'arc'}
     if lamp not in knownLamps:
         raise ValueError('%s is not one of: %s' % (lamp, knownLamps))
-    ret = opticsLabCommand('lamp %s' % (lamp))
+    ret = opticsLabCommand('lamp %s' % (lamp), timeout=10.0)
     if (ret != 'lamp %s' % (lamp)) and (ret != 'lamp already is %s' % (lamp)):
         raise RuntimeError('failed to set lamp: %r' % (ret))
         
