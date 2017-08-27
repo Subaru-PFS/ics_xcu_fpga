@@ -90,8 +90,8 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          comment=comment,
                          title='pre-VOD/VOG tuning biases')
             
-    for VOD in -21, -22:
-        for VOG in -4.5, -5:
+    for VOD in -21, -21.25, -21.5, -21.75, -22:
+        for VOG in -4, -4.25, -4.5, -4.75, -5:
             tweaks = FeeTweaks()
             tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
