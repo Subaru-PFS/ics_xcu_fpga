@@ -237,20 +237,24 @@ def setLamp(lamp):
         
     return lamp
 
-def fe55(pos):
+def fe55(pos, angle=45):
     """ Move the Fe55 source in or out.
 
     Args:
        pos : 'in' or 'out'
+       angle : float (optional)
+
     """
-    knownPositions = {'in', 'out'}
+    knownPositions = {'in':0, 'out':angle}
+    
     if pos not in knownPositions:
-        raise ValueError('%s is not one of' % (pos, knownPositions))
-    ret = opticsLabCommand('iron' % (pos))
-    if (ret != 'iron %s' % (pos)):
+        raise ValueError('%s is not one of' % (pos, knownPositions.keys()))
+    reqPos = knownPositions[pos]
+    ret = opticsLabCommand('fe55' % (reqPos))
+    if (ret != 'fe55 %d' % (reqPos)):
         raise RuntimeError('failed to move Fe55 source: %r' % (ret))
         
-    return pos
+    return reqPos
 
 def coldShutter(pos):
     """ Move the cold shutter in or out.
