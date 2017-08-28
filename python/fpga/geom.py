@@ -248,7 +248,7 @@ class Exposure(object):
         return im[yr, xr]
 
     def overscanCols(self, ampId, leadingRows=False, overscanRows=False):
-        x0 = (ampId+1)*self.ampCols
+        x0 = ampId*self.ncols + self.ampCols
         x1 = x0 + self.overCols
 
         xr = slice(x0, x1)
