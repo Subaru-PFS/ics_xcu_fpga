@@ -15,6 +15,7 @@ import fitsio
 from fpga import ccd as ccdMod
 from fee import feeControl as feeMod
 from fpga import opticslab
+reload(opticslab)
 
 reload(ccdMod)
 
@@ -364,66 +365,91 @@ def expList(explist, ccd=None,
         feeControl = feeMod.fee
     note('... %s (%s exposures)' % (title, len(explist)))
 
-    for e_i, exp in enumerate(explist):
-        exptype = exp[0]
-        expargs = exp[1:]
-        expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
-        print "%s %s" % (exptype, exp[1:])
-        if exptype == 'wipe':
-            exparg = expargs[0]
-            wipe(ccd=ccd, nwipes=exparg, feeControl=feeControl)
-            continue
+    files = []
 
-        # Wipe before all exposures, including in runs of biases.
-        wipe(ccd=ccd, feeControl=feeControl)
+    try:
+        for e_i, exp in enumerate(explist):
+            exptype = exp[0]
+            expargs = exp[1:]
+            expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
+            print "%s %s" % (exptype, exp[1:])
+            if exptype == 'wipe':
+                exparg = expargs[0]
+                wipe(ccd=ccd, nwipes=exparg, feeControl=feeControl)
+                continue
 
-        if exptype == 'bias':
-            im, imfile = readout('bias', ccd=ccd,
-                                 nrows=nrows, ncols=ncols,
-                                 clockFunc=clockFunc, 
-                                 feeControl=feeControl,
-                                 comment=expComment)
-        elif exptype == 'dark':
-            darkTime = expargs[0]
-            time.sleep(darkTime)
-            im, imfile = readout('dark', ccd=ccd,
-                                 expTime=darkTime,
-                                 nrows=nrows, ncols=ncols,
-                                 clockFunc=clockFunc, 
-                                 feeControl=feeControl,
-                                 comment=expComment)
-        elif exptype == 'flat':
-            time.sleep(0.25)
-            
-            flatTime = expargs[0]
-            ret = opticslab.pulseShutter(flatTime)
-            print ret
-            im, imfile = readout('flat', ccd=ccd,
-                                 expTime=flatTime,
-                                 nrows=nrows, ncols=ncols,
-                                 clockFunc=clockFunc, 
-                                 feeControl=feeControl,
-                                 comment=expComment)
-        elif exptype == 'flash':
-            time.sleep(0.25)
-            
-            darkTime = expargs[0]
-            flatTime = expargs[1]
-            time.sleep(darkTime)
+            # Wipe before all exposures, including in runs of biases.
+            wipe(ccd=ccd, feeControl=feeControl)
 
-            ret = opticslab.pulseShutter(flatTime)
-            print ret
-            im, imfile = fullExposure('flash', ccd=ccd,
-                                      expTime=flatTime,
-                                      nrows=nrows, ncols=ncols,
-                                      clockFunc=clockFunc, 
-                                      feeControl=feeControl,
-                                      comment=expComment)
-        print imfile    
+            if exptype == 'bias':
+                im, imfile = readout('bias', ccd=ccd,
+                                     nrows=nrows, ncols=ncols,
+                                     clockFunc=clockFunc, 
+                                     feeControl=feeControl,
+                                     comment=expComment)
+            elif exptype == 'dark':
+                darkTime = expargs[0]
+                time.sleep(darkTime)
+                im, imfile = readout('dark', ccd=ccd,
+                                     expTime=darkTime,
+                                     nrows=nrows, ncols=ncols,
+                                     clockFunc=clockFunc, 
+                                     feeControl=feeControl,
+                                     comment=expComment)
+            elif exptype == 'flat':
+                flatTime = expargs[0]
+                ret = opticslab.pulseShutter(flatTime)
+                print ret
 
-    feeControl.setMode('idle')
+                stime, flux, current, wave, slitWidth = ret
+
+                cards = []
+                cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
+                cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
+                cards.append(('HIERARCH QE.flux', flux, 'calibrated flux, W'),)
+                cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
+
+                im, imfile = readout('flat', ccd=ccd,
+                                     expTime=flatTime,
+                                     nrows=nrows, ncols=ncols,
+                                     clockFunc=clockFunc, 
+                                     feeControl=feeControl,
+                                     extraCards=cards,
+                                     comment=expComment)
+            elif exptype == 'flash':
+                darkTime = expargs[0]
+                flatTime = expargs[1]
+                time.sleep(darkTime)
+
+                ret = opticslab.pulseShutter(flatTime)
+                print ret
+
+                stime, flux, current, wave, slitWidth = ret
+
+                cards = []
+                cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
+                cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
+                cards.append(('HIERARCH QE.flux', flux, 'calibrated flux, W'),)
+                cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
+
+                im, imfile = readout('flash', ccd=ccd,
+                                     expTime=flatTime,
+                                     nrows=nrows, ncols=ncols,
+                                     clockFunc=clockFunc, 
+                                     feeControl=feeControl,
+                                     extraCards=cards,
+                                     comment=expComment)
+            else:
+                raise KeyError('unknown exposure type: %s' % (exptype))
+
+            files.append(imfile)
+
+            print imfile    
+    finally:
+        feeControl.setMode('idle')
+        
     note('Done with exposure list.')
-    
+    return files
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
              ampList=range(8), cols=None, 
