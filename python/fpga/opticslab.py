@@ -98,7 +98,7 @@ def pulseShutter(stime):
        pos : 'in' or 'out'
     """
     t0 = time.time()
-    ret = opticsLabCommand('pulse %g' % (stime), max(8, stime+5))
+    ret = opticsLabCommand('pulse %g' % (stime), max(10, stime+6))
     
     parts = ret.split()
     if len(parts) != 7 or parts[0] != 'OK' or parts[1] != 'pulse':
