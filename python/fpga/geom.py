@@ -5,8 +5,10 @@ import numpy as np
 import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False, simpleGeometry=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False,
+                 simpleGeometry=False, logLevel=logging.WARN):
         self.logger = logging.getLogger('geom.Exposure')
+        self.logger.setLevel(logLevel)
         
         self.nccds = nccds
         self._setDefaultGeometry()
