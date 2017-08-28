@@ -6,6 +6,7 @@ import fpga.geom as geom
 import fpga.ccdFuncs as ccdFuncs
 import fpga.opticslab as opticslab
 
+reload(geom)
 reload(ccdFuncs)
 reload(opticslab)
 
@@ -80,12 +81,12 @@ def stdExposures_darks(ccd=None,
                          comment=comment,
                          title='%d %gs darks' % (ndarks, darkTime))
 
-def stdExposures_base(ccd=None, feeControl=None):
+def stdExposures_base(ccd=None, feeControl=None, comment=None):
 
-    stdExposures_biases(ccd=ccd, feeControl=feeControl)
-    stdExposures_darks(ccd=ccd, feeControl=feeControl)
+    stdExposures_biases(ccd=ccd, feeControl=feeControl, comment=comment)
+    stdExposures_darks(ccd=ccd, feeControl=feeControl, comment=comment)
 
-def stdExposures_hours(ccd=None, feeControl=None, hours=4):
+def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
     darkTime = 900
     for i in range(hours):
         ccdFuncs.expSequence(ccd=ccd,
@@ -568,7 +569,7 @@ def flatStats(f1name, f2name):
     diffAmpIms = []
     diffOsIms = []
     for a_i in range(8):
-        stats[a_i] = a_i
+        stats[a_i]['amp'] = a_i
         _s1 = np.median(f1AmpIms[a_i]) - np.median(f1OsIms[a_i])
         _s2 = np.median(f2AmpIms[a_i]) - np.median(f2OsIms[a_i])
         stats[a_i]['signal'] = signal = (_s1+_s2)/2
