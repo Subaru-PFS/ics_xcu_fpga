@@ -160,7 +160,7 @@ def setup(arm, wavelength=None, flux=None):
     setWavelength(wavelength)
     setFilter(filter)
 
-filters = ('Invalid', 'None', 'ND1', 'ND2', 'ND3', 'ND4')
+filters = ('Invalid', 'None', 'ND1', 'ND2', 'ND3', 'ND4', 'ND5')
 
 def setFilter(filt):
     """ Set the filter in the beam.
