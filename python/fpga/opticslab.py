@@ -133,23 +133,52 @@ def getLamp():
 def getTemp():
     return query('temp', float)
 
-def setFilter(filt):
-    currSlot = getFilter()
-    if filt == currSlot:
-        return filt
+filters = ('Invalid', 'None', 'ND1', 'ND2', 'ND3', 'ND4')
 
-    if filt < 1 or filt > 6:
+def setFilter(filt):
+    """ Set the filter in the beam.
+
+    Args
+    ----
+    filt : int or string
+      If a string, resolves to the known filters:
+        %s
+    """ % (str(filters))
+    
+    if isinstance(filt, str):
+        slot = filters.index(filt)
+    else:
+        slot = filt
+        
+    currSlot = getFilter()
+    if slot == currSlot:
+        return slot
+
+    if slot < 1 or slot > 6:
         raise KeyError("filter slots are 1..6")
     
-    ret = opticsLabCommand('filter %d' % (filt), timeout=10.0)
-    if ret != 'filter %d' % (filt):
+    ret = opticsLabCommand('filter %d' % (slot), timeout=10.0)
+    if ret != 'filter %d' % (slot):
         raise RuntimeError('failed to move filter: %r' % (ret))
 
-    return filt
+    return slot
 
 def setWavelength(wave):
+    """ Set the monochrometer central wavelength
+
+    Args:
+       wavelength : int
+         If > 2000, treated as Angstroms, else nm.
+
+    Returns:
+       wwavelength, in nm.
+
+    """
+    if wave > 2000:
+        wave = wave // 10
+        
     ret = opticsLabCommand('wave %d' % (wave), timeout=5.0)
-    if ret != 'moved to %4.0f' % (wave):
+    if ret != 'wave %4.0f' % (wave):
         raise RuntimeError('failed to adjust monochrometer: %r' % (ret))
 
     return wave
