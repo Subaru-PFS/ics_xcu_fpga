@@ -54,10 +54,17 @@ class Exposure(object):
         """
         
         try:
+            vers = self.header['versions.FPGA']
+            if vers >= 0xa071:
+                return image
+        except:
+            pass
+        
+        try:
             flag = self.header.get('geom.edgesOK')
         except:
-            flag = False
-            
+            return image
+
         if not flag:
             self.logger.info('fixing corner pixel')
             if False:
