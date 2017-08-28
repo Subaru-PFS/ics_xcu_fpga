@@ -15,12 +15,20 @@ class FeeTweaks(object):
     Also prints out overrides.
     """
     
-    def __init__(self, fee):
+    def __init__(self, fee=None):
+        if fee is None:
+            from fee import feeControl as feeMod
+            reload(feeMod)
+            fee = feeMod.fee
+            
         self.fee = fee
         self.modes = dict()
 
     def getMode(self):
         return self.fee.getMode()
+
+    def statusAsCards(self):
+        return self.fee.statusAsCards()
 
     def setMode(self, mode):
         print "setting mode: ", mode
@@ -102,7 +110,7 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
 
     for VOD in -21, -21.25, -21.5, -21.75, -22:
         for VOG in -4, -4.25, -4.5, -4.75, -5:
-            tweaks = FeeTweaks()
+            tweaks = FeeTweaks(feeControl)
             tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
             ccdFuncs.expSequence(ccd=ccd,
