@@ -86,7 +86,7 @@ def opticsLabCommand(cmdStr, timeout=30.0):
 
 def query(system, valType):
     ret = opticsLabCommand('%s ?' % (system), timeout=1.0)
-    _, val = ret.split()
+    _, val = ret.split(2)
     if _ != system:
         raise RuntimeError("unexpected response to %s query: %s" % (system, ret))
     return valType(val)
@@ -130,6 +130,9 @@ def getFilter():
 def getLamp():
     return query('lamp', str)
 
+def getFe55():
+    return query('fe55', int)
+
 def getTemp():
     return query('temp', float)
 
@@ -153,7 +156,7 @@ def setup(arm, wavelength=None, flux=None):
 
     if getLamp() != lamp:
         raise RuntimeError("the lamp must be set outside of the .setup function")
-    if opticsLabCommand('lamp state') != 'lamp on':
+    if opticsLabCommand('power ?') != 'lamp on':
         raise RuntimeError('the lamp is not on.')
     
     setSlitwidth(slitWidth)
@@ -221,6 +224,20 @@ def setSlitwidth(mm):
         raise RuntimeError('failed to adjust slit width: %r' % (ret))
         
     return mm
+
+def setPower(onOff):
+    """ Turn the lamp on or off
+
+    Args:
+       onOff : bool
+    """
+
+    ret = opticsLabCommand('power %s' % (onOff), timeout=2.0)
+    parts = ret.split()
+    if parts[0] != 'power':
+        raise RuntimeError('failed to control power: %r' % (ret))
+        
+    return float(parts[-1])
 
 def setLamp(lamp):
     """ Choose the monochrometer lamp.
