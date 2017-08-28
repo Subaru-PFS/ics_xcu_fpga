@@ -133,6 +133,33 @@ def getLamp():
 def getTemp():
     return query('temp', float)
 
+def setup(arm, wavelength=None, flux=None):
+    """ """
+
+    if arm == 'blue':
+        lamp = 'arc'
+        if wavelength == 5500 and flux == 10:
+            slitWidth = 1.0
+            filter = 'ND4'
+        elif wavelength == 5500 and flux == 1000:
+            slitWidth = 0.5
+            filter = 'ND2'
+        else:
+            raise KeyError("unknown preset configuration, sorry.")
+    elif arm == 'red':
+        raise KeyError("no presets for red yet, sorry.")
+    else:
+        raise KeyError('unknown arm')
+
+    if getLamp() != lamp:
+        raise RuntimeError("the lamp must be set outside of the .setup function")
+    if opticsLabCommand('lamp state') != 'lamp on':
+        raise RuntimeError('the lamp is not on.')
+    
+    setSlitwidth(slitWidth)
+    setWavelength(wavelength)
+    setFilter(filter)
+
 filters = ('Invalid', 'None', 'ND1', 'ND2', 'ND3', 'ND4')
 
 def setFilter(filt):
