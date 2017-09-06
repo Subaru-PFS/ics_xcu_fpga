@@ -877,7 +877,7 @@ class ReadnoiseTest(OneTest):
     label = "terminated readout"
     leads = 'terminators only'
     timeout = 30
-    
+
     def initTest(self):
         pass
 
@@ -885,6 +885,7 @@ class ReadnoiseTest(OneTest):
         pass
 
     def runTest(self, trigger=None):
+        self.shape = (500, 600)
         ccdName = "ccd_%s" % (self.dewar)
         if False:
             oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
@@ -894,7 +895,7 @@ class ReadnoiseTest(OneTest):
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=500 ncols=600')
+        output = oneCmd(ccdName, 'read bias nrows=%d ncols=%d' % self.shape)
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
         self.fitspath = None
@@ -921,11 +922,12 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
-        statCols = slice(100,None)
+        statCols = slice(50,self.shape[1]-50)
+        rows = slice(50,self.shape[0]-50)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
                                      expectedLevels=self.rig.expectedLevels,
-                                     cols=statCols)
+                                     cols=statCols, rows=rows)
         levels, devs = nbFuncs.ampStats(im, cols=statCols, ccd=fakeCcd)
         mdfile = self.rig.frontPage
         mdfile.write('## Noise\n')
