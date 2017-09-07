@@ -415,6 +415,11 @@ class BenchRig(TestRig):
             self._frontPage = self._startfrontPage()
         return self._frontPage
 
+    def savefig(self, fig, name, extension='pdf'):
+        filePath = os.path.join(self.dirName, "%s.%s" % (name, extension))
+
+        fig.savefig(filePath)
+        
     def _startfrontPage(self):
         fname = self.frontPagePath
         f = open(fname, 'w', buffering=1)
