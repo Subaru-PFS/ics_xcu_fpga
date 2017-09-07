@@ -471,6 +471,9 @@ class BenchRig(TestRig):
             self.incrTest()
 
         while True:
+            if self.seqNum >= len(self.sequence):
+                print("DONE")
+                return True
             ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
             if testClass is None:
                 print
@@ -905,17 +908,18 @@ class ReadnoiseTest(OneTest):
         pass
 
     def runTest(self, trigger=None):
-        self.shape = (500, 600)
         ccdName = "ccd_%s" % (self.dewar)
         if False:
             oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
         else:
             oneCmd(ccdName, 'fee setMode offset')
+        time.sleep(1.1)
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
+        time.sleep(1.1)
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=%d ncols=%d' % self.shape)
+        output = oneCmd(ccdName, 'read bias')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
         self.fitspath = None
@@ -942,13 +946,16 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
-        statCols = slice(50,self.shape[1]-50)
-        rows = slice(50,self.shape[0]-50)
+        ampWidth = im.shape[1]//8
+        height = im.shape[0]
+        
+        statCols = np.arange(50, ampWidth-50)
+        rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
                                      expectedLevels=self.rig.expectedLevels,
                                      cols=statCols, rows=rows)
-        levels, devs = nbFuncs.ampStats(im, cols=statCols, ccd=fakeCcd)
+        levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
         mdfile = self.rig.frontPage
         mdfile.write('## Noise\n')
         mdfile.write('\n')
@@ -961,12 +968,22 @@ class ReadnoiseTest(OneTest):
 
         row = im.shape[0]//2
         cols = np.arange(50)
-        f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
-        f2.savefig('starts.pdf')
+        if False:
+            f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
+            self.rig.savefig(f2, 'starts')
         
         cols = np.arange(10,im.shape[1]//8)
         f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
-        f3.savefig('levels.pdf')
+        self.rig.savefig(f3, 'levels')
+
+        f4 = nbFuncs.plotAmpRows(im, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=5,
+                                 title='amp means, test %d' % (self.rig.seqno))
+        self.rig.savefig(f4, 'rowcuts')
+
+        #bsIm = geom.normAmpLevels(im, fullCol=True)
+        #f5 = nbFuncs.plotAmpRows(bsIm, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=1,
+        #                         title='overscan-corrected amp means, test %d' % (self.rig.seqno))
+        #self.rig.savefig(f5, 'rowcuts_norm')
         
         self.rig.finishFrontPage()
         
