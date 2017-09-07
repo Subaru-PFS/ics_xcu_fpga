@@ -534,17 +534,21 @@ def constructImage(ampIms, osColIms=None, osRowIms=None):
     ret = np.concatenate(orderedIms, axis=1)
     return ret
 
-def normAmpLevels(exp):
+def normAmpLevels(exp, fullCol=False):
     """ Using the overscan region, crudely normalize all amps to min=0. """
 
-    retexp = Exposure(exp.image, copyExposure=True, dtype='i4')
+    retexp = Exposure(exp, copyExposure=True, dtype='f4')
 
     for i in range(retexp.namps):
         yr,xr = retexp.ampExtents(i, leadingCols=True, leadingRows=True, overscan=True)
 
-        overscanImage = retexp.overscanColImage(i)
-        overscanLevel = int(np.rint(np.median(overscanImage)))
-        
-        retexp.image[yr,xr] -= overscanLevel
+        overscanImage = retexp.overscanColImage(i, leadingRows=True, overscanRows=True)
 
-    return retexp
+        if fullCol:
+            overscanMed = np.mean(overscanImage, axis=1)[:, np.newaxis]
+            retexp.image[:,xr] -= overscanMed
+        else:
+            overscanLevel = int(np.rint(np.median(overscanImage)))
+            retexp.image[yr,xr] -= overscanLevel
+
+    return retexp.image
