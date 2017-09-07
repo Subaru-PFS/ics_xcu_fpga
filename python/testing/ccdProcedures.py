@@ -508,7 +508,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     stats[a_i]['noise'] = sig2*gain
     stats[a_i]['flux'] = signal / exptime if exptime != 0 else 0.0
 
-    return ampIm, osIm, stats
+    return stats, ampIm, osIm
 
 def imStats(im):
     exp = geom.Exposure(im)

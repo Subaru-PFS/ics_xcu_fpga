@@ -86,7 +86,7 @@ def opticsLabCommand(cmdStr, timeout=30.0):
 
 def query(system, valType):
     ret = opticsLabCommand('%s ?' % (system), timeout=1.0)
-    _, val = ret.split(2)
+    _, val = ret.split(None, 2)
     if _ != system:
         raise RuntimeError("unexpected response to %s query: %s" % (system, ret))
     return valType(val)
