@@ -424,66 +424,104 @@ def CTEStats(flist, bias, amps=None):
             allNormedCols, allNormedOsCols,
             allNormedRows, allNormedOsRows)
 
+statDtype = ([('amp', 'i2'),
+              ('signal','f4'),
+              ('sqrtSig', 'f4'),
+              ('bias', 'f4'),
+              ('readnoise', 'f4'),
+              ('readnoiseM', 'f4'),
+              ('shotnoise', 'f4'),
+              ('shotnoiseM', 'f4'),
+              ('gain', 'f4'),
+              ('gainM', 'f4'),
+              ('noise', 'f4'),
+              ('exptime', 'f4'),
+              ('flux', 'f4'),
+              ('ccd0temp', 'f4'),
+              ('preamptemp', 'f4')])
+
+def ampStats(ampIm, osIm, hdr=None, exptime=0.0):
+    stats = np.zeros(shape=(1,),
+                     dtype=statDtype)
+
+    a_i = 0
+    
+    stats[a_i]['amp'] = a_i
+    ampSig = np.median(ampIm)
+    osSig = np.median(osIm)
+    if osSig is np.nan:
+        osSig = 0
+    stats[a_i]['signal'] = signal = ampSig - osSig
+
+    stats[a_i]['flux'] = signal / exptime
+    stats[a_i]['exptime'] = exptime
+    try:
+        stats[a_i]['preamptemp'] = hdr['temps.PA']
+        stats[a_i]['ccd0temp'] = hdr['temps.CCD0']
+    except:
+        pass
+    stats[a_i]['sqrtSig'] = np.sqrt(signal)
+    stats[a_i]['bias'] = osSig
+
+    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
+    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    stats[a_i]['readnoise'] = sig2
+    stats[a_i]['readnoiseM'] = trusig2
+
+    stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
+    stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
+
+    stats[a_i]['gain'] = gain = signal/sig**2
+    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['noise'] = sig2*gain
+
+    return stats
+
+def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
+    stats = np.zeros(shape=(1,),
+                     dtype=statDtype)
+
+    a_i = 0
+    _s1 = np.median(ampIm1) - np.median(osIm1)
+    _s2 = np.median(ampIm2) - np.median(osIm2)
+    stats[a_i]['signal'] = signal = (_s1+_s2)/2
+    stats[a_i]['sqrtSig'] = np.sqrt(signal)
+    stats[a_i]['bias'] = (np.median(osIm1) + np.median(osIm2))/2
+
+    ampIm = ampIm2.astype('f4') - ampIm1
+    osIm = osIm2.astype('f4') - osIm1
+
+    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
+    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    stats[a_i]['readnoise'] = sig2
+    stats[a_i]['readnoiseM'] = trusig2
+
+    stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
+    stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
+
+    stats[a_i]['gain'] = gain = signal/sig**2
+    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['noise'] = sig2*gain
+    stats[a_i]['flux'] = signal / exptime if exptime != 0 else 0.0
+
+    return ampIm, osIm, stats
 
 def imStats(im):
     exp = geom.Exposure(im)
     
     ampIms, osIms, _ = exp.splitImage(doTrim=True)
 
-    stats = np.zeros(shape=exp.namps,
-                     dtype=([('amp', 'i2'),
-                             ('signal','f4'),
-                             ('sqrtSig', 'f4'),
-                             ('bias', 'f4'),
-                             ('readnoise', 'f4'),
-                             ('readnoiseM', 'f4'),
-                             ('shotnoise', 'f4'),
-                             ('shotnoiseM', 'f4'),
-                             ('gain', 'f4'),
-                             ('gainM', 'f4'),
-                             ('noise', 'f4'),
-                             ('exptime', 'f4'),
-                             ('flux', 'f4'),
-                             ('ccd0temp', 'f4'),
-                             ('preamptemp', 'f4')]))
+    stats = []
 
     for a_i in range(8):
-        stats[a_i]['amp'] = a_i
-        ampIm = ampIms[a_i]
-        osIm = osIms[a_i]
-        ampSig = np.median(ampIm)
-        osSig = np.median(osIm)
-        if osSig is np.nan:
-            osSig = 0
-        stats[a_i]['signal'] = signal = ampSig - osSig
-        try:
-            exptime = exp.header['EXPTIME']
-        except:
-            exptime = 0.0
-        stats[a_i]['flux'] = signal / exptime
-        stats[a_i]['exptime'] = exptime
-        try:
-            stats[a_i]['preamptemp'] = exp.header['temps.PA']
-            stats[a_i]['ccd0temp'] = exp.header['temps.CCD0']
-        except:
-            pass
-        stats[a_i]['sqrtSig'] = np.sqrt(signal)
-        stats[a_i]['bias'] = osSig
+        stats1 = ampStats(ampIms[a_i], osIms[a_i], exp.header, exptime=exp.header['EXPTIME'])
+        stats1['amp'] = a_i
+        stats.append(stats1)
 
-        sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-        sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-        _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-        _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
-        stats[a_i]['readnoise'] = sig2
-        stats[a_i]['readnoiseM'] = trusig2
-
-        stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
-        stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
-
-        stats[a_i]['gain'] = gain = signal/sig**2
-        stats[a_i]['gainM'] = signal/trusig**2
-        stats[a_i]['noise'] = sig2*gain
-        
     return ampIms, osIms, stats
 
 def flatStats(f1name, f2name):
@@ -552,48 +590,16 @@ def flatStats(f1name, f2name):
                            % (exp1.expType, exp1.expTime,
                               exp2.expType, exp2.expTime))
 
-    stats = np.zeros(shape=exp1.namps,
-                     dtype=([('amp', 'i2'),
-                             ('signal','f4'),
-                             ('sqrtSig', 'f4'),
-                             ('bias', 'f4'),
-                             ('readnoise', 'f4'),
-                             ('readnoiseM', 'f4'),
-                             ('shotnoise', 'f4'),
-                             ('shotnoiseM', 'f4'),
-                             ('gain', 'f4'),
-                             ('gainM', 'f4'),
-                             ('noise', 'f4'),
-                             ('flux', 'f4')]))
-
+    stats = []
     diffAmpIms = []
     diffOsIms = []
     for a_i in range(8):
-        stats[a_i]['amp'] = a_i
-        _s1 = np.median(f1AmpIms[a_i]) - np.median(f1OsIms[a_i])
-        _s2 = np.median(f2AmpIms[a_i]) - np.median(f2OsIms[a_i])
-        stats[a_i]['signal'] = signal = (_s1+_s2)/2
-        stats[a_i]['sqrtSig'] = np.sqrt(signal)
-        stats[a_i]['bias'] = (np.median(f1OsIms[a_i]) + np.median(f2OsIms[a_i]))/2
-
-        ampIm = f2AmpIms[a_i].astype('f4') - f1AmpIms[a_i]
-        osIm = f2OsIms[a_i].astype('f4') - f1OsIms[a_i]
-        diffAmpIms.append(ampIm)
-        diffOsIms.append(osIm)
-        sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-        sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-        _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-        _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
-        stats[a_i]['readnoise'] = sig2
-        stats[a_i]['readnoiseM'] = trusig2
-
-        stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
-        stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
-
-        stats[a_i]['gain'] = gain = signal/sig**2
-        stats[a_i]['gainM'] = signal/trusig**2
-        stats[a_i]['noise'] = sig2*gain
-        stats[a_i]['flux'] = signal / exp1.expTime
+        stats1, ampIm1, osIm1 = ampDiffStats(f1AmpIms[a_i], f2AmpIms[a_i],
+                                             f1OsIms[a_i], f2OsIms[a_i])
+        stats1['amp'] = a_i
+        stats.append(stats1)
+        diffAmpIms.append(ampIm1)
+        diffOsIms.append(osIm1)
         
     return diffAmpIms, diffOsIms, stats
 
@@ -604,8 +610,8 @@ def printStats(stats):
     
     print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise dn/s\n")
 
-    for i in range(8):
-        print(str(i) + "   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f %(flux)5.1f" % stats[i])
+    for i in range(len(stats)):
+        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f %(flux)5.1f" % stats[i])
 
     np.set_printoptions(**po)
         
