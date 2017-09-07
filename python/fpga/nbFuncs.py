@@ -85,6 +85,65 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     
     return fig
 
+def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
+                fig=None, linestyle='-', title=None):
+
+    """ In one figure, plot vertical slices of all amps. Limit to range of cols if desired. 
+    
+    The per-amp plots are offset by their mean value, and plotted plotOffset pixels apart.
+
+    Parameters
+    ----------
+    im - 2d array
+        The image to plot from
+    row - int 
+        The row to plot from. (default is the middle row of the image)
+    cols - 1d array-like
+        The columns to plot. (default is the full width of the amps)
+    amps - 1d array-like
+        The amps to plot. (default is all)
+    plotOffset - int
+        The y offset between plots. (default is 50, should be from data)
+    """
+
+    namps = 8
+    imcols = im.shape[1]/namps
+    amps = range(namps)
+    
+    if rows is None:
+        rows = np.arange(im.shape[0])
+    if cols is None:
+        cols = np.arange(imcols)
+
+    if fig is None:
+        fig, pl = plt.subplots()
+
+    yoff = 0
+    for a in amps:
+        normedIm = im[rows].astype('f4')
+        normedIm = normedIm[:, cols + a*imcols]
+        normedIm -= np.median(normedIm)
+        
+        seg = np.mean(normedIm, axis=1)
+        pl.plot(rows, seg+yoff, linestyle)
+        pl.hlines(yoff, rows[0], rows[-1], alpha=0.3)
+
+        print 
+        yoff += plotOffset
+
+    pl.axis([None, None, -plotOffset, yoff+plotOffset])
+
+    if title is None:
+        title = ''
+    else:
+        title = title + '\n'
+    title += 'cols [%d,%d], med(rows=(%d,%d)' % (cols[0],cols[-1],
+                                                 rows[0], rows[-1])
+    pl.set_title(title)
+    fig.show()
+    
+    return fig
+
 def fftAmp(im, ccd, amps=None, cols=None, rows=None):
     if amps is None:
         amps = range(8)
