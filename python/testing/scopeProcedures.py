@@ -19,6 +19,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from fpga import SeqPath
 from fpga import ccdFuncs
 from fpga import nbFuncs
+from fpga import geom
 
 from . import pfsScope
 reload(pfsScope)
@@ -148,7 +149,7 @@ class BenchRig(TestRig):
     expectedLevels = (6200, 5050, 3725, 2570,
                       6140, 5010, 4000, 2630)
     
-    def __init__(self, dewar=None, **argd):
+    def __init__(self, dewar=None, sequence=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
 
         By default, creates a new, empty test rig and directory.
@@ -165,54 +166,64 @@ class BenchRig(TestRig):
         if dewar is None:
             dewar = 'b9'
         self.dewar = dewar
+
+        if sequence is None:
+            sequence = 'full'
+
+        if sequence == 'full':
+            self.sequence = [[0, 0, SanityTest, None],
+
+                             [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
+                             [0, 0, V0Test, None],
+                             [0, 0, S0Test, None],
+                             [0, 0, P0Test, None],
+
+                             [0, 0, None, 'insert terminators into all amp channels'],
+                             [0, 0, ReadnoiseTest, None],
+                             [0, 0, OffsetTest, None],
+
+                             [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
+                             [1, 0, V0Test, None],
+                             [1, 0, S0Test, None],
+                             [1, 0, P0Test, None],
+                             [1, 0, P1Test, None],
+                             [1, 0, S1Test, None],
+                             [1, 1, V0Test, None],
+                             [1, 1, S0Test, None],
+                             [1, 1, S1Test, None],
+                             [1, 0, P2Test, None],
+
+                             [1, 0, None, 'switch MUX leads to CCD1, amps 2,3'],
+                             [1, 2, V0Test, None],
+                             [1, 2, S0Test, None],
+                             [1, 2, S1Test, None],
+                             [1, 3, V0Test, None],
+                             [1, 3, S0Test, None],
+                             [1, 3, S1Test, None],
+
+                             [0, 0, None, 'switch MUX leads to CCD0, amps 0,1'],
+                             [0, 0, P1Test, None],
+                             [0, 0, S1Test, None],
+                             [0, 1, V0Test, None],
+                             [0, 1, S0Test, None],
+                             [0, 1, S1Test, None],
+
+                             [0, 0, None, 'switch MUX leads to CCD0, amps 2,3'],
+                             [0, 2, V0Test, None],
+                             [0, 2, S0Test, None],
+                             [0, 2, S1Test, None],
+                             [0, 3, V0Test, None],
+                             [0, 3, S0Test, None],
+                             [0, 3, S1Test, None],
+                             [0, 3, P2Test, None],
+            ]
+        elif sequence == 'short':
+            self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, ReadnoiseTest, None]]
+        else:
+            raise RuntimeError('unknown rig type')
         
-        self.sequence = [[0, 0, SanityTest, None],
-                         
-                         [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
-                         [0, 0, V0Test, None],
-                         [0, 0, S0Test, None],
-                         [0, 0, P0Test, None],
-
-                         [0, 0, None, 'insert terminators into all amp channels'],
-                         [0, 0, ReadnoiseTest, None],
-                         [0, 0, OffsetTest, None],
-
-                         [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
-                         [1, 0, V0Test, None],
-                         [1, 0, S0Test, None],
-                         [1, 0, P0Test, None],
-                         [1, 0, P1Test, None],
-                         [1, 0, S1Test, None],
-                         [1, 1, V0Test, None],
-                         [1, 1, S0Test, None],
-                         [1, 1, S1Test, None],
-                         [1, 0, P2Test, None],
-
-                         [1, 0, None, 'switch MUX leads to CCD1, amps 2,3'],
-                         [1, 2, V0Test, None],
-                         [1, 2, S0Test, None],
-                         [1, 2, S1Test, None],
-                         [1, 3, V0Test, None],
-                         [1, 3, S0Test, None],
-                         [1, 3, S1Test, None],
-
-                         [0, 0, None, 'switch MUX leads to CCD0, amps 0,1'],
-                         [0, 0, P1Test, None],
-                         [0, 0, S1Test, None],
-                         [0, 1, V0Test, None],
-                         [0, 1, S0Test, None],
-                         [0, 1, S1Test, None],
-
-                         [0, 0, None, 'switch MUX leads to CCD0, amps 2,3'],
-                         [0, 2, V0Test, None],
-                         [0, 2, S0Test, None],
-                         [0, 2, S1Test, None],
-                         [0, 3, V0Test, None],
-                         [0, 3, S0Test, None],
-                         [0, 3, S1Test, None],
-                         [0, 3, P2Test, None],
-        ]
-
+            
         self.ccd = None
         self.amp = None
 
