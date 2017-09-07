@@ -238,6 +238,10 @@ class BenchRig(TestRig):
 
     def setSerials(self, PA0=None, ADC=None, CCD0=None, CCD1=None):
         serials = dict(PA0=PA0, ADC=ADC, CCD0=CCD0, CCD1=CCD1)
+
+        self.powerDown()
+        self.powerUp()
+        time.sleep(1.1)
         
         for s in serials.keys():
             if serials[s] is not None:
