@@ -209,7 +209,7 @@ def rawAmpGrid(im, ccd, amps=None,
             normArr = ampIm - ampIm.mean()
             bestYhat = np.log10(np.absolute(np.fft.fft(normArr)))
 
-    pixRange = np.trunc(2*ai_std)+1
+    pixRange = max(np.trunc(2*ai_std)+1,2)
     dataNorm = mpl.colors.Normalize(vmin=-pixRange,
                                     vmax=pixRange,
                                     clip=True)
@@ -254,20 +254,22 @@ def rawAmpGrid(im, ccd, amps=None,
             cax.set_yticklabels([str(-pixRange),'0',str(pixRange)])
             
         ai_std1 = np.std(nAmpIm)
-        im_p.text(0.99, -0.05, 'sig=%0.2f' % (ai_std1),
+        im_p.text(0, -0.03, 'sig=%0.2f' % (ai_std1),
                   color=('black' if ai_std1 <= noiseLim else 'red'),
                   weight='bold',
-                  horizontalalignment='right',
+                  horizontalalignment='left',
                   verticalalignment='top',
                   transform=im_p.transAxes)
 
         if expectedLevels is not None:
             inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.01*expectedLevels[a_i]
             color = 'black' if inspec else 'red'
+            levelText = "med=%d (%d)" % (ai_med1, expectedLevels[a_i])
         else:
             color = 'black'
+            levelText = "med=%d" % (ai_med1)
             
-        im_p.text(0.02, -0.05, 'med=%d' % (ai_med1),
+        im_p.text(0, -0.10, levelText,
                   color=color,
                   weight='bold',
                   horizontalalignment='left',
