@@ -173,14 +173,15 @@ class BenchRig(TestRig):
         if sequence == 'full':
             self.sequence = [[0, 0, SanityTest, None],
 
+                             [0, 0, None, 'insert terminators into all amp channels'],
+                             [0, 0, OffsetTest, None],
+                             [0, 0, ReadnoiseTest, None],
+                             # [0, 0, WalkOffsets, None],
+                             
                              [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
                              [0, 0, V0Test, None],
                              [0, 0, S0Test, None],
                              [0, 0, P0Test, None],
-
-                             [0, 0, None, 'insert terminators into all amp channels'],
-                             [0, 0, ReadnoiseTest, None],
-                             [0, 0, OffsetTest, None],
 
                              [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
                              [1, 0, V0Test, None],
