@@ -495,11 +495,10 @@ class BenchRig(TestRig):
                 print
                 return True
 
-            ret = self.runTest(noRun=noRun)
+            ret = self.runTest(noRun=noRun, **testArgs)
             if ret is False:
                 print("STOPPING at failed test.")
                 return
-        
                 
 class OneTest(object):
     def __init__(self, rig, channel, amp, ccd='X', comment='', dewar=None, revision=1):
@@ -874,7 +873,7 @@ class SanityTest(OneTest):
 
         return '\n'.join(lines)
     
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None, **testArgs):
         self.rig.powerDown()
         self.rig.powerUp()
         oneCmd('ccd_%s' % (self.dewar), '--level=d fee setMode idle', doPrint=True)
@@ -923,12 +922,14 @@ class ReadnoiseTest(OneTest):
     def setup(self, trigger=None):
         pass
 
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
-        if False:
+        if 'zeroOffsets' in testArgs:
             oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
+            self.expectedLevels = self.rig.expectedLevels
         else:
             oneCmd(ccdName, 'fee setMode offset')
+            self.expectedLevels = [1000]*8
         time.sleep(1.1)
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
@@ -969,7 +970,7 @@ class ReadnoiseTest(OneTest):
         rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
-                                     expectedLevels=self.rig.expectedLevels,
+                                     expectedLevels=self.expectedLevels,
                                      cols=statCols, rows=rows)
         levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
         mdfile = self.rig.frontPage
