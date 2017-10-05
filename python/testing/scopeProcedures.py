@@ -995,10 +995,11 @@ def calcOffsets(target, current):
     r = np.round(m * 40.0/57.0)
     
     return m, r
-            
+
+
 class OffsetTest(OneTest):
-    testName = 'Offsets'
-    label = "terminated readout"
+    testName = 'SetOffsets'
+    label = "setting amp levels to 1000 ADU"
     leads = 'terminators only'
     timeout = 30
     
@@ -1017,47 +1018,79 @@ class OffsetTest(OneTest):
                 return fitspath
         return None
         
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None,
+                nrows=None, ref=None, master=None, walkOffsets=False, checkOffsets=False, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
-        for leg in 'n', 'p':
-            for i, v in enumerate(np.linspace(0.0, 399.9, 5)):
-                vlist = tuple([v]*8)
-                if leg == 'p':
-                    print("====== offset test, ref=%0.2f master=0.00" % (v))
-                    oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
-                else:
-                    print("====== offset test, ref=0.00 master=%0.2f" % (v))
-                    oneCmd(ccdName, 'fee setOffsets p=0,0,0,0,0,0,0,0 n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
-                oneCmd(ccdName, 'wipe ncols=100')
-                output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
+        baseMaster = 0 if master is None else master
+        baseRef = 0 if ref is None else ref
+        if walkOffsets:
+            for leg in 'n', 'p':
+                for i, v in enumerate(np.linspace(0.0, -399.9, 5)):
+                    vlist = [v]*8
+                    if leg == 'p':
+                        print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
+                        oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                               % tuple([baseMaster]*8 + vlist))
+                    else:
+                        print("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
+                        oneCmd(ccdName, 'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                               % tuple([baseRef]*8 + vlist))
+
+                    time.sleep(1.1)
+                    oneCmd(ccdName, 'wipe')
+                    if nrows is not None:
+                        output = oneCmd(ccdName, 'read bias nrows=%d' % (nrows))
+                    else:
+                        output = oneCmd(ccdName, 'read bias')
+
+                    fitspath = self.getPath(output)
+                    shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                                       os.path.basename(fitspath)))
+
+                    if leg == 'n' and i == 0:
+                        im = pyfits.getdata(fitspath)
+                        fakeCcd = FakeCcd()
+                        means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+        else:
+            oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%d,%d,%d,%d,%d,%d,%d,%d'
+                   % tuple([0]*16))
+            time.sleep(1.1)
+            oneCmd(ccdName, 'wipe')
+            nrows = 500
+            output = oneCmd(ccdName, 'read bias nrows=%d' % (nrows))
+            fitspath = self.getPath(output)
+            shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                               os.path.basename(fitspath)))
+            im = pyfits.getdata(fitspath)
+            fakeCcd = FakeCcd()
+            means, _ = nbFuncs.ampStats(im, ccd=fakeCcd, rows=np.arange(10, nrows-20))
+            
+        if ref is None and master is None:
+            m, r = calcOffsets(1000,means)
+            print("applying master: %s" % (m))
+            print("applying refs  : %s" % (r))
+
+            vlist = tuple(m) + tuple(r)
+            oneCmd(ccdName,
+                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f \
+                                   p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
+                   % vlist)
+            time.sleep(1.1)
+            oneCmd(ccdName, 'fee setMode offset')
+            time.sleep(1.1)
+
+            if checkOffsets:
+                oneCmd(ccdName, 'wipe')
+                output = oneCmd(ccdName, 'read bias')
 
                 fitspath = self.getPath(output)
                 shutil.copy(fitspath, os.path.join(self.rig.dirName,
                                                    os.path.basename(fitspath)))
-
-                if leg == 'n' and i == 0:
-                    im = pyfits.getdata(fitspath)
-                    fakeCcd = FakeCcd()
-                    means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-                    
-        m, r = calcOffsets(1000,means)
-        print("applying master: %s" % (m))
-        print("applying refs  : %s" % (r))
-
-        vlist = tuple(m) + tuple(r)
-        oneCmd(ccdName,
-               'fee setOffsets n=%f,%f,%f,%f,%f,%f,%f,%f p=%f,%f,%f,%f,%f,%f,%f,%f' % vlist)
-        oneCmd(ccdName, 'wipe ncols=100')
-        output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
-
-        fitspath = self.getPath(output)
-        shutil.copy(fitspath, os.path.join(self.rig.dirName,
-                                           os.path.basename(fitspath)))
-        im = pyfits.getdata(fitspath)
-        fakeCcd = FakeCcd()
-        means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-        print("file : %s" % (fitspath))
-        print("adjusted means: %s" % (means))
+                im = pyfits.getdata(fitspath)
+                fakeCcd = FakeCcd()
+                means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                print("file : %s" % (fitspath))
+                print("adjusted means: %s" % (np.round(means, 2)))
         
     def fetchData(self):
         pass
@@ -1067,6 +1100,17 @@ class OffsetTest(OneTest):
         
     def plot(self, fitspath=None):
         return None, None
+
+class WalkOffsets(OffsetTest):
+    testName = "WalkOffsets"
+    label = "testing ref and master offset ranges"
+
+    def runTest(self, trigger=None,
+                nrows=100, ref=None, master=None, walkOffsets=True, **testArgs):
+
+        return OffsetTest.runTest(self, trigger=trigger,
+                                  nrows=nrows, ref=ref, master=master,
+                                  walkOffsets=walkOffsets, **testArgs)
 
 class V0Test(OneTest):
     testName = 'V0'
