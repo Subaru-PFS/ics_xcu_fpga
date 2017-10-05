@@ -221,6 +221,7 @@ class BenchRig(TestRig):
             ]
         elif sequence == 'short':
             self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, OffsetTest, None],
                              [0, 0, ReadnoiseTest, None]]
         else:
             raise RuntimeError('unknown rig type')
@@ -342,11 +343,13 @@ class BenchRig(TestRig):
             if plist:
                 self.mux.setProbes(plist, amp//2 + 1)
 
-    def runTest(self, noRun=False, trigger=None):
+    def runTest(self, test=None, noRun=False, trigger=None, **testArgs):
         """ run the current test
 
         Args
         ----
+        test : int
+          If set, jump to that test
         noRun : bool
           If True, only print what we would do.
         trigger : dict
@@ -356,7 +359,9 @@ class BenchRig(TestRig):
            level=V : the trigger voltage
            slope='rise'/'fall' : the trigger direction through the level.
         """
-        
+
+        if test is not None:
+            self.seqNum = test
         ccd, amp, testClass, comment = self.sequence[self.seqNum]
 
         if testClass is None:
@@ -379,9 +384,9 @@ class BenchRig(TestRig):
 
         try:
             if hasattr(test, 'runTest'):
-                ret = test.runTest(test)
+                ret = test.runTest(test, **testArgs)
             else:
-                ret = self.scope.runTest(test, trigger=trigger)
+                ret = self.scope.runTest(test, trigger=trigger, **testArgs)
         except Exception as e:
             print("test FAILED: %s" % (e))
             return False
@@ -456,11 +461,13 @@ class BenchRig(TestRig):
         print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                          texName, mdName))
         
-    def runBlock(self, noRun=False, muxOK=True):
+    def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
         """ run tests until failure or the next MUX reconfiguration
 
         Args
         ---
+        test : int
+          If set, jump to that test.
         noRun : bool
           if True, only print what we would do.
         muxOK: bool
