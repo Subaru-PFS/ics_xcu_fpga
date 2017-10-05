@@ -136,6 +136,21 @@ def getFe55():
 def getTemp():
     return query('temp', float)
 
+def getPower():
+    """ Fetch the state of the lamp controller. 
+
+    Returns:
+      onTime : float
+        how many seconds the lamp has been powered up. 0 if off.
+    """
+    ret = opticsLabCommand('lamp state', timeout=2.0)
+
+    parts = ret.split()
+    if parts[0] != 'lamp':
+        raise RuntimeError('failed to control power: %r' % (ret))
+        
+    return float(parts[-1])
+    
 def setup(arm, wavelength=None, flux=None):
     """ """
 
@@ -156,8 +171,10 @@ def setup(arm, wavelength=None, flux=None):
 
     if getLamp() != lamp:
         raise RuntimeError("the lamp must be set outside of the .setup function")
-    if opticsLabCommand('power ?') != 'lamp on':
+    if getPower() == 0:
         raise RuntimeError('the lamp is not on.')
+    if getPower() < 600:
+        raise RuntimeError('the lamp has not been warmed for 10 min.')
     
     setSlitwidth(slitWidth)
     setWavelength(wavelength)
@@ -232,12 +249,8 @@ def setPower(onOff):
        onOff : bool
     """
 
-    ret = opticsLabCommand('power %s' % (onOff), timeout=2.0)
-    parts = ret.split()
-    if parts[0] != 'power':
-        raise RuntimeError('failed to control power: %r' % (ret))
-        
-    return float(parts[-1])
+    opticsLabCommand('pon' if onOff else 'poff', timeout=2.0)
+    return getPower()
 
 def setLamp(lamp):
     """ Choose the monochrometer lamp.
