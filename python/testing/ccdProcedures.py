@@ -97,9 +97,15 @@ def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
                              title='1 hour %fs dark loop' % (darkTime))
 
 def stdExposures_VOD_VOG(ccd=None, feeControl=None,
+                         VOD=None, VOG=None,
                          nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
 
+    if VOD is None:
+        VOD = np.arange(-18.0, -22.01, -0.5)
+    if VOG is None:
+        VOG = np.arange(-3.0, -5.01, -0.25)
+        
     opticslab.setup(ccd.arm, flux=1000, wavelength=5500)
 
     ccdFuncs.expSequence(ccd=ccd,
@@ -109,18 +115,22 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          comment=comment,
                          title='pre-VOD/VOG tuning biases')
 
-    for VOD in -21, -21.25, -21.5, -21.75, -22:
-        for VOG in -4, -4.25, -4.5, -4.75, -5:
+    files = []
+    for vod in VOD:
+        for vog in VOG:
             tweaks = FeeTweaks(feeControl)
-            tweaks.tweakMode('read', OD=VOD, OG=VOG)
+            tweaks.tweakMode('read', OD=vod, OG=vog)
 
-            ccdFuncs.expSequence(ccd=ccd,
-                                 nrows=nrows, ncols=ncols,
-                                 nbias=1, 
-                                 flats=[2], 
-                                 feeControl=tweaks,
-                                 comment=comment,
-                                 title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
+            files1 = ccdFuncs.expSequence(ccd=ccd,
+                                          nrows=nrows, ncols=ncols,
+                                          nbias=1, 
+                                          flats=[4], 
+                                          feeControl=tweaks,
+                                          comment=comment,
+                                          title='VOD/VOG tuning (%0.1f, %0.1f)' % (vod, vog))
+            files.extend(files1)
+
+    return files
 
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
     """ Canonical bright flats sequence. 
