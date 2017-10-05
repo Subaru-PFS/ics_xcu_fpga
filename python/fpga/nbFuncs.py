@@ -29,7 +29,7 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.show()
 
 def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, 
-             peaks=None, clipPeaks=True, linestyle='-+'):
+             peaks=None, clipPeaks=True, linestyle='-+', title=None):
 
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
@@ -79,12 +79,32 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 
     plt.axis([None, None, -plotOffset, yoff+plotOffset])
 
-    plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
-                                                  cols[0],cols[-1]))
+    if title is None:
+        title = ''
+    else:
+        title = title + '\n'
+    title += 'row %d, amps: %s, cols [%d,%d]' % (row, amps, 
+                                                  cols[0],cols[-1])
+    plt.title(title)
     fig.show()
     
     return fig
 
+def plotOffsetScans(fnames):
+    import os.path
+    
+    for f in fnames:
+        exp = geom.Exposure(f)
+        m = exp.header['offset.ch0.2n']
+        r = exp.header['offset.ch0.2p']
+        expid = int(os.path.basename(f)[4:10], base=10)
+        title = "%s\nexp %d ref=%s master=%s" % (f, expid, m, r)
+
+        fim = exp.image
+        plotAmpRows(fim, cols=np.arange(10,fim.shape[1]//8 - 10),
+                    title=title)
+    
+                                    
 def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
                 fig=None, linestyle='-', title=None):
 
@@ -122,13 +142,16 @@ def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
     for a in amps:
         normedIm = im[rows].astype('f4')
         normedIm = normedIm[:, cols + a*imcols]
-        normedIm -= np.median(normedIm)
+        med = np.median(normedIm)
+        normedIm -= med
         
         seg = np.mean(normedIm, axis=1)
         pl.plot(rows, seg+yoff, linestyle)
         pl.hlines(yoff, rows[0], rows[-1], alpha=0.3)
 
-        print 
+        pl.annotate(str(np.round(med,1)), xy=(1.01, yoff),
+                    xycoords=('axes fraction', 'data'))
+        
         yoff += plotOffset
 
     pl.axis([None, None, -plotOffset, yoff+plotOffset])
@@ -137,10 +160,12 @@ def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
         title = ''
     else:
         title = title + '\n'
-    title += 'cols [%d,%d], med(rows=(%d,%d)' % (cols[0],cols[-1],
+    title += 'mean(cols[%d,%d]), rows[%d,%d]' % (cols[0],cols[-1],
                                                  rows[0], rows[-1])
     pl.set_title(title)
     fig.show()
+
+    fig.tight_layout()
     
     return fig
 
@@ -254,7 +279,7 @@ def rawAmpGrid(im, ccd, amps=None,
             cax.set_yticklabels([str(-pixRange),'0',str(pixRange)])
             
         ai_std1 = np.std(nAmpIm)
-        im_p.text(0, -0.03, 'sig=%0.2f' % (ai_std1),
+        im_p.text(0, -0.02, 'sig=%0.2f' % (ai_std1),
                   color=('black' if ai_std1 <= noiseLim else 'red'),
                   weight='bold',
                   horizontalalignment='left',
@@ -539,20 +564,20 @@ def gainCurve(ccd=None, fee=None, amps=None,
     # We cannot yet read bias levels, so zero them first
     fee.zeroOffsets(amps)
     time.sleep(sleepTime)
-    
-    # Clear any accumulated charge
-    ccdFuncs.wipe(ccd=ccd, feeControl=fee)
+
+    otherLeg = 'n' if leg == 'p' else 'p'
     
     offset = 0.0
     while np.fabs(offset) <= offLimit:
         offsets.append(offset)
         fee.setOffsets(amps, [offset]*namps, leg=leg)
+        fee.setOffsets(amps, [0.0]*namps, leg=otherLeg)
         time.sleep(sleepTime)
 
         im, files = ccdFuncs.fullExposure('bias', ccd=ccd, feeControl=fee,
                                           nrows=nrows,
                                           # rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict,
-                                          doSave=False, doReset=False,
+                                          # doSave=False, doReset=False,
                                           clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')
@@ -562,8 +587,8 @@ def gainCurve(ccd=None, fee=None, amps=None,
                 im[hi_w] -= 65535
 
         newLevels, devs = ampStats(im, statCols, ccd=ccd)
-        print "means(%0.3f): %s" % (offset, fmtArr(newLevels))
-        print "devs (%0.3f): %s" % (offset, fmtArr(devs))
+        print "means(%s=%0.3f): %s" % (leg, offset, fmtArr(newLevels))
+        print "devs (%s%0.3f): %s" % (leg, offset, fmtArr(devs))
         print
 
         levels.append(newLevels.copy())
