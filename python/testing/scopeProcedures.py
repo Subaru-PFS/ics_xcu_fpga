@@ -12,20 +12,21 @@ import time
 
 import logging
 import os
-import sys
 import astropy.io.fits as pyfits
-from matplotlib.backends.backend_pdf import PdfPages
 
 from fpga import SeqPath
-from fpga import ccdFuncs
 from fpga import nbFuncs
-from fpga import geom
 
 from . import pfsScope
-reload(pfsScope)
-
 from . import scopeMux
+
+reload(pfsScope)
 reload(scopeMux)
+
+# Configure the default formatter and logger.
+logging.basicConfig(datefmt = "%Y-%m-%d %H:%M:%S",
+                    format = "%(asctime)s.%(msecs)03dZ %(name)-16s %(levelno)s %(filename)s:%(lineno)d %(message)s")
+logging.getLogger().setLevel(logging.INFO)
 
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
@@ -638,7 +639,9 @@ class OneTest(object):
                                                                  self.label)
 def oneCmd(actor, cmdStr, doPrint=True):
     fullCmdStr = "oneCmd.py %s %s" % (actor, cmdStr)
-
+    if doPrint:
+        logging.info("cmd: %s" % (fullCmdStr))
+        
     p = subprocess.Popen(fullCmdStr, shell=True, bufsize=1,
                          universal_newlines=True,
                          stdout=subprocess.PIPE,
@@ -652,7 +655,7 @@ def oneCmd(actor, cmdStr, doPrint=True):
         if not l:
             break
         if doPrint:
-            print l.strip()
+            logging.debug(l.strip())
 
         output.append(l)
 
@@ -968,16 +971,16 @@ class ReadnoiseTest(OneTest):
         mdfile.write('\n')
 
         row = im.shape[0]//2
-        cols = np.arange(50)
-        if False:
-            f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
+        if True:
+            cols = np.arange(100)
+            f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10, title='row starts, test %d' % (self.rig.seqno))
             self.rig.savefig(f2, 'starts')
         
-        cols = np.arange(10,im.shape[1]//8)
-        f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
+        cols = np.arange(10,im.shape[1]//8-1)
+        f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-', title='full rows, test %d' % (self.rig.seqno))
         self.rig.savefig(f3, 'levels')
 
-        f4 = nbFuncs.plotAmpRows(im, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=5,
+        f4 = nbFuncs.plotAmpRows(im, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=3,
                                  title='amp means, test %d' % (self.rig.seqno))
         self.rig.savefig(f4, 'rowcuts')
 
