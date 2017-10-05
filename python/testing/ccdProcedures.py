@@ -450,7 +450,7 @@ statDtype = ([('amp', 'i2'),
               ('ccd0temp', 'f4'),
               ('preamptemp', 'f4')])
 
-def ampStats(ampIm, osIm, hdr=None, exptime=0.0):
+def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
     stats = np.zeros(shape=(1,),
                      dtype=statDtype)
 
@@ -477,8 +477,12 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0):
     sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
     _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
     _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
-    stats[a_i]['readnoise'] = sig2
-    stats[a_i]['readnoiseM'] = trusig2
+    if asBias:
+        stats[a_i]['readnoise'] = sig1
+        stats[a_i]['readnoiseM'] = trusig1
+    else:
+        stats[a_i]['readnoise'] = sig2
+        stats[a_i]['readnoiseM'] = trusig2
 
     stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
     stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
@@ -520,7 +524,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
 
     return stats, ampIm, osIm
 
-def imStats(im):
+def imStats(im, asBias=False):
     exp = geom.Exposure(im)
     
     ampIms, osIms, _ = exp.splitImage(doTrim=True)
@@ -528,7 +532,9 @@ def imStats(im):
     stats = []
 
     for a_i in range(8):
-        stats1 = ampStats(ampIms[a_i], osIms[a_i], exp.header, exptime=exp.header['EXPTIME'])
+        stats1 = ampStats(ampIms[a_i], osIms[a_i], exp.header,
+                          exptime=exp.header['EXPTIME'],
+                          asBias=asBias)
         stats1['amp'] = a_i
         stats.append(stats1)
 
