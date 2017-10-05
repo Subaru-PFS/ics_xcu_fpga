@@ -187,7 +187,7 @@ def fftAmp(im, ccd, amps=None, cols=None, rows=None):
 def rawAmpGrid(im, ccd, amps=None,
                title=None,
                cols=None, rows=None, 
-               noiseLim=0.8,
+               noiseLim=0.85,
                expectedLevels=None,
                fig=None, figSize=None):
     
