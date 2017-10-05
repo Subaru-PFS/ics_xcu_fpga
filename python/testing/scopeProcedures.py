@@ -475,6 +475,11 @@ class BenchRig(TestRig):
           that the MUX has already been configured, and skip that step.
 
         """
+
+        if test is not None:
+            self.seqNum = test
+        plt.close('all')
+        
         ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
         if testClass is None and muxOK:
             self.incrTest()
