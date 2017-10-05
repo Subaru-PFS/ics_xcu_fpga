@@ -13,6 +13,8 @@ import matplotlib.gridspec as gridspec
 from fpga import ccdFuncs
 reload(ccdFuncs)
 
+from fpga import geom
+
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
     return arr - np.median(arr)
@@ -287,7 +289,7 @@ def rawAmpGrid(im, ccd, amps=None,
                   transform=im_p.transAxes)
 
         if expectedLevels is not None:
-            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.01*expectedLevels[a_i]
+            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.1*expectedLevels[a_i]
             color = 'black' if inspec else 'red'
             levelText = "med=%d (%d)" % (ai_med1, expectedLevels[a_i])
         else:
