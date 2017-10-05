@@ -784,13 +784,13 @@ class SanityTest(OneTest):
             Voltage(name='3v3m', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='3v3', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='5vp', nominal=5.0, lo=0.02, hi=0.02),
-            Voltage(name='5vn', nominal=-4.9, lo=0.02, hi=0.02),
-            Voltage(name='5vppa', nominal=4.9, lo=0.02, hi=0.02),
-            Voltage(name='5vnpa', nominal=-4.9, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=11.5, lo=0.02, hi=0.02),
-            Voltage(name='12vn', nominal=-11.5, lo=0.02, hi=0.02),
-            Voltage(name='24vn', nominal=-23, lo=0.02, hi=0.02),
-            Voltage(name='54vp', nominal=49, lo=0.02, hi=0.02),
+            Voltage(name='5vn', nominal=-5, lo=0.02, hi=0.02),
+            Voltage(name='5vppa', nominal=5, lo=0.02, hi=0.02),
+            Voltage(name='5vnpa', nominal=-5, lo=0.02, hi=0.02),
+            Voltage(name='12vp', nominal=12, lo=0.02, hi=0.02),
+            Voltage(name='12vn', nominal=-12, lo=0.02, hi=0.02),
+            Voltage(name='24vn', nominal=-24, lo=0.02, hi=0.02),
+            Voltage(name='54vp', nominal=54, lo=0.02, hi=0.02),
         ]
 
         for v in vlist:
