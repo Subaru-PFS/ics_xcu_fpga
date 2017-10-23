@@ -487,7 +487,34 @@ class FeeControl(object):
                 self.doSet('bias', name, value, ch)
                 new = self.doGet('bias', name, ch)
                 self.logger.info("changed ch%d %s from %s to %s" % (ch, name, old, new))
-            
+
+    def setVoltageCalibrations(self, 
+                               v3V3M=None, v3V3=None,
+                               v5VP=None, v5VN=None, v5VPpa=None, v5VNpa=None,
+                               v12VP=None, v12VN=None, v24VN=None, v54VP=None):
+        """ Set calibrations for some or all FEE voltages.
+
+        Args:
+         channel = 0 or 1
+         v3V3M, etc : float or None
+         
+        """
+        import inspect
+        
+        argspec = inspect.getargspec(self.setVoltageCalibrations)
+        argnames = argspec.args[-len(argspec.defaults):]
+        argvals = inspect.getargvalues(inspect.currentframe())
+        for arg in argnames:
+            try:
+                argval = argvals.locals[arg]
+            except Exception as e:
+                raise RuntimeError("no value for %s in %s: %s" % (arg, argvals.locals, e))
+                
+            if argval is not None:
+                vname = arg[1:]
+                self.logger.info("setting voltage calibration %s = %s" % (vname, argval))
+                self.doSet('voltage', vname, argval)
+                
         
     def defineCommands(self):
         self.commands = {}

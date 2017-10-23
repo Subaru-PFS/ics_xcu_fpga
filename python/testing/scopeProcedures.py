@@ -250,6 +250,17 @@ class BenchRig(TestRig):
             if serials[s] is not None:
                 oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
                 
+    def setVoltageCalibrations(self, 
+                               v3V3M=None, v3V3=None,
+                               v5VP=None, v5VN=None, v5VPpa=None, v5VNpa=None,
+                               v12VP=None, v12VN=None, v24VN=None, v54VP=None):
+        import inspect
+
+        argvals = inspect.getargvalues(inspect.currentframe())
+        
+        cmdArgs = ["%s=%s" % (arg, argvals.locals[arg]) for arg in argvals.args if arg not in {'self'}]
+        oneCmd('ccd_%s' % (self.dewar), 'fee setVoltageCalibrations %s' % (' '.join(cmdArgs)), doPrint=False)
+                
     def calibrateFee(self):
         subprocess.call('oneCmd.py ccd_%s fee calibrate' % (self.dewar), shell=True)
 
