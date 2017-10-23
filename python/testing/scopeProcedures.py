@@ -218,6 +218,7 @@ class BenchRig(TestRig):
                              [0, 3, S0Test, None],
                              [0, 3, S1Test, None],
                              [0, 3, P2Test, None],
+                             [0, 0, None, None],
             ]
         elif sequence == 'short':
             self.sequence = [[0, 0, SanityTest, None],
@@ -293,6 +294,9 @@ class BenchRig(TestRig):
         if seqNum is None:
             seqNum = self.seqNum
         ccd, amp, test, comment = self.sequence[seqNum]
+
+        if comment is None and test is None:
+            return "Done"
 
         if comment is None:
             comment = "%s [ccd %d, amp %d]: %s" % (test.testName,
@@ -376,6 +380,11 @@ class BenchRig(TestRig):
         ccd, amp, testClass, comment = self.sequence[self.seqNum]
 
         if testClass is None:
+            if comment is None:
+                self.finishFullRig()
+                self.seqNum += 1
+                return True
+            
             print("You need to %s" % (comment))
             self.seqNum += 1
             return True
@@ -471,7 +480,15 @@ class BenchRig(TestRig):
                                                                                texName, mdName), shell=True)
         print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                          texName, mdName))
+    def finishFullRig(self):
+        print("generating full report.... ")
         
+        reportPath = os.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
+        cmd = 'pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf' % reportPath
+
+        subprocess.call(cmd)
+        print("report is in %s" % (reportPath))
+         
     def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
         """ run tests until failure or the next MUX reconfiguration
 
@@ -501,6 +518,9 @@ class BenchRig(TestRig):
                 return True
             ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
             if testClass is None:
+                if comment2 is None:
+                    self.finishFullRig()
+                    return True
                 print
                 print("============= MUX reconfiguration: you need to %s" % (comment2))
                 print
@@ -708,7 +728,27 @@ class FakeCcd(object):
                 
         ampCols = ncols / 8
         return np.arange(ampCols*ampid, ampCols*(ampid+1), dtype='i4')
+
+class FinishUp(OneTest):
+    testName = 'FinishUp'
+    label = 'Generate full report'
+    leads = ''
+    timeout = 30
+
+    def runTest(self):
+        self.rig.finishFullRig()
+
+    def setup(self, trigger=None):
+        pass
+    def fetchData(self):
+        pass
     
+    def save(self, comment=''):
+        pass
+        
+    def plot(self, fitspath=None):
+        return None, None
+
 class SanityTest(OneTest):
     testName = 'Sanity'
     label = 'serials and voltages'
