@@ -976,7 +976,7 @@ class ReadnoiseTest(OneTest):
     def runTest(self, trigger=None, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
         if 'zeroOffsets' in testArgs:
-            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
+            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0', doPrint=True)
             self.expectedLevels = self.rig.expectedLevels
         else:
             oneCmd(ccdName, 'fee setMode offset')
@@ -984,7 +984,6 @@ class ReadnoiseTest(OneTest):
         time.sleep(1.1)
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
-        time.sleep(1.1)
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
         output = oneCmd(ccdName, 'read bias')
