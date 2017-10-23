@@ -839,8 +839,8 @@ class SanityTest(OneTest):
             Voltage(name='5vnpa', nominal=-5, lo=0.02, hi=0.02),
             Voltage(name='12vp', nominal=12, lo=0.02, hi=0.02),
             Voltage(name='12vn', nominal=-12, lo=0.02, hi=0.02),
-            Voltage(name='24vn', nominal=-24, lo=0.02, hi=0.02),
-            Voltage(name='54vp', nominal=54, lo=0.02, hi=0.02),
+            Voltage(name='24vn', nominal=-24.75, lo=0.01, hi=0.01),
+            Voltage(name='54vp', nominal=54.25, lo=0.01, hi=0.01),
         ]
 
         for v in vlist:
