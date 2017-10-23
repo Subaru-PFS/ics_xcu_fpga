@@ -1,11 +1,13 @@
 from __future__ import absolute_import
 
 import logging
+import os
 import time
 import sys
 import numpy as np
 import scipy
 
+import astropy.io.fits as pyfits
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -18,6 +20,37 @@ from fpga import geom
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
     return arr - np.median(arr)
+
+def bitHist(fname, doPrint=True):
+    """ Calculate and usually print a bit-histogram of a FITS image. 
+
+    Args:
+     fname : a FITS filename
+     doPrint : bool
+       If False, do not print statistics.
+
+    Returns:
+     bitFractions : 8x16 array of fractions
+    """
+    
+    im = pyfits.getdata(fname)
+    
+    namps = 8
+    ampCols = im.shape[1]/namps
+    cols = np.arange(10, ampCols-10)
+    
+    for a in range(namps):
+        ampPixels =  im[:, cols + a*ampCols].flatten()
+        pixCount = float(len(ampPixels))
+        bitFracs = np.zeros(16)
+        for i in range(16):
+            setCount = ((ampPixels & (01 << i)) != 0).sum()
+            bitFracs[i] = setCount / pixCount
+
+        bitFracs = bitFracs[::-1]
+        print("%s[%d]: %s" % (os.path.basename(fname), a, np.round(bitFracs, 3)))
+
+    return bitFracs
 
 def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     medpix = np.median(im[prows])
