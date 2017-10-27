@@ -388,6 +388,15 @@ class BenchRig(TestRig):
             print("You need to %s" % (comment))
             self.seqNum += 1
             return True
+
+        test = self._runTest(testClass, ccd, amp, trigger=trigger,
+                             comment=comment, noRun=noRun, **testArgs)
+        self.seqNum += 1
+        
+        return test
+    
+    def _runTest(self, testClass, ccd, amp, trigger=None,
+                 comment=None, noRun=False, **testArgs):
         
         test = testClass(self, ccd, amp,
                          dewar=self.dewar,
@@ -428,10 +437,12 @@ class BenchRig(TestRig):
                 fig.savefig(pdfPath)
                 print("PDF is at %s" % (pdfPath))
 
-        self.seqNum += 1
-        
-        return test
+        return test, ret
 
+    def runExtraTest(self, testClass, ccd=0, amp=0, comment=None):
+        test = self._runTest(testClass, ccd, amp, comment=comment)
+        return test
+        
     @property
     def frontPagePath(self):
         return os.path.join(self.dirName, 'frontpage.md')
