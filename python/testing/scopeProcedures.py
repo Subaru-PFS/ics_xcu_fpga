@@ -1096,21 +1096,31 @@ class OffsetTest(OneTest):
         return None
         
     def runTest(self, trigger=None,
-                nrows=None, ref=None, master=None, walkOffsets=False, checkOffsets=False, **testArgs):
+                nrows=None, ref=None, master=None,
+                walkOffsets=False, checkOffsets=False, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
         baseMaster = 0 if master is None else master
         baseRef = 0 if ref is None else ref
         if walkOffsets:
+            self.outputs = dict(n=dict(), p=dict())
+            outputs = self.outputs
+            if nrows is None:
+                nrows = 200
+
+            np.set_printoptions(linewidth=500)
+
             for leg in 'n', 'p':
                 for i, v in enumerate(np.linspace(0.0, -399.9, 5)):
                     vlist = [v]*8
                     if leg == 'p':
                         print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
-                        oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                        oneCmd(ccdName,
+                               'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseMaster]*8 + vlist))
                     else:
                         print("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
-                        oneCmd(ccdName, 'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                        oneCmd(ccdName,
+                               'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseRef]*8 + vlist))
 
                     time.sleep(1.1)
@@ -1124,10 +1134,14 @@ class OffsetTest(OneTest):
                     shutil.copy(fitspath, os.path.join(self.rig.dirName,
                                                        os.path.basename(fitspath)))
 
-                    if leg == 'n' and i == 0:
-                        im = pyfits.getdata(fitspath)
-                        fakeCcd = FakeCcd()
-                        means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                    im = pyfits.getdata(fitspath)
+                    fakeCcd = FakeCcd()
+                    means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                    outputs[leg][v] = means
+                    self.logger.warn("%s=%s = %s", leg, v, means)
+                    self.logger.warn("  %s", outputs)
+            return outputs
+            
         else:
             oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%d,%d,%d,%d,%d,%d,%d,%d'
                    % tuple([0]*16))
