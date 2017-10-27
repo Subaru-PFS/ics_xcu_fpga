@@ -11,6 +11,7 @@ from collections import OrderedDict
 import numpy as np
 
 import astropy.io.fits as fits
+import serial
 
 fee = None
 
@@ -240,8 +241,6 @@ class FeeControl(object):
     def connectToDevice(self):
         """ Establish a new connection to the FEE. Any old connection is closed.  """
 
-        import serial
-        
         if self.device:
             self.device.close()
             self.device = None
