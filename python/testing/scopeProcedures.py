@@ -494,10 +494,10 @@ class BenchRig(TestRig):
     def finishFullRig(self):
         print("generating full report.... ")
         
-        reportPath = os.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
-        cmd = 'pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf' % reportPath
+        reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
+        cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
 
-        subprocess.call(cmd)
+        subprocess.call(cmd, shell=True)
         print("report is in %s" % (reportPath))
          
     def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
