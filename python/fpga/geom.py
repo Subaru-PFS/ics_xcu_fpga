@@ -375,7 +375,7 @@ class Exposure(object):
         newImage = self.image.copy()
 
         for a_i in range(self.namps):
-            yslice, xslice = self.ampExtents(a_i, leadingRows=leadingRows)
+            yslice, xslice = self.ampExtents(a_i, leadingRows=False)
             inYslice, inXslice = self.finalAmpExtents(a_i, leadingRows=leadingRows)
             self.logger.debug("leadingRows=%s inYslice=%s", leadingRows, inYslice)
             newImage[yslice, xslice] = newFlux[inYslice,inXslice]
@@ -427,7 +427,7 @@ class Exposure(object):
             im = self.image
 
         ampIm = self.ampImage(ampId, im=im)
-        osYr, osXr = self.overscanExtents(ampId)
+        osYr, osXr = self.overscanCols(ampId)
 
         if byRow:
             imMed = np.median(im[osYr, osXr],
@@ -460,7 +460,8 @@ def clippedStats(a, nsig=3.0, niter=5):
             return mn, sd, float(nkeep1)/a.size
 
     print "too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
-                                                                               nkeep0, nkeep1)
+                                                                               float(nkeep0)/a.size,
+                                                                               float(nkeep1)/a.size)
     return a[keep].mean(), a[keep].std(), float(nkeep1)/a.size
 
 def clippedStack(flist, dtype='i4'):
