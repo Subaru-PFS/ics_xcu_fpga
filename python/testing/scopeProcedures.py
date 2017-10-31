@@ -151,34 +151,37 @@ class BenchRig(TestRig):
     expectedLevels = (6200, 5050, 3725, 2570,
                       6140, 5010, 4000, 2630)
     
-    def __init__(self, dewar=None, sequence=None, **argd):
+    def __init__(self, cam=None, sequence=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
 
         By default, creates a new, empty test rig and directory.
 
         Args
         ----
-        dewar : str
-          Name of piepan/dewar we are running on (default=b9)
+        cam : str
+          Name of piepan/cam we are running on (default=b9)
 
         """
 
         TestRig.__init__(self, **argd)
 
-        if dewar is None:
+        if cam is None:
             dewar = 'b9'
+        else:
+            dewar = cam
+            self.logger.warn('testing cam %s', cam)
         self.dewar = dewar
-
         if sequence is None:
             sequence = 'full'
 
+        self.sequenceType = sequence
+        
         if sequence == 'full':
             self.sequence = [[0, 0, SanityTest, None],
 
                              [0, 0, None, 'insert terminators into all amp channels'],
                              [0, 0, OffsetTest, None],
                              [0, 0, ReadnoiseTest, None],
-                             # [0, 0, WalkOffsets, None],
                              
                              [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
                              [0, 0, V0Test, None],
@@ -498,8 +501,16 @@ class BenchRig(TestRig):
         print("generating full report.... ")
         
         reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
-        cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
-
+        if self.sequenceType == 'full':
+            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf ' \
+                  ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
+        elif self.sequenceType in ('short', 'preship'):
+            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf)' % \
+                  (self.dirName, reportPath)
+        else:
+            print("unknown test type, not building report")
+            return
+        
         subprocess.call(cmd, shell=True)
         print("report is in %s" % (reportPath))
          
@@ -1239,6 +1250,7 @@ class V0Test(OneTest):
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
         else:
+            self.logger.warn('overriding trigger with: %s', trigger)
             self.scope.setEdgeTrigger(**trigger)
 
         print("powering FEE down....")
