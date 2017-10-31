@@ -52,9 +52,6 @@ class TestRig(object):
         else:
             raise RuntimeError("both dirName and seqno must be set, or neither")
 
-        self.newScope()
-        self.newMux()
-
         self.sequence = []
         self.pdf = None
         
@@ -77,6 +74,10 @@ class TestRig(object):
             self.mux.mux.close()
         del self.mux
         self.mux = None
+
+    def connect(self):
+        self.newScope()
+        self.newMux()
         
     def newScope(self):
         reload(pfsScope)
@@ -220,14 +221,16 @@ class BenchRig(TestRig):
                              [0, 3, P2Test, None],
                              [0, 0, None, None],
             ]
-        elif sequence == 'short':
+            self.connect()
+        elif sequence in ('short', 'preship'):
             self.sequence = [[0, 0, SanityTest, None],
                              [0, 0, OffsetTest, None],
-                             [0, 0, ReadnoiseTest, None]]
+                             [0, 0, ReadnoiseTest, None],
+                             [0, 0, None, None],
+            ]
         else:
             raise RuntimeError('unknown rig type')
         
-            
         self.ccd = None
         self.amp = None
 
