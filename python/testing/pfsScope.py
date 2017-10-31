@@ -256,7 +256,7 @@ class PfsCpo(object):
             if t1-t0 > timeout:
                 raise RuntimeError('timeout waiting for operation end')
 
-    def runTest(self, test, debug=False, trigger=None):
+    def runTest(self, test, debug=False, trigger=None, **testArgs):
         startLevel = self.logger.level
 
         self.logger.info('running test %s', test.testName)

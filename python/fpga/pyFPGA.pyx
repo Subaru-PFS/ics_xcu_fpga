@@ -58,7 +58,7 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
         logger.info("line %05d %s", row_i, errorMsg)
     
 cdef class FPGA:
-    def __cinit__(self, spectroId, dewarId, splitDetectors=False,
+    def __cinit__(self, spectroId, arm, splitDetectors=False,
                   site=None, adc18bit=1):
         configureFpga(<const char *>0)
         self.adc18bit = adc18bit

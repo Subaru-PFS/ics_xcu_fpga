@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for s in bios-version bios-release-date baseboard-serial-number; do
+    val=$(dmidecode -s $s)
+    printf "%-25s %s\n" $s $val
+done

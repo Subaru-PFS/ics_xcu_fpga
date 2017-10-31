@@ -12,19 +12,21 @@ import time
 
 import logging
 import os
-import sys
 import astropy.io.fits as pyfits
-from matplotlib.backends.backend_pdf import PdfPages
 
 from fpga import SeqPath
-from fpga import ccdFuncs
 from fpga import nbFuncs
 
 from . import pfsScope
-reload(pfsScope)
-
 from . import scopeMux
+
+reload(pfsScope)
 reload(scopeMux)
+
+# Configure the default formatter and logger.
+logging.basicConfig(datefmt = "%Y-%m-%d %H:%M:%S",
+                    format = "%(asctime)s.%(msecs)03dZ %(name)-16s %(levelno)s %(filename)s:%(lineno)d %(message)s")
+logging.getLogger().setLevel(logging.INFO)
 
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
 
@@ -50,9 +52,6 @@ class TestRig(object):
         else:
             raise RuntimeError("both dirName and seqno must be set, or neither")
 
-        self.newScope()
-        self.newMux()
-
         self.sequence = []
         self.pdf = None
         
@@ -75,6 +74,10 @@ class TestRig(object):
             self.mux.mux.close()
         del self.mux
         self.mux = None
+
+    def connect(self):
+        self.newScope()
+        self.newMux()
         
     def newScope(self):
         reload(pfsScope)
@@ -148,71 +151,89 @@ class BenchRig(TestRig):
     expectedLevels = (6200, 5050, 3725, 2570,
                       6140, 5010, 4000, 2630)
     
-    def __init__(self, dewar=None, **argd):
+    def __init__(self, cam=None, sequence=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
 
         By default, creates a new, empty test rig and directory.
 
         Args
         ----
-        dewar : str
-          Name of piepan/dewar we are running on (default=b9)
+        cam : str
+          Name of piepan/cam we are running on (default=b9)
 
         """
 
         TestRig.__init__(self, **argd)
 
-        if dewar is None:
+        if cam is None:
             dewar = 'b9'
+        else:
+            dewar = cam
+            self.logger.warn('testing cam %s', cam)
         self.dewar = dewar
+        if sequence is None:
+            sequence = 'full'
+
+        self.sequenceType = sequence
         
-        self.sequence = [[0, 0, SanityTest, None],
-                         
-                         [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
-                         [0, 0, V0Test, None],
-                         [0, 0, S0Test, None],
-                         [0, 0, P0Test, None],
+        if sequence == 'full':
+            self.sequence = [[0, 0, SanityTest, None],
 
-                         [0, 0, None, 'insert terminators into all amp channels'],
-                         [0, 0, ReadnoiseTest, None],
-                         [0, 0, OffsetTest, None],
+                             [0, 0, None, 'insert terminators into all amp channels'],
+                             [0, 0, OffsetTest, None],
+                             [0, 0, ReadnoiseTest, None],
+                             
+                             [0, 0, None, 'switch MUX leads to CCD0, amp 0 (1 is unused)'],
+                             [0, 0, V0Test, None],
+                             [0, 0, S0Test, None],
+                             [0, 0, P0Test, None],
 
-                         [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
-                         [1, 0, V0Test, None],
-                         [1, 0, S0Test, None],
-                         [1, 0, P0Test, None],
-                         [1, 0, P1Test, None],
-                         [1, 0, S1Test, None],
-                         [1, 1, V0Test, None],
-                         [1, 1, S0Test, None],
-                         [1, 1, S1Test, None],
-                         [1, 0, P2Test, None],
+                             [1, 0, None, 'switch MUX leads to CCD1, amps 0,1'],
+                             [1, 0, V0Test, None],
+                             [1, 0, S0Test, None],
+                             [1, 0, P0Test, None],
+                             [1, 0, P1Test, None],
+                             [1, 0, S1Test, None],
+                             [1, 1, V0Test, None],
+                             [1, 1, S0Test, None],
+                             [1, 1, S1Test, None],
+                             [1, 0, P2Test, None],
 
-                         [1, 0, None, 'switch MUX leads to CCD1, amps 2,3'],
-                         [1, 2, V0Test, None],
-                         [1, 2, S0Test, None],
-                         [1, 2, S1Test, None],
-                         [1, 3, V0Test, None],
-                         [1, 3, S0Test, None],
-                         [1, 3, S1Test, None],
+                             [1, 0, None, 'switch MUX leads to CCD1, amps 2,3'],
+                             [1, 2, V0Test, None],
+                             [1, 2, S0Test, None],
+                             [1, 2, S1Test, None],
+                             [1, 3, V0Test, None],
+                             [1, 3, S0Test, None],
+                             [1, 3, S1Test, None],
 
-                         [0, 0, None, 'switch MUX leads to CCD0, amps 0,1'],
-                         [0, 0, P1Test, None],
-                         [0, 0, S1Test, None],
-                         [0, 1, V0Test, None],
-                         [0, 1, S0Test, None],
-                         [0, 1, S1Test, None],
+                             [0, 0, None, 'switch MUX leads to CCD0, amps 0,1'],
+                             [0, 0, P1Test, None],
+                             [0, 0, S1Test, None],
+                             [0, 1, V0Test, None],
+                             [0, 1, S0Test, None],
+                             [0, 1, S1Test, None],
 
-                         [0, 0, None, 'switch MUX leads to CCD0, amps 2,3'],
-                         [0, 2, V0Test, None],
-                         [0, 2, S0Test, None],
-                         [0, 2, S1Test, None],
-                         [0, 3, V0Test, None],
-                         [0, 3, S0Test, None],
-                         [0, 3, S1Test, None],
-                         [0, 3, P2Test, None],
-        ]
-
+                             [0, 0, None, 'switch MUX leads to CCD0, amps 2,3'],
+                             [0, 2, V0Test, None],
+                             [0, 2, S0Test, None],
+                             [0, 2, S1Test, None],
+                             [0, 3, V0Test, None],
+                             [0, 3, S0Test, None],
+                             [0, 3, S1Test, None],
+                             [0, 3, P2Test, None],
+                             [0, 0, None, None],
+            ]
+            self.connect()
+        elif sequence in ('short', 'preship'):
+            self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, OffsetTest, None],
+                             [0, 0, ReadnoiseTest, None],
+                             [0, 0, None, None],
+            ]
+        else:
+            raise RuntimeError('unknown rig type')
+        
         self.ccd = None
         self.amp = None
 
@@ -227,10 +248,25 @@ class BenchRig(TestRig):
 
     def setSerials(self, PA0=None, ADC=None, CCD0=None, CCD1=None):
         serials = dict(PA0=PA0, ADC=ADC, CCD0=CCD0, CCD1=CCD1)
+
+        self.powerDown()
+        self.powerUp()
+        time.sleep(1.1)
         
         for s in serials.keys():
             if serials[s] is not None:
                 oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
+                
+    def setVoltageCalibrations(self, 
+                               v3V3M=None, v3V3=None,
+                               v5VP=None, v5VN=None, v5VPpa=None, v5VNpa=None,
+                               v12VP=None, v12VN=None, v24VN=None, v54VP=None):
+        import inspect
+
+        argvals = inspect.getargvalues(inspect.currentframe())
+        
+        cmdArgs = ["%s=%s" % (arg, argvals.locals[arg]) for arg in argvals.args if arg not in {'self'}]
+        oneCmd('ccd_%s' % (self.dewar), 'fee setVoltageCalibrations %s' % (' '.join(cmdArgs)), doPrint=False)
                 
     def calibrateFee(self):
         subprocess.call('oneCmd.py ccd_%s fee calibrate' % (self.dewar), shell=True)
@@ -264,6 +300,9 @@ class BenchRig(TestRig):
         if seqNum is None:
             seqNum = self.seqNum
         ccd, amp, test, comment = self.sequence[seqNum]
+
+        if comment is None and test is None:
+            return "Done"
 
         if comment is None:
             comment = "%s [ccd %d, amp %d]: %s" % (test.testName,
@@ -325,11 +364,13 @@ class BenchRig(TestRig):
             if plist:
                 self.mux.setProbes(plist, amp//2 + 1)
 
-    def runTest(self, noRun=False, trigger=None):
+    def runTest(self, test=None, noRun=False, trigger=None, **testArgs):
         """ run the current test
 
         Args
         ----
+        test : int
+          If set, jump to that test
         noRun : bool
           If True, only print what we would do.
         trigger : dict
@@ -339,13 +380,29 @@ class BenchRig(TestRig):
            level=V : the trigger voltage
            slope='rise'/'fall' : the trigger direction through the level.
         """
-        
+
+        if test is not None:
+            self.seqNum = test
         ccd, amp, testClass, comment = self.sequence[self.seqNum]
 
         if testClass is None:
+            if comment is None:
+                self.finishFullRig()
+                self.seqNum += 1
+                return True
+            
             print("You need to %s" % (comment))
             self.seqNum += 1
             return True
+
+        test = self._runTest(testClass, ccd, amp, trigger=trigger,
+                             comment=comment, noRun=noRun, **testArgs)
+        self.seqNum += 1
+        
+        return test
+    
+    def _runTest(self, testClass, ccd, amp, trigger=None,
+                 comment=None, noRun=False, **testArgs):
         
         test = testClass(self, ccd, amp,
                          dewar=self.dewar,
@@ -362,9 +419,9 @@ class BenchRig(TestRig):
 
         try:
             if hasattr(test, 'runTest'):
-                ret = test.runTest(test)
+                ret = test.runTest(test, **testArgs)
             else:
-                ret = self.scope.runTest(test, trigger=trigger)
+                ret = self.scope.runTest(test, trigger=trigger, **testArgs)
         except Exception as e:
             print("test FAILED: %s" % (e))
             return False
@@ -386,10 +443,12 @@ class BenchRig(TestRig):
                 fig.savefig(pdfPath)
                 print("PDF is at %s" % (pdfPath))
 
-        self.seqNum += 1
-        
-        return test
+        return test, ret
 
+    def runExtraTest(self, testClass, ccd=0, amp=0, comment=None):
+        test = self._runTest(testClass, ccd, amp, comment=comment)
+        return test
+        
     @property
     def frontPagePath(self):
         return os.path.join(self.dirName, 'frontpage.md')
@@ -400,6 +459,11 @@ class BenchRig(TestRig):
             self._frontPage = self._startfrontPage()
         return self._frontPage
 
+    def savefig(self, fig, name, extension='pdf'):
+        filePath = os.path.join(self.dirName, "%s.%s" % (name, extension))
+
+        fig.savefig(filePath)
+        
     def _startfrontPage(self):
         fname = self.frontPagePath
         f = open(fname, 'w', buffering=1)
@@ -433,12 +497,30 @@ class BenchRig(TestRig):
                                                                                texName, mdName), shell=True)
         print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                          texName, mdName))
+    def finishFullRig(self):
+        print("generating full report.... ")
         
-    def runBlock(self, noRun=False, muxOK=True):
+        reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
+        if self.sequenceType == 'full':
+            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf ' \
+                  ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
+        elif self.sequenceType in ('short', 'preship'):
+            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf)' % \
+                  (self.dirName, reportPath)
+        else:
+            print("unknown test type, not building report")
+            return
+        
+        subprocess.call(cmd, shell=True)
+        print("report is in %s" % (reportPath))
+         
+    def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
         """ run tests until failure or the next MUX reconfiguration
 
         Args
         ---
+        test : int
+          If set, jump to that test.
         noRun : bool
           if True, only print what we would do.
         muxOK: bool
@@ -446,23 +528,33 @@ class BenchRig(TestRig):
           that the MUX has already been configured, and skip that step.
 
         """
+
+        if test is not None:
+            self.seqNum = test
+        plt.close('all')
+        
         ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
         if testClass is None and muxOK:
             self.incrTest()
 
         while True:
+            if self.seqNum >= len(self.sequence):
+                print("DONE")
+                return True
             ccd, amp, testClass, comment2 = self.sequence[self.seqNum]
             if testClass is None:
+                if comment2 is None:
+                    self.finishFullRig()
+                    return True
                 print
                 print("============= MUX reconfiguration: you need to %s" % (comment2))
                 print
                 return True
 
-            ret = self.runTest(noRun=noRun)
+            ret = self.runTest(noRun=noRun, **testArgs)
             if ret is False:
                 print("STOPPING at failed test.")
                 return
-        
                 
 class OneTest(object):
     def __init__(self, rig, channel, amp, ccd='X', comment='', dewar=None, revision=1):
@@ -614,7 +706,9 @@ class OneTest(object):
                                                                  self.label)
 def oneCmd(actor, cmdStr, doPrint=True):
     fullCmdStr = "oneCmd.py %s %s" % (actor, cmdStr)
-
+    if doPrint:
+        logging.info("cmd: %s" % (fullCmdStr))
+        
     p = subprocess.Popen(fullCmdStr, shell=True, bufsize=1,
                          universal_newlines=True,
                          stdout=subprocess.PIPE,
@@ -628,7 +722,7 @@ def oneCmd(actor, cmdStr, doPrint=True):
         if not l:
             break
         if doPrint:
-            print l.strip()
+            logging.debug(l.strip())
 
         output.append(l)
 
@@ -659,7 +753,27 @@ class FakeCcd(object):
                 
         ampCols = ncols / 8
         return np.arange(ampCols*ampid, ampCols*(ampid+1), dtype='i4')
+
+class FinishUp(OneTest):
+    testName = 'FinishUp'
+    label = 'Generate full report'
+    leads = ''
+    timeout = 30
+
+    def runTest(self):
+        self.rig.finishFullRig()
+
+    def setup(self, trigger=None):
+        pass
+    def fetchData(self):
+        pass
     
+    def save(self, comment=''):
+        pass
+        
+    def plot(self, fitspath=None):
+        return None, None
+
 class SanityTest(OneTest):
     testName = 'Sanity'
     label = 'serials and voltages'
@@ -745,13 +859,13 @@ class SanityTest(OneTest):
             Voltage(name='3v3m', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='3v3', nominal=3.3, lo=0.02, hi=0.02),
             Voltage(name='5vp', nominal=5.0, lo=0.02, hi=0.02),
-            Voltage(name='5vn', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='5vppa', nominal=5.0, lo=0.02, hi=0.02),
-            Voltage(name='5vnpa', nominal=-5.0, lo=0.02, hi=0.02),
-            Voltage(name='12vp', nominal=12.0, lo=0.02, hi=0.02),
-            Voltage(name='12vn', nominal=-12.0, lo=0.02, hi=0.02),
-            Voltage(name='24vn', nominal=-24.0, lo=0.02, hi=0.02),
-            Voltage(name='54vp', nominal=54.0, lo=0.02, hi=0.02),
+            Voltage(name='5vn', nominal=-5, lo=0.02, hi=0.02),
+            Voltage(name='5vppa', nominal=5, lo=0.02, hi=0.02),
+            Voltage(name='5vnpa', nominal=-5, lo=0.02, hi=0.02),
+            Voltage(name='12vp', nominal=12, lo=0.02, hi=0.02),
+            Voltage(name='12vn', nominal=-12, lo=0.02, hi=0.02),
+            Voltage(name='24vn', nominal=-24.75, lo=0.01, hi=0.01),
+            Voltage(name='54vp', nominal=54.25, lo=0.01, hi=0.01),
         ]
 
         for v in vlist:
@@ -810,7 +924,11 @@ class SanityTest(OneTest):
         nameLen = max([len(s.name) for s in self.serials])
         valueLen = max([len(str(s.value)) for s in self.serials])
         statusLen = max([len(s.status) for s in self.serials])
-        
+
+        if self.rig.sequenceType == 'preship':
+            lines.append('## Preship test for: %s' % (self.rig.dewar))
+            lines.append('')
+            
         fmt = "%%-%ds | %%-%ds | %%-%ds" % (nameLen, valueLen, statusLen)
         lines.append('## Serial numbers')
         lines.append('')
@@ -835,7 +953,7 @@ class SanityTest(OneTest):
 
         return '\n'.join(lines)
     
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None, **testArgs):
         self.rig.powerDown()
         self.rig.powerUp()
         oneCmd('ccd_%s' % (self.dewar), '--level=d fee setMode idle', doPrint=True)
@@ -877,24 +995,27 @@ class ReadnoiseTest(OneTest):
     label = "terminated readout"
     leads = 'terminators only'
     timeout = 30
-    
+
     def initTest(self):
         pass
 
     def setup(self, trigger=None):
         pass
 
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
-        if False:
-            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0')
+        if 'zeroOffsets' in testArgs:
+            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0', doPrint=True)
+            self.expectedLevels = self.rig.expectedLevels
         else:
             oneCmd(ccdName, 'fee setMode offset')
+            self.expectedLevels = [1000]*8
+        time.sleep(1.1)
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=500 ncols=600')
+        output = oneCmd(ccdName, 'read bias')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
         self.fitspath = None
@@ -921,12 +1042,16 @@ class ReadnoiseTest(OneTest):
         fakeCcd = FakeCcd()
         
         im = pyfits.getdata(fitspath)
-        statCols = slice(100,None)
+        ampWidth = im.shape[1]//8
+        height = im.shape[0]
+        
+        statCols = np.arange(50, ampWidth-50)
+        rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
         fig, gs = nbFuncs.rawAmpGrid(im, fakeCcd,
                                      title=fitspath,
-                                     expectedLevels=self.rig.expectedLevels,
-                                     cols=statCols)
-        levels, devs = nbFuncs.ampStats(im, cols=statCols, ccd=fakeCcd)
+                                     expectedLevels=self.expectedLevels,
+                                     cols=statCols, rows=rows)
+        levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
         mdfile = self.rig.frontPage
         mdfile.write('## Noise\n')
         mdfile.write('\n')
@@ -938,13 +1063,23 @@ class ReadnoiseTest(OneTest):
         mdfile.write('\n')
 
         row = im.shape[0]//2
-        cols = np.arange(50)
-        f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10)
-        f2.savefig('starts.pdf')
+        if True:
+            cols = np.arange(100)
+            f2 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=10, title='row starts, test %d' % (self.rig.seqno))
+            self.rig.savefig(f2, 'starts')
         
-        cols = np.arange(10,im.shape[1]//8)
-        f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-')
-        f3.savefig('levels.pdf')
+        cols = np.arange(10,im.shape[1]//8-1)
+        f3 = nbFuncs.plotAmps(im, row=row, cols=cols, plotOffset=4, linestyle='-', title='full rows, test %d' % (self.rig.seqno))
+        self.rig.savefig(f3, 'levels')
+
+        f4 = nbFuncs.plotAmpRows(im, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=3,
+                                 title='amp means, test %d' % (self.rig.seqno))
+        self.rig.savefig(f4, 'rowcuts')
+
+        #bsIm = geom.normAmpLevels(im, fullCol=True)
+        #f5 = nbFuncs.plotAmpRows(bsIm, rows=np.arange(im.shape[0]-20)+10, cols=statCols, plotOffset=1,
+        #                         title='overscan-corrected amp means, test %d' % (self.rig.seqno))
+        #self.rig.savefig(f5, 'rowcuts_norm')
         
         self.rig.finishFrontPage()
         
@@ -955,10 +1090,11 @@ def calcOffsets(target, current):
     r = np.round(m * 40.0/57.0)
     
     return m, r
-            
+
+
 class OffsetTest(OneTest):
-    testName = 'Offsets'
-    label = "terminated readout"
+    testName = 'SetOffsets'
+    label = "setting amp levels to 1000 ADU"
     leads = 'terminators only'
     timeout = 30
     
@@ -977,47 +1113,93 @@ class OffsetTest(OneTest):
                 return fitspath
         return None
         
-    def runTest(self, trigger=None):
+    def runTest(self, trigger=None,
+                nrows=None, ref=None, master=None,
+                walkOffsets=False, checkOffsets=False, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
-        for leg in 'n', 'p':
-            for i, v in enumerate(np.linspace(0.0, 399.9, 5)):
-                vlist = tuple([v]*8)
-                if leg == 'p':
-                    print("====== offset test, ref=%0.2f master=0.00" % (v))
-                    oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
-                else:
-                    print("====== offset test, ref=0.00 master=%0.2f" % (v))
-                    oneCmd(ccdName, 'fee setOffsets p=0,0,0,0,0,0,0,0 n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f' % vlist)
-                oneCmd(ccdName, 'wipe ncols=100')
-                output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
+        baseMaster = 0 if master is None else master
+        baseRef = 0 if ref is None else ref
+        if walkOffsets:
+            self.outputs = dict(n=dict(), p=dict())
+            outputs = self.outputs
+            if nrows is None:
+                nrows = 200
+
+            np.set_printoptions(linewidth=500)
+
+            for leg in 'n', 'p':
+                for i, v in enumerate(np.linspace(0.0, -399.9, 5)):
+                    vlist = [v]*8
+                    if leg == 'p':
+                        print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
+                        oneCmd(ccdName,
+                               'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                               % tuple([baseMaster]*8 + vlist))
+                    else:
+                        print("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
+                        oneCmd(ccdName,
+                               'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
+                               % tuple([baseRef]*8 + vlist))
+
+                    time.sleep(1.1)
+                    oneCmd(ccdName, 'wipe')
+                    if nrows is not None:
+                        output = oneCmd(ccdName, 'read bias nrows=%d' % (nrows))
+                    else:
+                        output = oneCmd(ccdName, 'read bias')
+
+                    fitspath = self.getPath(output)
+                    shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                                       os.path.basename(fitspath)))
+
+                    im = pyfits.getdata(fitspath)
+                    fakeCcd = FakeCcd()
+                    means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                    outputs[leg][v] = means
+                    self.logger.warn("%s=%s = %s", leg, v, means)
+                    self.logger.warn("  %s", outputs)
+            return outputs
+            
+        else:
+            oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%d,%d,%d,%d,%d,%d,%d,%d'
+                   % tuple([0]*16))
+            time.sleep(1.1)
+            oneCmd(ccdName, 'wipe')
+            nrows = 500
+            output = oneCmd(ccdName, 'read bias nrows=%d' % (nrows))
+            fitspath = self.getPath(output)
+            shutil.copy(fitspath, os.path.join(self.rig.dirName,
+                                               os.path.basename(fitspath)))
+            im = pyfits.getdata(fitspath)
+            fakeCcd = FakeCcd()
+            means, _ = nbFuncs.ampStats(im, ccd=fakeCcd, rows=np.arange(10, nrows-20))
+            
+        if ref is None and master is None:
+            m, r = calcOffsets(1000,means)
+            print("applying master: %s" % (m))
+            print("applying refs  : %s" % (r))
+
+            vlist = tuple(m) + tuple(r)
+            oneCmd(ccdName,
+                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f \
+                                   p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
+                   % vlist)
+            time.sleep(1.1)
+            oneCmd(ccdName, 'fee setMode offset')
+            time.sleep(1.1)
+
+            if checkOffsets:
+                oneCmd(ccdName, 'wipe')
+                output = oneCmd(ccdName, 'read bias')
 
                 fitspath = self.getPath(output)
                 shutil.copy(fitspath, os.path.join(self.rig.dirName,
                                                    os.path.basename(fitspath)))
-
-                if leg == 'n' and i == 0:
-                    im = pyfits.getdata(fitspath)
-                    fakeCcd = FakeCcd()
-                    means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-                    
-        m, r = calcOffsets(1000,means)
-        print("applying master: %s" % (m))
-        print("applying refs  : %s" % (r))
-
-        vlist = tuple(m) + tuple(r)
-        oneCmd(ccdName,
-               'fee setOffsets n=%f,%f,%f,%f,%f,%f,%f,%f p=%f,%f,%f,%f,%f,%f,%f,%f' % vlist)
-        oneCmd(ccdName, 'wipe ncols=100')
-        output = oneCmd(ccdName, 'read bias ncols=100 nrows=10')
-
-        fitspath = self.getPath(output)
-        shutil.copy(fitspath, os.path.join(self.rig.dirName,
-                                           os.path.basename(fitspath)))
-        im = pyfits.getdata(fitspath)
-        fakeCcd = FakeCcd()
-        means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-        print("file : %s" % (fitspath))
-        print("adjusted means: %s" % (means))
+                im = pyfits.getdata(fitspath)
+                fakeCcd = FakeCcd()
+                means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
+                print("file : %s" % (fitspath))
+                print("adjusted means: %s" % (np.round(means, 2)))
         
     def fetchData(self):
         pass
@@ -1027,6 +1209,17 @@ class OffsetTest(OneTest):
         
     def plot(self, fitspath=None):
         return None, None
+
+class WalkOffsets(OffsetTest):
+    testName = "WalkOffsets"
+    label = "testing ref and master offset ranges"
+
+    def runTest(self, trigger=None,
+                nrows=100, ref=None, master=None, walkOffsets=True, **testArgs):
+
+        return OffsetTest.runTest(self, trigger=trigger,
+                                  nrows=nrows, ref=ref, master=master,
+                                  walkOffsets=walkOffsets, **testArgs)
 
 class V0Test(OneTest):
     testName = 'V0'
@@ -1057,6 +1250,7 @@ class V0Test(OneTest):
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
         else:
+            self.logger.warn('overriding trigger with: %s', trigger)
             self.scope.setEdgeTrigger(**trigger)
 
         print("powering FEE down....")

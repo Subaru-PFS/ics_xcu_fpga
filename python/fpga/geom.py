@@ -5,8 +5,10 @@ import numpy as np
 import astropy.io.fits as pyfits
 
 class Exposure(object):
-    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False, simpleGeometry=False):
+    def __init__(self, obj=None, dtype=None, nccds=2, copyExposure=False,
+                 simpleGeometry=False, logLevel=logging.WARN):
         self.logger = logging.getLogger('geom.Exposure')
+        self.logger.setLevel(logLevel)
         
         self.nccds = nccds
         self._setDefaultGeometry()
@@ -52,10 +54,17 @@ class Exposure(object):
         """
         
         try:
+            vers = self.header['versions.FPGA']
+            if vers >= 0xa071:
+                return image
+        except:
+            pass
+        
+        try:
             flag = self.header.get('geom.edgesOK')
         except:
-            flag = False
-            
+            return image
+
         if not flag:
             self.logger.info('fixing corner pixel')
             if False:
@@ -239,7 +248,7 @@ class Exposure(object):
         return im[yr, xr]
 
     def overscanCols(self, ampId, leadingRows=False, overscanRows=False):
-        x0 = (ampId+1)*self.ampCols
+        x0 = ampId*self.ncols + self.ampCols
         x1 = x0 + self.overCols
 
         xr = slice(x0, x1)
@@ -525,17 +534,21 @@ def constructImage(ampIms, osColIms=None, osRowIms=None):
     ret = np.concatenate(orderedIms, axis=1)
     return ret
 
-def normAmpLevels(exp):
+def normAmpLevels(exp, fullCol=False):
     """ Using the overscan region, crudely normalize all amps to min=0. """
 
-    retexp = Exposure(exp.image, copyExposure=True, dtype='i4')
+    retexp = Exposure(exp, copyExposure=True, dtype='f4')
 
     for i in range(retexp.namps):
         yr,xr = retexp.ampExtents(i, leadingCols=True, leadingRows=True, overscan=True)
 
-        overscanImage = retexp.overscanColImage(i)
-        overscanLevel = int(np.rint(np.median(overscanImage)))
-        
-        retexp.image[yr,xr] -= overscanLevel
+        overscanImage = retexp.overscanColImage(i, leadingRows=True, overscanRows=True)
 
-    return retexp
+        if fullCol:
+            overscanMed = np.mean(overscanImage, axis=1)[:, np.newaxis]
+            retexp.image[:,xr] -= overscanMed
+        else:
+            overscanLevel = int(np.rint(np.median(overscanImage)))
+            retexp.image[yr,xr] -= overscanLevel
+
+    return retexp.image

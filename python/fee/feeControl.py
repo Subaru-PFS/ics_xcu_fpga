@@ -11,6 +11,7 @@ from collections import OrderedDict
 import numpy as np
 
 import astropy.io.fits as fits
+import serial
 
 fee = None
 
@@ -240,8 +241,6 @@ class FeeControl(object):
     def connectToDevice(self):
         """ Establish a new connection to the FEE. Any old connection is closed.  """
 
-        import serial
-        
         if self.device:
             self.device.close()
             self.device = None
@@ -277,6 +276,7 @@ class FeeControl(object):
         self.setMode(preset)
         self.sendCommandStr('se,all,on')
         self.sendCommandStr('se,Clks,on')
+        self.setMode('offset')
         
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
@@ -486,7 +486,34 @@ class FeeControl(object):
                 self.doSet('bias', name, value, ch)
                 new = self.doGet('bias', name, ch)
                 self.logger.info("changed ch%d %s from %s to %s" % (ch, name, old, new))
-            
+
+    def setVoltageCalibrations(self, 
+                               v3V3M=None, v3V3=None,
+                               v5VP=None, v5VN=None, v5VPpa=None, v5VNpa=None,
+                               v12VP=None, v12VN=None, v24VN=None, v54VP=None):
+        """ Set calibrations for some or all FEE voltages.
+
+        Args:
+         channel = 0 or 1
+         v3V3M, etc : float or None
+         
+        """
+        import inspect
+        
+        argspec = inspect.getargspec(self.setVoltageCalibrations)
+        argnames = argspec.args[-len(argspec.defaults):]
+        argvals = inspect.getargvalues(inspect.currentframe())
+        for arg in argnames:
+            try:
+                argval = argvals.locals[arg]
+            except Exception as e:
+                raise RuntimeError("no value for %s in %s: %s" % (arg, argvals.locals, e))
+                
+            if argval is not None:
+                vname = arg[1:]
+                self.logger.info("setting voltage calibration %s = %s" % (vname, argval))
+                self.doSet('voltage', vname, argval)
+                
         
     def defineCommands(self):
         self.commands = {}
@@ -847,7 +874,7 @@ class FeeControl(object):
         ret = self.sendCommandStr('gp')
         return ret
     
-    def setOffsets(self, amps, levels, leg='n', pause=0.0):
+    def setOffsets(self, amps, levels, leg='n', pause=0.0, doSave=True):
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
@@ -861,6 +888,9 @@ class FeeControl(object):
                 raise RuntimeError('setLevels command returned: %s' % (ret))
             if pause > 0:
                 time.sleep(pause)
+
+            if doSave:
+                self.sendCommandStr('sp,offset')
 
     def zeroOffsets(self, amps=None, leg=True):
         if amps is None:

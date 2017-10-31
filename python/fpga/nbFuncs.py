@@ -1,9 +1,13 @@
 from __future__ import absolute_import
 
 import logging
+import os
 import time
 import sys
 import numpy as np
+import scipy
+
+import astropy.io.fits as pyfits
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -11,9 +15,42 @@ import matplotlib.gridspec as gridspec
 from fpga import ccdFuncs
 reload(ccdFuncs)
 
+from fpga import geom
+
 def normed(arr):
     """ Return an array with its mean value subtracted. Not robust. """
     return arr - np.median(arr)
+
+def bitHist(fname, doPrint=True):
+    """ Calculate and usually print a bit-histogram of a FITS image. 
+
+    Args:
+     fname : a FITS filename
+     doPrint : bool
+       If False, do not print statistics.
+
+    Returns:
+     bitFractions : 8x16 array of fractions
+    """
+    
+    im = pyfits.getdata(fname)
+    
+    namps = 8
+    ampCols = im.shape[1]/namps
+    cols = np.arange(10, ampCols-10)
+    
+    for a in range(namps):
+        ampPixels =  im[:, cols + a*ampCols].flatten()
+        pixCount = float(len(ampPixels))
+        bitFracs = np.zeros(16)
+        for i in range(16):
+            setCount = ((ampPixels & (01 << i)) != 0).sum()
+            bitFracs[i] = setCount / pixCount
+
+        bitFracs = bitFracs[::-1]
+        print("%s[%d]: %s" % (os.path.basename(fname), a, np.round(bitFracs, 3)))
+
+    return bitFracs
 
 def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     medpix = np.median(im[prows])
@@ -27,7 +64,7 @@ def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     plt.show()
 
 def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWidth=None, 
-             peaks=None, clipPeaks=True, linestyle='-+'):
+             peaks=None, clipPeaks=True, linestyle='-+', title=None):
 
     """ In one figure, plot one row (middle) of the specified amps (all). Limit to range of cols if desired. 
     
@@ -77,16 +114,115 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 
     plt.axis([None, None, -plotOffset, yoff+plotOffset])
 
-    plt.title('row %d, amps: %s, cols [%d,%d]' % (row, amps, 
-                                                  cols[0],cols[-1]))
+    if title is None:
+        title = ''
+    else:
+        title = title + '\n'
+    title += 'row %d, amps: %s, cols [%d,%d]' % (row, amps, 
+                                                  cols[0],cols[-1])
+    plt.title(title)
     fig.show()
     
     return fig
 
+def plotOffsetScans(fnames):
+    import os.path
+    
+    for f in fnames:
+        exp = geom.Exposure(f)
+        m = exp.header['offset.ch0.2n']
+        r = exp.header['offset.ch0.2p']
+        expid = int(os.path.basename(f)[4:10], base=10)
+        title = "%s\nexp %d ref=%s master=%s" % (f, expid, m, r)
+
+        fim = exp.image
+        plotAmpRows(fim, cols=np.arange(10,fim.shape[1]//8 - 10),
+                    title=title)
+    
+                                    
+def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
+                fig=None, linestyle='-', title=None):
+
+    """ In one figure, plot vertical slices of all amps. Limit to range of cols if desired. 
+    
+    The per-amp plots are offset by their mean value, and plotted plotOffset pixels apart.
+
+    Parameters
+    ----------
+    im - 2d array
+        The image to plot from
+    row - int 
+        The row to plot from. (default is the middle row of the image)
+    cols - 1d array-like
+        The columns to plot. (default is the full width of the amps)
+    amps - 1d array-like
+        The amps to plot. (default is all)
+    plotOffset - int
+        The y offset between plots. (default is 50, should be from data)
+    """
+
+    namps = 8
+    imcols = im.shape[1]/namps
+    amps = range(namps)
+    
+    if rows is None:
+        rows = np.arange(im.shape[0])
+    if cols is None:
+        cols = np.arange(imcols)
+
+    if fig is None:
+        fig, pl = plt.subplots()
+
+    yoff = 0
+    for a in amps:
+        normedIm = im[rows].astype('f4')
+        normedIm = normedIm[:, cols + a*imcols]
+        med = np.median(normedIm)
+        normedIm -= med
+        
+        seg = np.mean(normedIm, axis=1)
+        pl.plot(rows, seg+yoff, linestyle)
+        pl.hlines(yoff, rows[0], rows[-1], alpha=0.3)
+
+        pl.annotate(str(np.round(med,1)), xy=(1.01, yoff),
+                    xycoords=('axes fraction', 'data'))
+        
+        yoff += plotOffset
+
+    pl.axis([None, None, -plotOffset, yoff+plotOffset])
+
+    if title is None:
+        title = ''
+    else:
+        title = title + '\n'
+    title += 'mean(cols[%d,%d]), rows[%d,%d]' % (cols[0],cols[-1],
+                                                 rows[0], rows[-1])
+    pl.set_title(title)
+    fig.show()
+
+    fig.tight_layout()
+    
+    return fig
+
+def fftAmp(im, ccd, amps=None, cols=None, rows=None):
+    if amps is None:
+        amps = range(8)
+
+    if cols is None:
+        cols = slice(0,-1)
+    if rows is None:
+        rows = slice(0,-1)
+
+    for a_i, a in enumerate(amps):
+        ampCols = ccd.ampidx(a, im)[cols]
+        ampIm = im[rows][:, ampCols]
+        nAmpIm = ampIm - np.trunc(np.median(ampIm))
+
+        
 def rawAmpGrid(im, ccd, amps=None,
                title=None,
                cols=None, rows=None, 
-               noiseLim=0.8,
+               noiseLim=0.85,
                expectedLevels=None,
                fig=None, figSize=None):
     
@@ -133,7 +269,7 @@ def rawAmpGrid(im, ccd, amps=None,
             normArr = ampIm - ampIm.mean()
             bestYhat = np.log10(np.absolute(np.fft.fft(normArr)))
 
-    pixRange = np.trunc(2*ai_std)+1
+    pixRange = max(np.trunc(2*ai_std)+1,2)
     dataNorm = mpl.colors.Normalize(vmin=-pixRange,
                                     vmax=pixRange,
                                     clip=True)
@@ -178,20 +314,22 @@ def rawAmpGrid(im, ccd, amps=None,
             cax.set_yticklabels([str(-pixRange),'0',str(pixRange)])
             
         ai_std1 = np.std(nAmpIm)
-        im_p.text(0.99, -0.05, 'sig=%0.2f' % (ai_std1),
+        im_p.text(0, -0.02, 'sig=%0.2f' % (ai_std1),
                   color=('black' if ai_std1 <= noiseLim else 'red'),
                   weight='bold',
-                  horizontalalignment='right',
+                  horizontalalignment='left',
                   verticalalignment='top',
                   transform=im_p.transAxes)
 
         if expectedLevels is not None:
-            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.01*expectedLevels[a_i]
+            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.1*expectedLevels[a_i]
             color = 'black' if inspec else 'red'
+            levelText = "med=%d (%d)" % (ai_med1, expectedLevels[a_i])
         else:
             color = 'black'
+            levelText = "med=%d" % (ai_med1)
             
-        im_p.text(0.02, -0.05, 'med=%d' % (ai_med1),
+        im_p.text(0, -0.10, levelText,
                   color=color,
                   weight='bold',
                   horizontalalignment='left',
@@ -461,20 +599,20 @@ def gainCurve(ccd=None, fee=None, amps=None,
     # We cannot yet read bias levels, so zero them first
     fee.zeroOffsets(amps)
     time.sleep(sleepTime)
-    
-    # Clear any accumulated charge
-    ccdFuncs.wipe(ccd=ccd, feeControl=fee)
+
+    otherLeg = 'n' if leg == 'p' else 'p'
     
     offset = 0.0
     while np.fabs(offset) <= offLimit:
         offsets.append(offset)
         fee.setOffsets(amps, [offset]*namps, leg=leg)
+        fee.setOffsets(amps, [0.0]*namps, leg=otherLeg)
         time.sleep(sleepTime)
 
         im, files = ccdFuncs.fullExposure('bias', ccd=ccd, feeControl=fee,
                                           nrows=nrows,
                                           # rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict,
-                                          doSave=False, doReset=False,
+                                          # doSave=False, doReset=False,
                                           clockFunc=clockFunc)
         if doUnwrap is not False:
             im = im.astype('i4')
@@ -484,8 +622,8 @@ def gainCurve(ccd=None, fee=None, amps=None,
                 im[hi_w] -= 65535
 
         newLevels, devs = ampStats(im, statCols, ccd=ccd)
-        print "means(%0.3f): %s" % (offset, fmtArr(newLevels))
-        print "devs (%0.3f): %s" % (offset, fmtArr(devs))
+        print "means(%s=%0.3f): %s" % (leg, offset, fmtArr(newLevels))
+        print "devs (%s%0.3f): %s" % (leg, offset, fmtArr(devs))
         print
 
         levels.append(newLevels.copy())
@@ -592,4 +730,29 @@ def plotTopPeriods(arr, plot=None, topN=5):
                   verticalalignment='bottom')
 
     return freqs, yhat, top_ii
-        
+
+def detrend(v, order=2):
+    x = np.arange(len(v))
+    
+    fit = np.poly1d(np.polyfit(x, v, order))
+    trend = fit(x)
+
+    return v-trend
+    
+def plotTopFreqs(im, plot=None, topN=5, fs=1/13.92e-6, label=None):
+    """ Plot the FFT of a given vector, and identify the first few
+    """
+
+    if plot is None:
+        f, plot = plt.subplots(1,1)
+
+    freqs, psd = scipy.signal.periodogram(im[0], fs)
+    for l in im[1:]:
+        _, psd1 = scipy.signal.periodogram(l, fs)
+        psd += psd1
+    psd /= len(im)
+
+    
+    plot.semilogy(freqs[1:], psd[1:], label=label)
+
+    return plot, freqs, psd

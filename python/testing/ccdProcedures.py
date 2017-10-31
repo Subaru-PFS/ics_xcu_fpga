@@ -6,6 +6,7 @@ import fpga.geom as geom
 import fpga.ccdFuncs as ccdFuncs
 import fpga.opticslab as opticslab
 
+reload(geom)
 reload(ccdFuncs)
 reload(opticslab)
 
@@ -15,12 +16,20 @@ class FeeTweaks(object):
     Also prints out overrides.
     """
     
-    def __init__(self, fee):
+    def __init__(self, fee=None):
+        if fee is None:
+            from fee import feeControl as feeMod
+            reload(feeMod)
+            fee = feeMod.fee
+            
         self.fee = fee
         self.modes = dict()
 
     def getMode(self):
         return self.fee.getMode()
+
+    def statusAsCards(self):
+        return self.fee.statusAsCards()
 
     def setMode(self, mode):
         print "setting mode: ", mode
@@ -51,178 +60,185 @@ class FeeTweaks(object):
             self.modes[mode][k] = v
 
 def stdExposures_biases(ccd=None,
-                        nwipes=0,
-                        nbias=10,
+                        nbias=21,
                         feeControl=None,
                         comment='biases'):
 
     ccdFuncs.expSequence(ccd=ccd,
-                         nwipes=nwipes, 
                          nbias=nbias,
                          feeControl=feeControl,
                          comment=comment,
                          title='%d biases' % (nbias))
-    
-def stdExposures_base(ccd=None, feeControl=None,
-                      nrows=None, ncols=None, comment='base exposures'):
+
+def stdExposures_darks(ccd=None,
+                       ndarks=21, darkTime=150,
+                       feeControl=None,
+                       comment='darks'):
 
     ccdFuncs.expSequence(ccd=ccd,
-                         nrows=nrows, ncols=ncols,
-                         nwipes=0, 
-                         nbias=20, 
-                         nendbias=20, 
-                         darks=[300,300,300,300, 1200,1200, 3600,3600], 
-                         flats=[2,2,2,10,10,10], 
+                         darks=[darkTime]*ndarks,
                          feeControl=feeControl,
                          comment=comment,
-                         title='base sequence')
+                         title='%d %gs darks' % (ndarks, darkTime))
+
+def stdExposures_base(ccd=None, feeControl=None, comment=None):
+
+    stdExposures_biases(ccd=ccd, feeControl=feeControl, comment=comment)
+    stdExposures_darks(ccd=ccd, feeControl=feeControl, comment=comment)
+
+def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
+    darkTime = 900
+    for i in range(hours):
+        ccdFuncs.expSequence(ccd=ccd,
+                             biases=5,
+                             darks=[900]*4,
+                             feeControl=feeControl,
+                             comment=comment,
+                             title='1 hour %fs dark loop' % (darkTime))
 
 def stdExposures_VOD_VOG(ccd=None, feeControl=None,
+                         VOD=None, VOG=None,
                          nrows=None, ncols=None,
                          comment='VOD/VOG tuning'):
 
+    if VOD is None:
+        VOD = np.arange(-18.0, -22.01, -0.5)
+    if VOG is None:
+        VOG = np.arange(-3.0, -5.01, -0.25)
+        
+    opticslab.setup(ccd.arm, flux=1000, wavelength=5500)
+
     ccdFuncs.expSequence(ccd=ccd,
                          nrows=nrows, ncols=ncols,
-                         nwipes=0, 
-                         nbias=6, 
-                         flats=[], 
+                         nbias=3, 
                          feeControl=feeControl,
                          comment=comment,
                          title='pre-VOD/VOG tuning biases')
-            
-    for VOD in -21, -22:
-        for VOG in -4.5, -5:
-            tweaks = FeeTweaks()
-            tweaks.tweakMode('read', OD=VOD, OG=VOG)
 
-            ccdFuncs.expSequence(ccd=ccd,
-                                 nrows=nrows, ncols=ncols,
-                                 nwipes=0, 
-                                 nbias=0, 
-                                 flats=[3,3], 
-                                 feeControl=tweaks,
-                                 comment=comment,
-                                 title='VOD/VOG tuning (%0.1f, %0.1f)' % (VOD, VOG))
-            
+    files = []
+    for vod in VOD:
+        for vog in VOG:
+            tweaks = FeeTweaks(feeControl)
+            tweaks.tweakMode('read', OD=vod, OG=vog)
+
+            files1 = ccdFuncs.expSequence(ccd=ccd,
+                                          nrows=nrows, ncols=ncols,
+                                          nbias=1, 
+                                          flats=[4], 
+                                          feeControl=tweaks,
+                                          comment=comment,
+                                          title='VOD/VOG tuning (%0.1f, %0.1f)' % (vod, vog))
+            files.extend(files1)
+
+    return files
+
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
+    """ Canonical bright flats sequence. 
+
+    At 500ADU/s, take flats running up past saturation.
+    """
+    
+    opticslab.setup(ccd.arm, flux=1000, wavelength=5500)
 
     explist = (('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
+               ('dark', 100),
+               
+               ('flat', 100),
+               ('flat', 1),
+               ('flat', 2),
+               ('flat', 3),
+               ('flat', 5),
+               ('flat', 7),
 
-               ('flat', 2),
-               ('flat', 2),
-               ('flat', 4),
-               ('flat', 4),
-               ('flat', 6),
-               ('flat', 8),
-               ('flat', 8),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 12),
-               ('flat', 16),
-               ('flat', 16),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 24),
-               ('flat', 32),
-               ('flat', 32),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 48),
-               ('flat', 64),
-               ('flat', 64),
-               ('flat', 2),
-               
-               ('bias', 0),
+               ('flat', 100),
+               ('flat', 10),
+               ('flat', 14),
+               ('flat', 20),
+               ('flat', 28),
+               ('flat', 40),
+
+               ('flat', 100),
+               ('flat', 50),
+               ('flat', 60),
+               ('flat', 70),
                ('flat', 80),
-               ('flat', 96),
-               ('flat', 112),
-               ('flat', 112),
-               ('flat', 128),
-               ('flat', 128),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 144),
-               ('flat', 160),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('flat', 192),
-               ('flat', 256),
-               ('flat', 2),
-               
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0))
+               ('flat', 90),
 
-    
+               ('flat', 100),
+               ('flat', 110),
+               ('flat', 120),
+               ('flat', 130),
+               ('flat', 140),
+
+               ('flat', 100),
+               ('flat', 160),
+               ('flat', 180),
+               ('flat', 200),
+               ('flat', 220),
+               
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100))
+
     ccdFuncs.expList(explist, ccd=ccd,
                      feeControl=feeControl,
                      comment=comment,
                      title='bright flats')
-    
 
 def stdExposures_lowFlats(ccd=None, feeControl=None,
                           comment='low flats'):
-    explist = []
+    """ Canonical low flats sequence. 
 
-    for i in range(10):
-        explist.append(('bias', 0),)
+    At 20 ADU/s, take flats running up to ~4000 ADU.
+    """
 
-    for i in range(1,31):
-        explist.append(('flat', i),)
-        explist.append(('flat', i),)
+    opticslab.setup(ccd.arm, flux=10, wavelength=5500)
 
-        if i > 0 and i % 10 == 0:
-            explist.append(('bias', 0),)
-            explist.append(('bias', 0),)
-            explist.append(('flat', 2),)
-            explist.append(('flat', 2),)
+    explist = (('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100),
+               
+               ('flat', 112),
+               ('flat', 1),
+               ('flat', 2),
+               ('flat', 3),
+               ('flat', 5),
+               ('flat', 7),
 
-    for i in range(10):
-        explist.append(('bias', 0),)
-    
-    ccdFuncs.expList(explist, ccd=ccd, 
+               ('flat', 112),
+               ('flat', 10),
+               ('flat', 14),
+               ('flat', 20),
+               ('flat', 28),
+               ('flat', 40),
+
+               ('flat', 112),
+               ('flat', 56),
+               ('flat', 80),
+               ('flat', 112),
+               ('flat', 224),
+               
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('bias', 0),
+               ('dark', 100))
+
+    ccdFuncs.expList(explist, ccd=ccd,
                      feeControl=feeControl,
                      comment=comment,
                      title='low flats')
-    
-
-def stdExposures_wipes(comment=''):
-    tweaks = FeeTweaks()
-
-    explist = (('wipe', 1),
-               
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('bias', 0),
-               ('flat', 10),
-               ('bias', 0),
-               
-               ('flat', 16),
-               ('bias', 0))
-
-    ccdFuncs.expList(explist,
-                     feeControl=feeControl,
-                     comment='wipe tests',
-                     title='wipe tests')
 
 def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     explist = []
@@ -418,66 +434,110 @@ def CTEStats(flist, bias, amps=None):
             allNormedCols, allNormedOsCols,
             allNormedRows, allNormedOsRows)
 
+statDtype = ([('amp', 'i2'),
+              ('signal','f4'),
+              ('sqrtSig', 'f4'),
+              ('bias', 'f4'),
+              ('readnoise', 'f4'),
+              ('readnoiseM', 'f4'),
+              ('shotnoise', 'f4'),
+              ('shotnoiseM', 'f4'),
+              ('gain', 'f4'),
+              ('gainM', 'f4'),
+              ('noise', 'f4'),
+              ('exptime', 'f4'),
+              ('flux', 'f4'),
+              ('ccd0temp', 'f4'),
+              ('preamptemp', 'f4')])
 
-def imStats(im):
+def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
+    stats = np.zeros(shape=(1,),
+                     dtype=statDtype)
+
+    a_i = 0
+    
+    stats[a_i]['amp'] = a_i
+    ampSig = np.median(ampIm)
+    osSig = np.median(osIm)
+    if osSig is np.nan:
+        osSig = 0
+    stats[a_i]['signal'] = signal = ampSig - osSig
+
+    stats[a_i]['flux'] = signal / exptime
+    stats[a_i]['exptime'] = exptime
+    try:
+        stats[a_i]['preamptemp'] = hdr['temps.PA']
+        stats[a_i]['ccd0temp'] = hdr['temps.CCD0']
+    except:
+        pass
+    stats[a_i]['sqrtSig'] = np.sqrt(signal)
+    stats[a_i]['bias'] = osSig
+
+    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
+    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    if asBias:
+        stats[a_i]['readnoise'] = sig1
+        stats[a_i]['readnoiseM'] = trusig1
+    else:
+        stats[a_i]['readnoise'] = sig2
+        stats[a_i]['readnoiseM'] = trusig2
+
+    stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
+    stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
+
+    stats[a_i]['gain'] = gain = signal/sig**2
+    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['noise'] = sig2*gain
+
+    return stats
+
+def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
+    stats = np.zeros(shape=(1,),
+                     dtype=statDtype)
+
+    a_i = 0
+    _s1 = np.median(ampIm1) - np.median(osIm1)
+    _s2 = np.median(ampIm2) - np.median(osIm2)
+    stats[a_i]['signal'] = signal = (_s1+_s2)/2
+    stats[a_i]['sqrtSig'] = np.sqrt(signal)
+    stats[a_i]['bias'] = (np.median(osIm1) + np.median(osIm2))/2
+
+    ampIm = ampIm2.astype('f4') - ampIm1
+    osIm = osIm2.astype('f4') - osIm1
+
+    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
+    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    stats[a_i]['readnoise'] = sig2
+    stats[a_i]['readnoiseM'] = trusig2
+
+    stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
+    stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
+
+    stats[a_i]['gain'] = gain = signal/sig**2
+    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['noise'] = sig2*gain
+    stats[a_i]['flux'] = signal / exptime if exptime != 0 else 0.0
+
+    return stats, ampIm, osIm
+
+def imStats(im, asBias=False):
     exp = geom.Exposure(im)
     
     ampIms, osIms, _ = exp.splitImage(doTrim=True)
 
-    stats = np.zeros(shape=exp.namps,
-                     dtype=([('amp', 'i2'),
-                             ('signal','f4'),
-                             ('sqrtSig', 'f4'),
-                             ('bias', 'f4'),
-                             ('readnoise', 'f4'),
-                             ('readnoiseM', 'f4'),
-                             ('shotnoise', 'f4'),
-                             ('shotnoiseM', 'f4'),
-                             ('gain', 'f4'),
-                             ('gainM', 'f4'),
-                             ('noise', 'f4'),
-                             ('exptime', 'f4'),
-                             ('flux', 'f4'),
-                             ('ccd0temp', 'f4'),
-                             ('preamptemp', 'f4')]))
+    stats = []
 
     for a_i in range(8):
-        stats[a_i]['amp'] = a_i
-        ampIm = ampIms[a_i]
-        osIm = osIms[a_i]
-        ampSig = np.median(ampIm)
-        osSig = np.median(osIm)
-        if osSig is np.nan:
-            osSig = 0
-        stats[a_i]['signal'] = signal = ampSig - osSig
-        try:
-            exptime = exp.header['EXPTIME']
-        except:
-            exptime = 0.0
-        stats[a_i]['flux'] = signal / exptime
-        stats[a_i]['exptime'] = exptime
-        try:
-            stats[a_i]['preamptemp'] = exp.header['temps.PA']
-            stats[a_i]['ccd0temp'] = exp.header['temps.CCD0']
-        except:
-            pass
-        stats[a_i]['sqrtSig'] = np.sqrt(signal)
-        stats[a_i]['bias'] = osSig
+        stats1 = ampStats(ampIms[a_i], osIms[a_i], exp.header,
+                          exptime=exp.header['EXPTIME'],
+                          asBias=asBias)
+        stats1['amp'] = a_i
+        stats.append(stats1)
 
-        sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-        sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-        _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-        _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
-        stats[a_i]['readnoise'] = sig2
-        stats[a_i]['readnoiseM'] = trusig2
-
-        stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
-        stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
-
-        stats[a_i]['gain'] = gain = signal/sig**2
-        stats[a_i]['gainM'] = signal/trusig**2
-        stats[a_i]['noise'] = sig2*gain
-        
     return ampIms, osIms, stats
 
 def flatStats(f1name, f2name):
@@ -546,48 +606,16 @@ def flatStats(f1name, f2name):
                            % (exp1.expType, exp1.expTime,
                               exp2.expType, exp2.expTime))
 
-    stats = np.zeros(shape=exp1.namps,
-                     dtype=([('amp', 'i2'),
-                             ('signal','f4'),
-                             ('sqrtSig', 'f4'),
-                             ('bias', 'f4'),
-                             ('readnoise', 'f4'),
-                             ('readnoiseM', 'f4'),
-                             ('shotnoise', 'f4'),
-                             ('shotnoiseM', 'f4'),
-                             ('gain', 'f4'),
-                             ('gainM', 'f4'),
-                             ('noise', 'f4'),
-                             ('flux', 'f4')]))
-
+    stats = []
     diffAmpIms = []
     diffOsIms = []
     for a_i in range(8):
-        stats[a_i] = a_i
-        _s1 = np.median(f1AmpIms[a_i]) - np.median(f1OsIms[a_i])
-        _s2 = np.median(f2AmpIms[a_i]) - np.median(f2OsIms[a_i])
-        stats[a_i]['signal'] = signal = (_s1+_s2)/2
-        stats[a_i]['sqrtSig'] = np.sqrt(signal)
-        stats[a_i]['bias'] = (np.median(f1OsIms[a_i]) + np.median(f2OsIms[a_i]))/2
-
-        ampIm = f2AmpIms[a_i].astype('f4') - f1AmpIms[a_i]
-        osIm = f2OsIms[a_i].astype('f4') - f1OsIms[a_i]
-        diffAmpIms.append(ampIm)
-        diffOsIms.append(osIm)
-        sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-        sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-        _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-        _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
-        stats[a_i]['readnoise'] = sig2
-        stats[a_i]['readnoiseM'] = trusig2
-
-        stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
-        stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
-
-        stats[a_i]['gain'] = gain = signal/sig**2
-        stats[a_i]['gainM'] = signal/trusig**2
-        stats[a_i]['noise'] = sig2*gain
-        stats[a_i]['flux'] = signal / exp1.expTime
+        stats1, ampIm1, osIm1 = ampDiffStats(f1AmpIms[a_i], f2AmpIms[a_i],
+                                             f1OsIms[a_i], f2OsIms[a_i])
+        stats1['amp'] = a_i
+        stats.append(stats1)
+        diffAmpIms.append(ampIm1)
+        diffOsIms.append(osIm1)
         
     return diffAmpIms, diffOsIms, stats
 
@@ -598,8 +626,8 @@ def printStats(stats):
     
     print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise dn/s\n")
 
-    for i in range(8):
-        print(str(i) + "   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f %(flux)5.1f" % stats[i])
+    for i in range(len(stats)):
+        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f %(flux)5.1f" % stats[i])
 
     np.set_printoptions(**po)
         
