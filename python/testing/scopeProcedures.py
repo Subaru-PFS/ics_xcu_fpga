@@ -913,7 +913,11 @@ class SanityTest(OneTest):
         nameLen = max([len(s.name) for s in self.serials])
         valueLen = max([len(str(s.value)) for s in self.serials])
         statusLen = max([len(s.status) for s in self.serials])
-        
+
+        if self.rig.sequenceType == 'preship':
+            lines.append('## Preship test for: %s' % (self.rig.dewar))
+            lines.append('')
+            
         fmt = "%%-%ds | %%-%ds | %%-%ds" % (nameLen, valueLen, statusLen)
         lines.append('## Serial numbers')
         lines.append('')
