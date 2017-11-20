@@ -1086,8 +1086,8 @@ class ReadnoiseTest(OneTest):
         return fig, gs
 
 def calcOffsets(target, current):
-    m = np.round((target - current) / 30, 1)
-    r = np.round(m * 40.0/57.0)
+    m = np.round((target - current) / 30, 2)
+    r = np.round(m * 40.0/57.0, 2)
     
     return m, r
 
