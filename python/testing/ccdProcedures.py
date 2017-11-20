@@ -261,12 +261,12 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
 def stdExposures_QE(ccd=None, feeControl=None,
                     comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
 
-    opticslab.monoSetSlitwidth(slitWidth)
+    opticslab.setSlitwidth(slitWidth)
 
     if waves is None:
         waves = np.arange(550,1051,50)
     for wave in waves:
-        opticslab.monoSetWavelength(wave)
+        opticslab.setWavelength(wave)
 
         time.sleep(1.0)
         ccdFuncs.wipe(ccd)
