@@ -207,7 +207,7 @@ class FeeControl(object):
         self.devConfig = dict(port=port, 
                               baudrate=38400,
                               timeout=2.0)  # The RTD routines need > 0.5s.
-        self.devConfig['writeTimeout'] = 10 * 1.0/(self.devConfig['baudrate']/8.0)
+        self.devConfig['writeTimeout'] = 2.0 # 10 * 1.0/(self.devConfig['baudrate']/8.0)
         self.EOL = '\n'
         self.ignoredEOL = '\r'
 
