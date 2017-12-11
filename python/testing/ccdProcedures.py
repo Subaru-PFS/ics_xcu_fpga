@@ -96,6 +96,46 @@ def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
                              comment=comment,
                              title='1 hour %fs dark loop' % (darkTime))
 
+def calcOffsets(target, current):
+    m = np.round((target - current) / 30, 2)
+    r = np.round(m * 40.0/57.0, 2)
+
+    return m, r
+
+def tuneOffsets(ccd=None, feeControl=None):
+    amps = range(8)
+    feeControl.zeroOffsets(amps)
+
+    im, fname = ccdFuncs.fullExposure('bias', ccd=ccd,
+                                      feeControl=feeControl, nrows=300)
+    exp = geom.Exposure(im)
+
+    ampIms, osIms, _ = exp.splitImage(doTrim=False)
+
+    means = []
+    for a_i in range(8):
+        reg = osIms[a_i][20:-20][2:-2]
+        means.append(reg.mean())
+
+    m, r = calcOffsets(1000,means)
+    print("applying master: %s" % (m))
+    print("applying refs  : %s" % (r))
+
+    feeControl.setOffsets(amps, m, leg='n', doSave=False)
+    feeControl.setOffsets(amps, r, leg='p', doSave=True)
+    feeControl.setMode('offset')
+    
+    im, fname = ccdFuncs.fullExposure('bias', ccd=ccd,
+                                      feeControl=feeControl, nrows=200)
+    exp = geom.Exposure(im)
+
+    ampIms, osIms, _ = exp.splitImage(doTrim=False)
+    means = []
+    for a_i in range(8):
+        reg = osIms[a_i][20:-20][2:-2]
+        means.append(reg.mean())
+    print("final means: %s" % ' '.join(["%0.1f" % m for m in means]))
+
 def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                          VOD=None, VOG=None,
                          nrows=None, ncols=None,
@@ -288,7 +328,7 @@ def stdExposures_QE(ccd=None, feeControl=None,
                                       extraCards=cards,
                                       comment=expComment)
         
-def CTEStats(flist, bias, amps=None):
+def CTEStats(flist, bias, amps=None, useCols=None):
     '''
     The algorithm is
 
@@ -363,8 +403,8 @@ def CTEStats(flist, bias, amps=None):
 
     if amps is None:
         amps = range(exp.namps)
+    biasexp = geom.Exposure(bias)
     for a_i in amps:
-        biasexp = geom.Exposure(bias)
     
         # Load the bias parts once.
         biasOsRows = biasexp.overscanRowImage(a_i)[:, colSlice]
@@ -408,31 +448,36 @@ def CTEStats(flist, bias, amps=None):
         allNormedOsRows.append(normedOsRows)
         allNormedCols.append(normedCols)
         allNormedRows.append(normedRows)
-        
 
         if False:
             colCTE = 1 - (normedOsCols[:,:3].sum() / normedCols[:,-1].sum())/ampImg.shape[1]
             rowCTE = 1 - (normedOsRows[:3,:].sum() / normedRows[-1,:].sum())/ampImg.shape[0]
+        elif useCols == 'b1':
+            osCol = normedOsCols[:,0]
+            ampCol = normedCols[:,-1]
+
+            osRow = normedOsRows[2,:]
+            ampRow = np.mean(normedOsRows[0:2,:], axis=0)
         else:
             osCol = normedOsCols[:,0]
             ampCol = normedCols[:,-1]
-            colCTE = 1 - (np.mean(osCol*ampCol) / np.mean(ampCol*ampCol)) / ampImg.shape[1]
-
             osRow = normedOsRows[0,:]
             ampRow = normedRows[-1,:]
-            rowCTE = 1 - (np.mean(osRow*ampRow) / np.mean(ampRow*ampRow)) / ampImg.shape[0]
 
-            
+        colCTE = 1 - (np.mean(osCol*ampCol) / np.mean(ampCol*ampCol)) / ampImg.shape[1]
+        rowCTE = 1 - (np.mean(osRow*ampRow) / np.mean(ampRow*ampRow)) / ampImg.shape[0]
+
         colCTEs.append(colCTE)
         rowCTEs.append(rowCTE)
-        
+
         print("%d: %0.7f %0.7f  %7.2f %7.3f %7.2f %7.3f" %
               (a_i, colCTE, rowCTE,
                np.mean(ampCol), np.mean(osCol), np.mean(ampRow), np.mean(osRow)))
 
     return (colCTEs, rowCTEs,
             allNormedCols, allNormedOsCols,
-            allNormedRows, allNormedOsRows)
+            allNormedRows, allNormedOsRows,
+            allBiasOsCols, allBiasOsRows)
 
 statDtype = ([('amp', 'i2'),
               ('signal','f4'),
@@ -526,6 +571,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     return stats, ampIm, osIm
 
 def imStats(im, asBias=False):
+
     exp = geom.Exposure(im)
     
     ampIms, osIms, _ = exp.splitImage(doTrim=True)
@@ -612,7 +658,8 @@ def flatStats(f1name, f2name):
     diffOsIms = []
     for a_i in range(8):
         stats1, ampIm1, osIm1 = ampDiffStats(f1AmpIms[a_i], f2AmpIms[a_i],
-                                             f1OsIms[a_i], f2OsIms[a_i])
+                                             f1OsIms[a_i], f2OsIms[a_i],
+                                             exptime=exp1.expTime)
         stats1['amp'] = a_i
         stats.append(stats1)
         diffAmpIms.append(ampIm1)
