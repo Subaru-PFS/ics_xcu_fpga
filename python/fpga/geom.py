@@ -258,8 +258,8 @@ class Exposure(object):
         return yr, xr
 
     def overscanRows(self, ampId, leadingCols=False, overscanCols=False):
-        x0 = ampId*self.ampCols + self.leadinCols*(not leadingCols)
-        x1 = ampId*self.ampCols + self.ampCols + self.overCols*(overscanCols)
+        x0 = ampId*self.ncols + self.leadinCols*(not leadingCols)
+        x1 = ampId*self.ncols + self.ampCols + self.overCols*(overscanCols)
 
         xr = slice(x0, x1)
         yr = slice(self.ccdRows, self.ccdRows + self.overRows)
@@ -445,7 +445,7 @@ class Exposure(object):
         ampImages = self.allAmpsImages(leadingRows=leadingRows)
         return np.hstack(ampImages)
     
-def clippedStats(a, nsig=3.0, niter=5):
+def clippedStats(a, nsig=3.0, niter=20):
     a = a.reshape(-1)
     keep = np.ones(a.size, dtype=np.bool)
 
