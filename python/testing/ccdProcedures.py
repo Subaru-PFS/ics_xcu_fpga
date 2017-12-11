@@ -473,10 +473,10 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
     stats[a_i]['sqrtSig'] = np.sqrt(signal)
     stats[a_i]['bias'] = osSig
 
-    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    sig1 = 0.741 * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = 0.741 * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = geom.clippedStats(ampIm)
+    _, trusig2, _ = geom.clippedStats(osIm)
     if asBias:
         stats[a_i]['readnoise'] = sig1
         stats[a_i]['readnoiseM'] = trusig1
