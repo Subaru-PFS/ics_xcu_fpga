@@ -511,6 +511,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
     _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
     _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+
     stats[a_i]['readnoise'] = sig2
     stats[a_i]['readnoiseM'] = trusig2
 
@@ -624,10 +625,10 @@ def printStats(stats):
     po = np.get_printoptions()
     np.set_printoptions(formatter=dict(float=lambda f: "%0.2f" % (f)))
     
-    print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise dn/s\n")
+    print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise(e-) dn/s\n")
 
     for i in range(len(stats)):
-        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)6.2f %(flux)5.1f" % stats[i])
+        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)10.2f %(flux)5.1f" % stats[i])
 
     np.set_printoptions(**po)
         
