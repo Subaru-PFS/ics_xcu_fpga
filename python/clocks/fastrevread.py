@@ -2,10 +2,12 @@ from clocks import Clocks
 
 from clockIDs import *
 
+from read import insertIdlePixels
+
 def readClocks():
     pre = Clocks()
     pre.changeFor(duration=120,
-                  turnOn= [P1,P3,S1,CNV])
+                  turnOn= [P1,P2,S1,CNV])
     
     pix = Clocks(initFrom=pre)
     pix.changeFor(duration=8,
@@ -49,31 +51,39 @@ def readClocks():
     pix.changeFor(duration=12,
                   turnOff= [RG])
 
-    par = Clocks(initFrom=pix)
-    par.changeFor(duration=500,
-                  turnOff=[P1],
-                  turnOn= [RG,IR,DCR])
+    # We want each phase of the parallel clocking to take ~40us.
+    # We also want each phase to consist of an integral number of
+    # complete pixels clockings. With the current pixel time
+    # of 13.92 us, we make it 3.
+    #
+    pixTicks = pix.ticks[-1]
+    parPhasePixCnt = 3 # np.int(np.ceil(40000 / (pixTicks * 40)))
+    parPhaseTicks = pixTicks * parPhasePixCnt
 
-    par.changeFor(duration=500,
-                  turnOn= [P2,TG,CRC])
+    par = Clocks(initFrom=pix, logLevel=20)
+    par.changeAt(at=0,
+                 turnOff=[P1])
+    insertIdlePixels(par, parPhasePixCnt)
+    
+    par.changeAt(at=1*parPhaseTicks,
+                 turnOn= [P3,TG,CRC])
+    insertIdlePixels(par, parPhasePixCnt)
 
-    par.changeFor(duration=500,
-                  turnOff=[P3,CRC])
+    par.changeAt(at=2*parPhaseTicks,
+                 turnOff=[P2,CRC])
+    insertIdlePixels(par, parPhasePixCnt)
 
-    par.changeFor(duration=500,
-                  turnOn=[P1])
+    par.changeAt(at=3*parPhaseTicks,
+                 turnOn=[P1])
+    insertIdlePixels(par, parPhasePixCnt)
 
-    par.changeFor(duration=500,
-                  turnOff=[P2,TG])
+    par.changeAt(at=4*parPhaseTicks,
+                 turnOff=[P3,TG])
+    insertIdlePixels(par, parPhasePixCnt)
 
-    par.changeFor(duration=500,
-                  turnOn=[P3])
-
-    par.changeFor(duration=50,
-                  turnOff=[RG,IR])
-
-    par.changeFor(duration=2,
-                  turnOff= [DCR])
+    par.changeAt(at=5*parPhaseTicks,
+                 turnOn=[P2])
+    insertIdlePixels(par, 1)
 
     return pre, pix, par
 

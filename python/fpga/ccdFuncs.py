@@ -284,13 +284,14 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     
     return im, imfile
 
-def fastRevRead(rowBinning=10,
+def fastRevRead(ccd=None, rowBinning=10,
                 nrows=None, ncols=None,
                 clockFunc=None,
                 doSave=True, comment='',
-                feeControl=None):
-    
-    ccd = ccdMod.ccd
+                feeControl=None, cmd=None):
+
+    if ccd is None:
+        ccd = ccdMod.ccd
     
     argDict = dict(everyNRows=500/rowBinning, ccd=ccd, cols=slice(50,-40))
 
