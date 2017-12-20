@@ -117,7 +117,7 @@ def tuneOffsets(ccd=None, feeControl=None):
         reg = osIms[a_i][20:-20][2:-2]
         means.append(reg.mean())
 
-    m, r = calcOffsets(1000,means)
+    m, r = calcOffsets(1000,np.array(means))
     print("applying master: %s" % (m))
     print("applying refs  : %s" % (r))
 
