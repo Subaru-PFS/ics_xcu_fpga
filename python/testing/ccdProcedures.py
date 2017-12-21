@@ -146,7 +146,7 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
     if VOG is None:
         VOG = np.arange(-3.0, -5.01, -0.25)
         
-    opticslab.setup(ccd.arm, flux=1000, wavelength=5500)
+    opticslab.setup(ccd.arm, flux=1000)
 
     ccdFuncs.expSequence(ccd=ccd,
                          nrows=nrows, ncols=ncols,
@@ -175,10 +175,10 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
     """ Canonical bright flats sequence. 
 
-    At 500ADU/s, take flats running up past saturation.
+    At 1000ADU/s, take flats running up past saturation.
     """
     
-    opticslab.setup(ccd.arm, flux=1000, wavelength=5500)
+    opticslab.setup(ccd.arm, flux=1000)
 
     explist = (('bias', 0),
                ('bias', 0),
@@ -236,10 +236,10 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                           comment='low flats'):
     """ Canonical low flats sequence. 
 
-    At 20 ADU/s, take flats running up to ~4000 ADU.
+    At 10 ADU/s, take flats running up to ~4000 ADU.
     """
 
-    opticslab.setup(ccd.arm, flux=10, wavelength=5500)
+    opticslab.setup(ccd.arm, flux=10)
 
     explist = (('bias', 0),
                ('bias', 0),
