@@ -295,22 +295,31 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                      title='low flats')
 
 def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
+    """ Take standard set of Fe55 exposures.
+
+    The Fe55 source illuminates a pretty narrow area, so we move the arm
+    to three positions. At each position we take 10 30s and 10 60s exposures.
+
+    In practice, the calling routine would run this many times.
+    """
+    
     explist = []
     explist.append(('bias', 0),)
 
-    for i in range(10):
-        explist.extend(('dark', 1),
-                       ('dark', 5),
-                       ('dark', 10))
+    opticslab.setPower('off')
+    
+    for pos in 35,45,55:
+        opticslab.setFe55(pos)
         
-    for i in range(2):
-        explist.extend(('dark', 30),
-                       ('dark', 60))
-
-    ccdFuncs.expList(explist, ccd=ccd,
-                     feeControl=feeControl,
-                     comment='Fe55 darks',
-                     title='Fe55 darks')
+        for i in range(10):
+            explist.extend(('dark', 30),)
+        for i in range(10):
+            explist.extend(('dark', 60),)
+        
+        ccdFuncs.expList(explist, ccd=ccd,
+                         feeControl=feeControl,
+                         comment='Fe55 darks',
+                         title='Fe55 darks')
 
 def stdExposures_QE(ccd=None, feeControl=None,
                     comment='QE ramp', flatTime=10.0, waves=None):
