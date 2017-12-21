@@ -151,21 +151,34 @@ def getPower():
         
     return float(parts[-1])
     
-def setup(arm, wavelength=None, flux=None):
+def setup(arm, wavelength=None, flux=None, clearFe55=True):
     """ """
 
     if arm == 'blue':
+        if wavelength is None:
+            wavelength = 550
         lamp = 'arc'
-        if wavelength == 5500 and flux == 10:
+        if wavelength == 550 and flux == 10:
             slitWidth = 1.0
             filter = 'ND4'
-        elif wavelength == 5500 and flux == 1000:
+        elif wavelength == 550 and flux == 1000:
             slitWidth = 0.5
             filter = 'ND2'
         else:
             raise KeyError("unknown preset configuration, sorry.")
     elif arm == 'red':
-        raise KeyError("no presets for red yet, sorry.")
+        if wavelength is None:
+            wavelength = 800
+        lamp = 'qth'
+        if wavelength == 800 and flux == 10:
+            slitWidth = 1.5
+            filter = 'ND5'
+        elif wavelength == 800 and flux == 1000:
+            slitWidth = 1.5
+            filter = 'ND3'
+        else:
+            raise KeyError("unknown preset configuration, sorry.")
+
     else:
         raise KeyError('unknown arm')
 
