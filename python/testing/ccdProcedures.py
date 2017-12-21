@@ -263,6 +263,7 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                ('flat', 7),
 
                ('flat', 112),
+               ('flat', 7),
                ('flat', 10),
                ('flat', 14),
                ('flat', 20),
@@ -270,11 +271,17 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                ('flat', 40),
 
                ('flat', 112),
+               ('flat', 40),
                ('flat', 56),
                ('flat', 80),
                ('flat', 112),
+               ('flat', 160),
                ('flat', 224),
-               
+               ('flat', 320),
+               ('flat', 450),
+
+               ('flat', 112),
+
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
