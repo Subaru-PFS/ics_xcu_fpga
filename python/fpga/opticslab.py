@@ -280,24 +280,25 @@ def setLamp(lamp):
         
     return lamp
 
-def setFe55(pos, angle=45):
+def setFe55(pos):
     """ Move the Fe55 source in or out.
 
     Args:
-       pos : 'in' or 'out'
-       angle : float (optional)
+       pos : 'home' or 0..90
 
     """
-    knownPositions = {'in':0, 'out':angle}
     
-    if pos not in knownPositions:
-        raise ValueError('%s is not one of' % (pos, knownPositions.keys()))
-    reqPos = knownPositions[pos]
-    ret = opticsLabCommand('fe55 %d' % (reqPos))
-    if (ret != 'fe55 %2d' % (reqPos)):
+    if pos != 'home' or int(pos) < 0 or int(pos) > 90:
+        raise ValueError('%s is not home or 0..90' % (pos))
+    
+    ret = opticsLabCommand('fe55 %s' % (pos))
+
+    if pos == 'home' and ret != 'fe55 0':
+        raise RuntimeError('failed to home Fe55 source: %r' % (ret))
+    elif (ret != 'fe55 %2d' % (pos)):
         raise RuntimeError('failed to move Fe55 source: %r' % (ret))
         
-    return reqPos
+    return pos
 
 def coldShutter(pos):
     """ Move the cold shutter in or out.
