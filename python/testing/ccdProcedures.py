@@ -313,12 +313,23 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
                      title='Fe55 darks')
 
 def stdExposures_QE(ccd=None, feeControl=None,
-                    comment='QE ramp', flatTime=5.0, slitWidth=1.0, waves=None):
+                    comment='QE ramp', flatTime=10.0, waves=None):
+    """ Take standard QE test exposures.
 
-    opticslab.setSlitwidth(slitWidth)
+    Currently taking 50m steps across the detector bandpass, with 
+    10s exposures at ~1000 ADU/s
+    """
+    
+    opticslab.setup(ccd.arm, flux=1000)
 
     if waves is None:
-        waves = np.arange(550,1051,50)
+        if ccd.arm == 'red':
+            waves = np.arange(600,1051,50)
+        elif ccd.arm == 'blue':
+            waves = np.arange(350,701,50)
+        else:
+            raise RuntimeError('QE test only knows about red and blue detectors.')
+        
     for wave in waves:
         opticslab.setWavelength(wave)
 
