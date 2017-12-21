@@ -186,9 +186,11 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
         raise RuntimeError("the lamp must be set outside of the .setup function")
     if getPower() == 0:
         raise RuntimeError('the lamp is not on.')
-    if getPower() < 600:
-        raise RuntimeError('the lamp has not been warmed for 10 min.')
-    
+    if getPower() < 900:
+        raise RuntimeError('the lamp has not been warmed for 15 min.')
+
+    if clearFe55:
+        setFe55('home')
     setSlitwidth(slitWidth)
     setWavelength(wavelength)
     setFilter(filter)
