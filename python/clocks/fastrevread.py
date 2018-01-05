@@ -1,8 +1,9 @@
-from clocks import Clocks
+from __future__ import absolute_import
+from .clocks import Clocks
 
-from clockIDs import *
+from .clockIDs import *
 
-from read import insertIdlePixels
+from .read import insertIdlePixels
 
 def readClocks():
     pre = Clocks()

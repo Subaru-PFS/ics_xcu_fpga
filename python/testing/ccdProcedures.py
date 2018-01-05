@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import time
 
@@ -32,7 +33,7 @@ class FeeTweaks(object):
         return self.fee.statusAsCards()
 
     def setMode(self, mode):
-        print "setting mode: ", mode
+        print("setting mode: ", mode)
         self.fee.setMode(mode)
         if mode in self.modes:
             for vname, val in self.modes[mode].iteritems():
@@ -46,10 +47,10 @@ class FeeTweaks(object):
         
         fee = self.fee
     
-        oldVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
-        [fee.doSet('bias', vname, val, ch) for ch in 0,1]
+        oldVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
+        [fee.doSet('bias', vname, val, ch) for ch in (0,1)]
         time.sleep(0.25)
-        newVals = [fee.doGet('bias', vname, ch) for ch in 0,1]
+        newVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
         print("%s %0.1f,%0.1f -> %0.1f,%0.1f (%0.1f)" %
               (vname, oldVals[0], oldVals[1], newVals[0], newVals[1], val))
 
@@ -345,7 +346,7 @@ def stdExposures_QE(ccd=None, feeControl=None,
         ccdFuncs.wipe(ccd)
 
         ret = opticslab.pulseShutter(flatTime)
-        print ret
+        print(ret)
         stime, flux, current, wave, slitWidth = ret
         
         cards = []
@@ -431,7 +432,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
 
         print("%s %0.1f: %s" % (exp.expType, exp.expTime, fname))
 
-    print
+    print()
     print("#amp    HCTE      VCTE   ampCol overCol  ampRow overRow")
 
     if amps is None:

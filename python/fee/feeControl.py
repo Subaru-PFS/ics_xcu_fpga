@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import argparse
 import inspect
 import logging
@@ -362,7 +363,7 @@ class FeeControl(object):
             cmdStatus = self.getCommandStatus(csetName)
             newStatus.update(cmdStatus)
             t1 = time.time()
-            print "get all %s: %0.2fs" % (csetName, t1-t0)
+            print("get all %s: %0.2fs" % (csetName, t1-t0))
                 
         self.status = newStatus
         return self.status
@@ -383,7 +384,7 @@ class FeeControl(object):
 
     def printStatus(self):
         for k, v in self.status.iteritems():
-            print k, ': ', v
+            print(k, ': ', v)
 
     def statusAsCards(self, useCache=False):
         if useCache is False:
@@ -475,7 +476,7 @@ class FeeControl(object):
         if mode is not None:
             m = self.presets[mode]
             kws = dict(name=value, force=True)
-            print "kws: %s" % (kws)
+            print("kws: %s" % (kws))
             m.define(**kws)
 
             if doSet:
@@ -776,7 +777,7 @@ class FeeControl(object):
             ret = self.readResponse()
             if ret == '':
                 break
-            print "gobbled: ", ret
+            print("gobbled: ", ret)
                                                         
     def sendCommandStr(self, cmdStr, noTilde=False, EOL=None):
         if EOL is None:
@@ -937,7 +938,7 @@ def main(argv=None):
     fee = FeeControl(logLevel=logLevel)
     if args.raw:
         for rawCmd in args.raw:
-            print fee.getRaw(rawCmd)
+            print(fee.getRaw(rawCmd))
     else:
         fee.getAllStatus()
         fee.printStatus()

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import logging
 import numpy as np
 import sys
@@ -6,11 +8,11 @@ import time
 import astropy.io.fits as pyfits
 
 try:
-    from pyFPGA import FPGA
+    from .pyFPGA import FPGA
 except:
     FPGA = object
     
-import SeqPath
+from . import SeqPath
 
 class FakeCCD(object):
     def ampidx(self, ampid, im):
@@ -237,8 +239,8 @@ class CCD(FPGA):
 
         readRows = nrows / rowBinning
         if readRows * rowBinning != nrows:
-            print "warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
-                                                                                       nrows)
+            print("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
+                                                                                       nrows))
             
         if doReset:
             self.pciReset()

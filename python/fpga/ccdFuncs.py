@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import glob
 import logging
@@ -143,13 +144,13 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         feeControl.setMode('wipe')
         time.sleep(1.0)
     for i in range(nwipes):
-        print "wiping...."
+        print("wiping....")
         ccd.pciReset()
         readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
                                         clockFunc=getWipeClocks(),
                                         rowBinning=rowBinning)
         time.sleep(readTime+0.1)
-        print "wiped %d %d %g s" % (nrows, ncols, readTime)
+        print("wiped %d %d %g s" % (nrows, ncols, readTime))
 
     if toExposeMode:
         feeControl.setMode('expose')
@@ -219,7 +220,7 @@ def readout(imtype, ccd=None,
         time.sleep(0.5)
     t3 = time.time()
     
-    print "file : %s" % (imfile)
+    print("file : %s" % (imfile))
     print("times: %0.2f, %0.2f, %0.2f"
           % (t1-t0,t2-t1,t3-t2))
     
@@ -276,7 +277,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     if cmd is not None:
         cmd.inform('exposureState="idle",0.0')
 
-    print "file : %s" % (imfile)
+    print("file : %s" % (imfile))
     print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
           % (t1-t0,t2-t1,t3-t2,t3-t0))
     
@@ -373,7 +374,7 @@ def expList(explist, ccd=None,
             exptype = exp[0]
             expargs = exp[1:]
             expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
-            print "%s %s" % (exptype, exp[1:])
+            print("%s %s" % (exptype, exp[1:]))
             if exptype == 'wipe':
                 exparg = expargs[0]
                 wipe(ccd=ccd, nwipes=exparg, feeControl=feeControl)
@@ -400,7 +401,7 @@ def expList(explist, ccd=None,
             elif exptype == 'flat':
                 flatTime = expargs[0]
                 ret = opticslab.pulseShutter(flatTime)
-                print ret
+                print(ret)
 
                 stime, flux, current, wave, slitWidth = ret
 
@@ -423,7 +424,7 @@ def expList(explist, ccd=None,
                 time.sleep(darkTime)
 
                 ret = opticslab.pulseShutter(flatTime)
-                print ret
+                print(ret)
 
                 stime, flux, current, wave, slitWidth = ret
 
@@ -445,7 +446,7 @@ def expList(explist, ccd=None,
 
             files.append(imfile)
 
-            print imfile    
+            print(imfile)    
     finally:
         feeControl.setMode('idle')
         
@@ -545,7 +546,7 @@ def main(argv=None):
 
     exec("rowFunc = %s" % (args.rowFunc))
     execStr = "rowFuncArgs = dict(%s)" % (args.rowFuncArgs)
-    print "trying to exec: %s" % (execStr)
+    print("trying to exec: %s" % (execStr))
     exec(execStr)
 
     fee = pyFPGA.FPGA()

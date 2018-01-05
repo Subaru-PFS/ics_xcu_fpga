@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division
+from __future__ import print_function
 
 import collections
 import re
@@ -69,7 +70,7 @@ class TestRig(object):
             self.pdf.close()
             self.pdf = None
             
-        print "deleting mux...."
+        print("deleting mux....")
         if self.mux is not None:
             self.mux.mux.close()
         del self.mux
@@ -114,7 +115,7 @@ class TestRig(object):
         self.seqno = seqno
         self.dirName = dirName
         self.utday = os.path.split(dirName)[-2]
-        os.makedirs(self.dirName, mode=02775)
+        os.makedirs(self.dirName, mode=0o2775)
 
         self.seqNum = 0
 
@@ -283,7 +284,7 @@ class BenchRig(TestRig):
             
     def burnFee(self):
         feePath = "/home/pfs/fee/current.hex"
-        print "downloading fee firmware....."
+        print("downloading fee firmware.....")
         self.powerDown()
         subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
         time.sleep(1.1)
@@ -291,7 +292,7 @@ class BenchRig(TestRig):
         time.sleep(1.1)
         
         oneCmd('ccd_%s' % (self.dewar), '--level=d fee download pathname="%s"' % (feePath))
-        print "done downloading fee firmware, we hope...."
+        print("done downloading fee firmware, we hope....")
 
         self.powerDown()
         self.powerUp()
@@ -546,9 +547,9 @@ class BenchRig(TestRig):
                 if comment2 is None:
                     self.finishFullRig()
                     return True
-                print
+                print()
                 print("============= MUX reconfiguration: you need to %s" % (comment2))
-                print
+                print()
                 return True
 
             ret = self.runTest(noRun=noRun, **testArgs)
@@ -971,8 +972,8 @@ class SanityTest(OneTest):
         ok2 = self.checkVoltages(cards)
         ok = ok1 and ok2
         
-        print self.formatCheckedValues()
-        print
+        print(self.formatCheckedValues())
+        print()
 
         mdfile = self.rig.frontPage
         mdfile.write(self.formatCheckedValues())
@@ -1469,7 +1470,7 @@ class Switch1Test(OneTest):
             clocks = np.array(pix.ticks) * pix.tickTime
             
         self.clocks = clocks
-        print "clocks: %s" % (self.clocks)
+        print("clocks: %s" % (self.clocks))
         
     def plot(self, channels=[0,1]):
         #self.setClocks()
@@ -1525,7 +1526,7 @@ class Switch2Test(OneTest):
             clocks = np.array(pix.ticks) * pix.tickTime
             
         self.clocks = clocks
-        print "clocks: %s" % (self.clocks)
+        print("clocks: %s" % (self.clocks))
         
     def plot(self, channels=[0,1]):
         #self.setClocks()

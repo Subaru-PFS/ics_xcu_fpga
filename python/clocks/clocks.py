@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import print_function
 
 from collections import OrderedDict
 import logging
@@ -6,6 +7,7 @@ import numpy as np
 import re
 
 from . import clockIDs
+from functools import reduce
 
 class Clocks(object):
     """ Access the FPGA's clocking sequences.
@@ -95,7 +97,7 @@ class Clocks(object):
 
         for s in signals:
             ticks, states = self.signalTrace(s)
-            print "%s: %s %s" % (s.label, ticks, states)
+            print("%s: %s %s" % (s.label, ticks, states))
 
     def genJSON(self, tickDiv=2, cutAfter=20, signals=None,
                 includeAll=False, title=''):

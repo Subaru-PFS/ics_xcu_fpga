@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import print_function
 
 import logging
 import os
@@ -44,7 +45,7 @@ def bitHist(fname, doPrint=True):
         pixCount = float(len(ampPixels))
         bitFracs = np.zeros(16)
         for i in range(16):
-            setCount = ((ampPixels & (01 << i)) != 0).sum()
+            setCount = ((ampPixels & (0o1 << i)) != 0).sum()
             bitFracs[i] = setCount / pixCount
 
         bitFracs = bitFracs[::-1]
@@ -107,9 +108,9 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
 
         if peaks is not None:
             for ii in range(-3,4):
-                print "%d: %s" % (ii, np.round(np.mean(normedIm[:, peaks+ii]), 3))
+                print("%d: %s" % (ii, np.round(np.mean(normedIm[:, peaks+ii]), 3)))
 
-        print 
+        print() 
         yoff += plotOffset
 
     plt.axis([None, None, -plotOffset, yoff+plotOffset])
@@ -487,9 +488,9 @@ def tuneLevels(ccd, fee, amps=None,
 
     lastOffset = offsets * 0
     offLimit = 199
-    print
-    print "amps: %s" % (amps)
-    print
+    print()
+    print("amps: %s" % (amps))
+    print()
     while True:
         im, files = ccd.readImage(nrows=nrows, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, 
                                   doSave=False, clockFunc=clockFunc)
@@ -498,15 +499,15 @@ def tuneLevels(ccd, fee, amps=None,
             im = im.astype('i4')
             hi = im > doUnwrap
             if hi.sum() > 0:
-                print "!!!! unwrapping %d pixels !!!!" % (hi.sum())
+                print("!!!! unwrapping %d pixels !!!!" % (hi.sum()))
                 im[hi] -= 65535
 
         newLevels, devs = ampStats(im, cols=statCols, ccd=ccd)
-        print "====== read %d" % (ii)
-        print "offs (%d): %s" % (ii, fmtArr(offsets[amps]))
-        print "means(%d): %s" % (ii, fmtArr(newLevels))
-        print "devs (%d): %s" % (ii, fmtArr(devs))
-        print "done(%d of %d)   : %s" % (ii, maxLoops, done)
+        print("====== read %d" % (ii))
+        print("offs (%d): %s" % (ii, fmtArr(offsets[amps])))
+        print("means(%d): %s" % (ii, fmtArr(newLevels)))
+        print("devs (%d): %s" % (ii, fmtArr(devs)))
+        print("done(%d of %d)   : %s" % (ii, maxLoops, done))
 
         if np.all(done) or ii > maxLoops:
             break 
@@ -561,11 +562,11 @@ def tuneLevels(ccd, fee, amps=None,
             # done[offsets >= offLimit] = True
             # done[offsets <= -offLimit] = True
             
-        print 
-        print "offs!(%d): %s" % (ii, fmtArr(offsets[amps]))
-        print "doffs(%d): %s" % (ii, fmtArr(thisOffset[amps]))
-        print "gains(%d): %s" % (ii, fmtArr(gains[amps]))
-        print
+        print() 
+        print("offs!(%d): %s" % (ii, fmtArr(offsets[amps])))
+        print("doffs(%d): %s" % (ii, fmtArr(thisOffset[amps])))
+        print("gains(%d): %s" % (ii, fmtArr(gains[amps])))
+        print()
         
         ii += 1
         
@@ -618,13 +619,13 @@ def gainCurve(ccd=None, fee=None, amps=None,
             im = im.astype('i4')
             hi_w = im > doUnwrap
             if hi_w.sum() > 0:
-                print "!!!! unwraping %d pixels !!!!" % (hi_w.sum())
+                print("!!!! unwraping %d pixels !!!!" % (hi_w.sum()))
                 im[hi_w] -= 65535
 
         newLevels, devs = ampStats(im, statCols, ccd=ccd)
-        print "means(%s=%0.3f): %s" % (leg, offset, fmtArr(newLevels))
-        print "devs (%s%0.3f): %s" % (leg, offset, fmtArr(devs))
-        print
+        print("means(%s=%0.3f): %s" % (leg, offset, fmtArr(newLevels)))
+        print("devs (%s%0.3f): %s" % (leg, offset, fmtArr(devs)))
+        print()
 
         levels.append(newLevels.copy())
         offset += stepSize
@@ -648,7 +649,7 @@ def plotGains(offsets, levels, amps=None):
         ev = np.polyval(fit, offs)
         p1.plot(offs, la[:,a], '+-')
         p2.plot(offs, la[:,a]-ev, '+-')
-        print "%d: %s" % (a, fit)
+        print("%d: %s" % (a, fit))
         fitgains.append(fit)
     
     return np.array(fitgains)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import itertools
 import logging
 import numpy as np
@@ -408,7 +409,7 @@ class Exposure(object):
             newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
             newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
 
-        print newAmps[0].shape, newOverCols[0].shape
+        print(newAmps[0].shape, newOverCols[0].shape)
         return newAmps, newOverCols
         
     def biasSubtractOne(self, im=None, byRow=False):
@@ -459,9 +460,9 @@ def clippedStats(a, nsig=3.0, niter=20):
         if nkeep1 == nkeep0:
             return mn, sd, float(nkeep1)/a.size
 
-    print "too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
+    print("too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
                                                                                float(nkeep0)/a.size,
-                                                                               float(nkeep1)/a.size)
+                                                                               float(nkeep1)/a.size))
     return a[keep].mean(), a[keep].std(), float(nkeep1)/a.size
 
 def clippedStack(flist, dtype='i4'):
@@ -512,7 +513,7 @@ def superBias(flist):
         newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
         newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
 
-    print newAmps[0].shape, newOverCols[0].shape
+    print(newAmps[0].shape, newOverCols[0].shape)
     return newAmps, newOverCols
         
 def finalImage(exp, bias=None, dark=None, flat=None):

@@ -76,7 +76,7 @@ class NightFilenameGen(object):
                 seq = sf.readline()
                 seq = seq.strip()
                 seqno = int(seq)
-            except Exception, e:
+            except Exception as e:
                 raise RuntimeError("could not read sequence integer from %s: %s" %
                                    (self.seqnoFile, e))
 
@@ -86,7 +86,7 @@ class NightFilenameGen(object):
                 sf.write("%d\n" % (nextSeqno))
                 sf.truncate()
                 sf.close()
-            except Exception, e:
+            except Exception as e:
                 raise RuntimeError("could not WRITE sequence integer to %s: %s" %
                                    (self.seqnoFile, e))
 
