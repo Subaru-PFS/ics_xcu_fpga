@@ -2,7 +2,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from builtins import object
-from past.utils import old_div
 import logging
 import numpy as np
 import sys
@@ -30,7 +29,7 @@ class FakeCCD(object):
         """
 
         nrows, ncols = im.shape
-        ampCols = old_div(ncols, 8)
+        ampCols = ncols//8
         return np.arange(ampCols*ampid, ampCols*(ampid+1))
         
 class CCD(FPGA):
@@ -131,7 +130,7 @@ class CCD(FPGA):
 
         if im is not None:
             nrows, ncols = im.shape
-            ampCols = old_div(ncols, 8)
+            ampCols = ncols//8
             return np.arange(ampCols*ampid, ampCols*(ampid+1))
         else:
             return np.arange(ampid*self.ncols+self.leadinCols,
@@ -240,7 +239,7 @@ class CCD(FPGA):
         if ncols is None:
             ncols = self.ncols
 
-        readRows = old_div(nrows, rowBinning)
+        readRows = nrows/rowBinning
         if readRows * rowBinning != nrows:
             print("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
                                                                                        nrows))

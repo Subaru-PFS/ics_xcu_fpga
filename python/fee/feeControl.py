@@ -7,7 +7,6 @@ from builtins import str
 from builtins import zip
 from builtins import range
 from past.builtins import basestring
-from past.utils import old_div
 from builtins import object
 import argparse
 import inspect
@@ -159,7 +158,7 @@ class FeeSet(object):
         """
 
         ampNum = int(ampNum)
-        return "%d%s,ch%d" % (ampNum%4, leg, old_div(ampNum,4))
+        return "%d%s,ch%d" % (ampNum%4, leg, ampNum//4)
 
 class FeeChannelSet(FeeSet):
     channels = [0,1]
@@ -867,12 +866,12 @@ class FeeControl(object):
 
     def _ampName(self, ampNum, leg='n'):
         ampNum = int(ampNum)
-        channel = old_div(ampNum,4)
+        channel = ampNum//4
         return "%d%s,ch%d" % (ampNum%4, leg, channel)
 
     def ampParts(self, ampNum, leg='n'):
         ampNum = int(ampNum)
-        channel = old_div(ampNum,4)
+        channel = ampNum//4
         return "%d%s" % (ampNum%4, leg), channel
 
     def setMode(self, newMode):

@@ -4,7 +4,6 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
-from past.utils import old_div
 import logging
 import os
 import time
@@ -41,7 +40,7 @@ def bitHist(fname, doPrint=True):
     im = pyfits.getdata(fname)
     
     namps = 8
-    ampCols = old_div(im.shape[1],namps)
+    ampCols = im.shape[1]//namps
     cols = np.arange(10, ampCols-10)
     
     for a in range(namps):
@@ -50,7 +49,7 @@ def bitHist(fname, doPrint=True):
         bitFracs = np.zeros(16)
         for i in range(16):
             setCount = ((ampPixels & (0o1 << i)) != 0).sum()
-            bitFracs[i] = old_div(setCount, pixCount)
+            bitFracs[i] = setCount/pixCount
 
         bitFracs = bitFracs[::-1]
         print("%s[%d]: %s" % (os.path.basename(fname), a, np.round(bitFracs, 3)))
@@ -60,7 +59,7 @@ def bitHist(fname, doPrint=True):
 def plotRows(im, prows, imName='', figName=None, figWidth=10, pixRange=None):
     medpix = np.median(im[prows])
 
-    f1 = plt.figure(figsize=(figWidth,old_div(figWidth,4)))
+    f1 = plt.figure(figsize=(figWidth, figWidth/4))
     for prow in prows:
         plt.plot(im[prow], scaley=pixRange is None)
         if pixRange is not None:
@@ -90,11 +89,11 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     """
 
     namps = 8
-    imcols = old_div(im.shape[1],namps)
+    imcols = im.shape[1]//namps
     if amps is None: 
         amps = list(range(namps))
     if row is None:
-        row = old_div(im.shape[0],2)
+        row = im.shape[0]//2
     if cols is None:
         cols = np.arange(imcols)
 
@@ -167,7 +166,7 @@ def plotAmpRows(im, rows=None, cols=None, plotOffset=5,
     """
 
     namps = 8
-    imcols = old_div(im.shape[1],namps)
+    imcols = im.shape[1]//namps
     amps = list(range(namps))
     
     if rows is None:
@@ -401,10 +400,10 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
         #p.xaxis.set_visible(False)
         p.yaxis.set_visible(False)
 
-        ph = p.hist(ampIm, bins=np.arange(histRange)-(old_div(histRange,2.0) - 0.5), normed=False)
+        ph = p.hist(ampIm, bins=np.arange(histRange) - histRange/2.0 - 0.5), normed=False)
 
         p.annotate("s=%0.2f" % (devs[a]), xy=(0.65, 0.85), xycoords="axes fraction")
-        p.annotate("amp %d,%d" % (old_div(a,4), a%4), xy=(0.05, 0.85), xycoords="axes fraction")
+        p.annotate("amp %d,%d" % (a//4, a%4), xy=(0.05, 0.85), xycoords="axes fraction")
         hists.append(ph)
         #plt.title('amp %d dev=%0.2f' % (a, ampIm.std()))
 
@@ -415,7 +414,7 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
 
 def ampStats(im, cols=None, rows=None, ccd=None):
     if cols is None:
-        cols = np.arange(old_div(im.shape[1],ccd.namps))
+        cols = np.arange(im.shape[1]//ccd.namps)
     if rows is None:
         rows = np.arange(im.shape[0])
         
@@ -546,12 +545,12 @@ def tuneLevels(ccd, fee, amps=None,
                     # Remeasure gain and apply.
                     dOffset = lastOffset[a]
                     if dOffset != 0.0:
-                        gains[a] = old_div(dLevel,dOffset)
+                        gains[a] = dLevel/dOffset
 
                 # print "%d,%d: dLevel/dOffset=gain %g/%g = %g vs. %s" % (a_i, a, dLevel, dOffset, lastGain, gains[a])
                     
                 stillWant = levels[a]-mean
-                thisOffset[a] = old_div(stillWant,gains[a])
+                thisOffset[a] = stillWant/gains[a]
                 if np.fabs(thisOffset[a] + offsets[a]) >= offLimit:
                     thisOffset[a] = startStep[a]
                 lastLevels[a] = mean  
@@ -660,7 +659,7 @@ def plotGains(offsets, levels, amps=None):
 
 def sinfit(x, a0, a1, a2, a3):
     """ Generate a0 * sin(a1 + x/a2) + a3 """
-    return a0 * np.sin(a1 + old_div(x,a2)) + a3
+    return a0 * np.sin(a1 + x/a2) + a3
 
 def argPeaks(arr):
     """ Locate all local peaks: pixels which are higher than both their neighbors. 
@@ -675,7 +674,7 @@ def argPeaks(arr):
     peaks = arr * 0
     peaks[peakmask] = arr[peakmask]
     
-    heights = old_div((arr[peakmask]-arr[peakmask-1] + arr[peakmask]-arr[peakmask+1]),2)
+    heights = (arr[peakmask]-arr[peakmask-1] + arr[peakmask]-arr[peakmask+1])/2
     idx = peaks.argsort()
         
     return idx[::-1]
@@ -744,7 +743,7 @@ def detrend(v, order=2):
 
     return v-trend
     
-def plotTopFreqs(im, plot=None, topN=5, fs=old_div(1,13.92e-6), label=None):
+def plotTopFreqs(im, plot=None, topN=5, fs=1/13.92e-6), label=None):
     """ Plot the FFT of a given vector, and identify the first few
     """
 

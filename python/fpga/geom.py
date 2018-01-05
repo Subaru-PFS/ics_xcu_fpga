@@ -3,7 +3,6 @@ from __future__ import division
 from builtins import range
 from past.builtins import basestring
 from builtins import object
-from past.utils import old_div
 import itertools
 import logging
 import numpy as np
@@ -94,7 +93,7 @@ class Exposure(object):
     def parseHeader(self):
         try:
             self.namps = self.header['geom.namps']
-            self.nccds = old_div(self.namps, 2)
+            self.nccds = self.namps//2
             
             self.leadinRows = self.header['geom.rows.leadin']
             self.overRows = self.header['geom.rows.overscan']
@@ -103,7 +102,7 @@ class Exposure(object):
             self.readDirection = self.header['geom.readDirection']
 
             self.ccdRows = self.image.shape[0] - self.overRows
-            self.ampCols = old_div(self.image.shape[1],self.namps) - self.overCols
+            self.ampCols = self.image.shape[1]//self.namps - self.overCols
 
             return True
         except Exception as e:
@@ -130,7 +129,7 @@ class Exposure(object):
                 self.leadinCols = self.leadinRows = 0
                 self.readDirection = 0
                 self.ccdRows = self.image.shape[0]
-                self.ampCols = old_div(self.image.shape[1], self.namps)
+                self.ampCols = self.image.shape[1]//self.namps
         
         imh,imw = self.image.shape
         if (self.ampCols + self.overCols)*self.namps != imw:
@@ -292,10 +291,10 @@ class Exposure(object):
         ampImg = self.ampImage(ampId, im=im)
 
         amph, ampw = ampImg.shape
-        hslice = slice(int(old_div(amph,2.0) - 50 + offset[0]),
-                       int(old_div(amph,2.0) + 50 + offset[0]))
-        wslice = slice(int(old_div(ampw,2.0) - 50 + offset[1]),
-                       int(old_div(ampw,2.0) + 50 + offset[1]))
+        hslice = slice(int(amph/2.0 - 50 + offset[0]),
+                       int(amph/2.0 + 50 + offset[0]))
+        wslice = slice(int(ampw/2.0 - 50 + offset[1]),
+                       int(ampw/2.0 + 50 + offset[1]))
     
         return ampImg[hslice, wslice]
 
@@ -305,7 +304,7 @@ class Exposure(object):
         ampImg = self.overscanColImage(ampId, im=im)
 
         amph, ampw = ampImg.shape
-        hslice = slice(int(old_div(amph,2.0) - 50), int(old_div(amph,2.0) + 50))
+        hslice = slice(int(amph/2.0 - 50), int(amph/2.0 + 50))
         wslice = slice(5, -1)
     
         return ampImg[hslice, wslice]
@@ -317,7 +316,7 @@ class Exposure(object):
 
         amph, ampw = ampImg.shape
         hslice = slice(5, -1)
-        wslice = slice(int(old_div(ampw,2.0) - 50), int(old_div(ampw,2.0) + 50))
+        wslice = slice(int(ampw/2.0 - 50), int(ampw/2.0 + 50))
     
         return ampImg[hslice, wslice]
 
@@ -463,12 +462,12 @@ def clippedStats(a, nsig=3.0, niter=20):
         nkeep1 = keep.sum()
 
         if nkeep1 == nkeep0:
-            return mn, sd, old_div(float(nkeep1),a.size)
+            return mn, sd, float(nkeep1)/a.size
 
     print("too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
-                                                                               old_div(float(nkeep0),a.size),
-                                                                               old_div(float(nkeep1),a.size)))
-    return a[keep].mean(), a[keep].std(), old_div(float(nkeep1),a.size)
+                                                                               float(nkeep0)/a.size,
+                                                                               float(nkeep1)/a.size))
+    return a[keep].mean(), a[keep].std(), float(nkeep1)/a.size
 
 def clippedStack(flist, dtype='i4'):
     """ Return the median of a stack of images.

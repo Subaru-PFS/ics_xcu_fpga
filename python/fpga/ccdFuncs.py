@@ -6,7 +6,6 @@ from __future__ import division
 
 from builtins import range
 from past.builtins import basestring
-from past.utils import old_div
 import glob
 import logging
 import os
@@ -137,7 +136,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
     if ncols is None:
         ncols = ccd.ampCols
     if nrows is None:
-        nrows = old_div(ccd.ccdRows, rowBinning) + 5
+        nrows = ccd.ccdRows//rowBinning + 5
         
     if nwipes > 0:
         if feeControl.getMode != 'idle':
@@ -195,7 +194,7 @@ def readout(imtype, ccd=None,
     if ccd is None:
         ccd = ccdMod.ccd
     
-    argDict = dict(everyNRows=(old_div(nrows,5) if nrows else 500), ccd=ccd, cols=slice(50,-40))
+    argDict = dict(everyNRows=(nrows//5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getReadClocks()
@@ -298,7 +297,7 @@ def fastRevRead(ccd=None, rowBinning=10,
     if ccd is None:
         ccd = ccdMod.ccd
     
-    argDict = dict(everyNRows=old_div(500,rowBinning), ccd=ccd, cols=slice(50,-40))
+    argDict = dict(everyNRows=500//rowBinning, ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getFastRevReadClocks()

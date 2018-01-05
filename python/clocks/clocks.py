@@ -6,7 +6,6 @@ from past.builtins import cmp
 from builtins import chr
 from builtins import range
 from builtins import object
-from past.utils import old_div
 from collections import OrderedDict
 import logging
 import numpy as np
@@ -136,8 +135,8 @@ class Clocks(object):
                 thisTick = ticks[t_i]
                 thisState = states[t_i]
 
-                dticks = old_div((thisTick - lastTick),tickDiv)
-                dticks_f = old_div((thisTick - lastTick),float(tickDiv))
+                dticks = (thisTick - lastTick)//tickDiv
+                dticks_f = (thisTick - lastTick)/tickDiv
                 assert (thisTick <= 0 or dticks > 0), \
                     ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
                      (sig, t_i, lastTick, thisTick))
