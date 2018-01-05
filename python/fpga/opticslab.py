@@ -171,7 +171,7 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
             wavelength = 800
         lamp = 'qth'
         if wavelength == 800 and flux == 10:
-            slitWidth = 1.5
+            slitWidth = 0.5
             filter = 'ND5'
         elif wavelength == 800 and flux == 1000:
             slitWidth = 1.5
