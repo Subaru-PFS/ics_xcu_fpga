@@ -263,8 +263,13 @@ def setPower(onOff):
     Args:
        onOff : bool
     """
-
-    opticsLabCommand('pon' if onOff else 'poff', timeout=2.0)
+    if onOff == 'on':
+        command = 'pon'
+    else:
+        command = 'poff'
+    opticsLabCommand(command, timeout=2.0)
+    
+    #opticsLabCommand('pon' if onOff else 'poff', timeout=2.0)
     return getPower()
 
 def setLamp(lamp):
@@ -290,12 +295,16 @@ def setFe55(pos):
 
     """
     
-    if pos != 'home' or int(pos) < 0 or int(pos) > 90:
-        raise ValueError('%s is not home or 0..90' % (pos))
+    if pos != 'home':
+        if (int(pos) < 0 or int(pos) > 90):
+            raise ValueError('%s is not home or 0..90' % (pos))
+    
+    if pos == 'home':
+        pos = 0
     
     ret = opticsLabCommand('fe55 %s' % (pos))
 
-    if pos == 'home' and ret != 'fe55 0':
+    if pos == 'home' and ret != 'fe55  0':
         raise RuntimeError('failed to home Fe55 source: %r' % (ret))
     elif (ret != 'fe55 %2d' % (pos)):
         raise RuntimeError('failed to move Fe55 source: %r' % (ret))
