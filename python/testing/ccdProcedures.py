@@ -305,20 +305,19 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     
     explist = []
     explist.append(('bias', 0),)
+    for i in range(10):
+        explist.append(('dark', 30),)
+    for i in range(10):
+        explist.append(('dark', 60),)
 
     opticslab.setPower('off')
     
     for pos in 35,45,55:
         opticslab.setFe55(pos)
         
-        for i in range(10):
-            explist.extend(('dark', 30),)
-        for i in range(10):
-            explist.extend(('dark', 60),)
-        
         ccdFuncs.expList(explist, ccd=ccd,
                          feeControl=feeControl,
-                         comment='Fe55 darks',
+                         comment='Fe55 dark %s'%str(pos),
                          title='Fe55 darks')
 
 def stdExposures_QE(ccd=None, feeControl=None,
