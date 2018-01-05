@@ -1,5 +1,8 @@
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
+from builtins import object
+from past.utils import old_div
 import logging
 import numpy as np
 import sys
@@ -27,7 +30,7 @@ class FakeCCD(object):
         """
 
         nrows, ncols = im.shape
-        ampCols = ncols / 8
+        ampCols = old_div(ncols, 8)
         return np.arange(ampCols*ampid, ampCols*(ampid+1))
         
 class CCD(FPGA):
@@ -61,7 +64,7 @@ class CCD(FPGA):
         try:
             arm = self.armNames[arm]
         except KeyError:
-            raise RuntimeError('arm must be one of: ', self.armNames.keys())
+            raise RuntimeError('arm must be one of: ', list(self.armNames.keys()))
 
         assert splitDetectors is False, "cannot handle splitting detector files yet"
 
@@ -128,7 +131,7 @@ class CCD(FPGA):
 
         if im is not None:
             nrows, ncols = im.shape
-            ampCols = ncols / 8
+            ampCols = old_div(ncols, 8)
             return np.arange(ampCols*ampid, ampCols*(ampid+1))
         else:
             return np.arange(ampid*self.ncols+self.leadinCols,
@@ -237,7 +240,7 @@ class CCD(FPGA):
         if ncols is None:
             ncols = self.ncols
 
-        readRows = nrows / rowBinning
+        readRows = old_div(nrows, rowBinning)
         if readRows * rowBinning != nrows:
             print("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
                                                                                        nrows))

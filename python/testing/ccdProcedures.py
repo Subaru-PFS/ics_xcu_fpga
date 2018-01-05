@@ -1,4 +1,9 @@
 from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
 import numpy as np
 import time
 
@@ -36,7 +41,7 @@ class FeeTweaks(object):
         print("setting mode: ", mode)
         self.fee.setMode(mode)
         if mode in self.modes:
-            for vname, val in self.modes[mode].iteritems():
+            for vname, val in self.modes[mode].items():
                 self.setVoltage(None, vname, val)
         time.sleep(0.25)
 
@@ -57,7 +62,7 @@ class FeeTweaks(object):
     def tweakMode(self, mode, doClear=True, **kws):
         if doClear:
             self.modes[mode] = dict()
-        for k, v in kws.iteritems():
+        for k, v in kws.items():
             self.modes[mode][k] = v
 
 def stdExposures_biases(ccd=None,
@@ -98,13 +103,13 @@ def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
                              title='1 hour %fs dark loop' % (darkTime))
 
 def calcOffsets(target, current):
-    m = np.round((target - current) / 30, 2)
+    m = np.round(old_div((target - current), 30), 2)
     r = np.round(m * 40.0/57.0, 2)
 
     return m, r
 
 def tuneOffsets(ccd=None, feeControl=None):
-    amps = range(8)
+    amps = list(range(8))
     feeControl.zeroOffsets(amps)
 
     im, fname = ccdFuncs.fullExposure('bias', ccd=ccd,
@@ -436,7 +441,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
     print("#amp    HCTE      VCTE   ampCol overCol  ampRow overRow")
 
     if amps is None:
-        amps = range(exp.namps)
+        amps = list(range(exp.namps))
     biasexp = geom.Exposure(bias)
     for a_i in amps:
     
@@ -484,8 +489,8 @@ def CTEStats(flist, bias, amps=None, useCols=None):
         allNormedRows.append(normedRows)
 
         if False:
-            colCTE = 1 - (normedOsCols[:,:3].sum() / normedCols[:,-1].sum())/ampImg.shape[1]
-            rowCTE = 1 - (normedOsRows[:3,:].sum() / normedRows[-1,:].sum())/ampImg.shape[0]
+            colCTE = 1 - old_div((old_div(normedOsCols[:,:3].sum(), normedCols[:,-1].sum())),ampImg.shape[1])
+            rowCTE = 1 - old_div((old_div(normedOsRows[:3,:].sum(), normedRows[-1,:].sum())),ampImg.shape[0])
         elif useCols == 'b1':
             osCol = normedOsCols[:,0]
             ampCol = normedCols[:,-1]
@@ -498,8 +503,8 @@ def CTEStats(flist, bias, amps=None, useCols=None):
             osRow = normedOsRows[0,:]
             ampRow = normedRows[-1,:]
 
-        colCTE = 1 - (np.mean(osCol*ampCol) / np.mean(ampCol*ampCol)) / ampImg.shape[1]
-        rowCTE = 1 - (np.mean(osRow*ampRow) / np.mean(ampRow*ampRow)) / ampImg.shape[0]
+        colCTE = 1 - old_div((old_div(np.mean(osCol*ampCol), np.mean(ampCol*ampCol))), ampImg.shape[1])
+        rowCTE = 1 - old_div((old_div(np.mean(osRow*ampRow), np.mean(ampRow*ampRow))), ampImg.shape[0])
 
         colCTEs.append(colCTE)
         rowCTEs.append(rowCTE)
@@ -542,7 +547,7 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
         osSig = 0
     stats[a_i]['signal'] = signal = ampSig - osSig
 
-    stats[a_i]['flux'] = signal / exptime
+    stats[a_i]['flux'] = old_div(signal, exptime)
     stats[a_i]['exptime'] = exptime
     try:
         stats[a_i]['preamptemp'] = hdr['temps.PA']
@@ -566,8 +571,8 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
     stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
     stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
 
-    stats[a_i]['gain'] = gain = signal/sig**2
-    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['gain'] = gain = old_div(signal,sig**2)
+    stats[a_i]['gainM'] = old_div(signal,trusig**2)
     stats[a_i]['noise'] = sig2*gain
 
     return stats
@@ -579,17 +584,17 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     a_i = 0
     _s1 = np.median(ampIm1) - np.median(osIm1)
     _s2 = np.median(ampIm2) - np.median(osIm2)
-    stats[a_i]['signal'] = signal = (_s1+_s2)/2
+    stats[a_i]['signal'] = signal = old_div((_s1+_s2),2)
     stats[a_i]['sqrtSig'] = np.sqrt(signal)
-    stats[a_i]['bias'] = (np.median(osIm1) + np.median(osIm2))/2
+    stats[a_i]['bias'] = old_div((np.median(osIm1) + np.median(osIm2)),2)
 
     ampIm = ampIm2.astype('f4') - ampIm1
     osIm = osIm2.astype('f4') - osIm1
 
-    sig1 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
-    sig2 = (0.741/np.sqrt(2)) * np.subtract.reduce(np.percentile(osIm, [75,25]))
-    _, trusig1, _ = geom.clippedStats(ampIm) / np.sqrt(2)
-    _, trusig2, _ = geom.clippedStats(osIm) / np.sqrt(2)
+    sig1 = (old_div(0.741,np.sqrt(2))) * np.subtract.reduce(np.percentile(ampIm, [75,25]))
+    sig2 = (old_div(0.741,np.sqrt(2))) * np.subtract.reduce(np.percentile(osIm, [75,25]))
+    _, trusig1, _ = old_div(geom.clippedStats(ampIm), np.sqrt(2))
+    _, trusig2, _ = old_div(geom.clippedStats(osIm), np.sqrt(2))
 
     stats[a_i]['readnoise'] = sig2
     stats[a_i]['readnoiseM'] = trusig2
@@ -597,10 +602,10 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     stats[a_i]['shotnoise'] = sig = np.sqrt(np.abs(sig1**2 - sig2**2))
     stats[a_i]['shotnoiseM'] = trusig = np.sqrt(np.abs(trusig1**2 - trusig2**2))
 
-    stats[a_i]['gain'] = gain = signal/sig**2
-    stats[a_i]['gainM'] = signal/trusig**2
+    stats[a_i]['gain'] = gain = old_div(signal,sig**2)
+    stats[a_i]['gainM'] = old_div(signal,trusig**2)
     stats[a_i]['noise'] = sig2*gain
-    stats[a_i]['flux'] = signal / exptime if exptime != 0 else 0.0
+    stats[a_i]['flux'] = old_div(signal, exptime) if exptime != 0 else 0.0
 
     return stats, ampIm, osIm
 

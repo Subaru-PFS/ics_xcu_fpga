@@ -1,12 +1,17 @@
 from __future__ import absolute_import, division
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import collections
 import re
 
 import numpy as np
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle as pickle
 import shutil
 import subprocess
 import time
@@ -144,7 +149,7 @@ class BenchRig(TestRig):
                      M10='TG',
                      M11='BB')
 
-    leadPins = {v:k for k,v in leadNames.items()}
+    leadPins = {v:k for k,v in list(leadNames.items())}
 
     # per-amp bias levels measured with the bench fake CCD, which
     # should always be the same, well within 1%.
@@ -254,7 +259,7 @@ class BenchRig(TestRig):
         self.powerUp()
         time.sleep(1.1)
         
-        for s in serials.keys():
+        for s in list(serials.keys()):
             if serials[s] is not None:
                 oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
                 
@@ -1476,7 +1481,7 @@ class Switch1Test(OneTest):
         #self.setClocks()
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          channels=range(3),
+                          channels=list(range(3)),
                           offsets=[0,-1,0,0],
                           noWide=False,
                           xoffset=self.pixTime,
@@ -1532,7 +1537,7 @@ class Switch2Test(OneTest):
         #self.setClocks()
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          channels=range(3),
+                          channels=list(range(3)),
                           offsets=[0,0,0,-10],
                           noWide=False,
                           # xoffset=self.delayTime,
@@ -1561,7 +1566,7 @@ def sigplot(waves,
             title=None):
 
     if channels is None:
-        channels = range(4)
+        channels = list(range(4))
     if offsets is None:
         offsets = np.zeros(4)
 

@@ -1,6 +1,12 @@
 from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import division
 
+from past.builtins import cmp
+from builtins import chr
+from builtins import range
+from builtins import object
+from past.utils import old_div
 from collections import OrderedDict
 import logging
 import numpy as np
@@ -130,8 +136,8 @@ class Clocks(object):
                 thisTick = ticks[t_i]
                 thisState = states[t_i]
 
-                dticks = (thisTick - lastTick)/tickDiv
-                dticks_f = (thisTick - lastTick)/float(tickDiv)
+                dticks = old_div((thisTick - lastTick),tickDiv)
+                dticks_f = old_div((thisTick - lastTick),float(tickDiv))
                 assert (thisTick <= 0 or dticks > 0), \
                     ("dticks for %s at slot %s, tick %s to %s is non-positive!" % 
                      (sig, t_i, lastTick, thisTick))
@@ -216,13 +222,13 @@ class Clocks(object):
 
         # Start with ASCII characters, extend into Unicode if we have to.
         names = [chr(ord('A')+n) for n in range(26)]
-        _names = [unichr(xc) for xc in range(0x100, 0x2ff)]
+        _names = [chr(xc) for xc in range(0x100, 0x2ff)]
         names2 = [n for n in _names if not n.islower()]
         names.extend(names2)
 
         traceLen = len(traces[list(signals)[0]])
         for c_i in range(1, traceLen):
-            isTransition = any([traces[sig][c_i] in '01' for sig in traces.keys()])
+            isTransition = any([traces[sig][c_i] in '01' for sig in list(traces.keys())])
             if c_i == traceLen-1:
                 isTransition = True
             thisName = names[2*label_n]
