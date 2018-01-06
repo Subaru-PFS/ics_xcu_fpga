@@ -1,5 +1,7 @@
 from __future__ import print_function
 from __future__ import division
+
+from past.builtins import reload
 from builtins import str
 from builtins import range
 from builtins import object

@@ -1,6 +1,8 @@
 from __future__ import absolute_import, division
 from __future__ import print_function
 
+from past.builtins import reload
+
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
