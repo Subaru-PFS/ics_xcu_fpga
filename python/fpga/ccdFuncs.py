@@ -73,7 +73,7 @@ def note(text, tick=None):
     """ Append a single line to our night's LOG file. """
     
     ddir = lastNight()
-    bellFile = file(os.path.join(ddir, 'LOG.txt'), 'ab+', buffering=1)
+    bellFile = open(os.path.join(ddir, 'LOG.txt'), 'a+', buffering=1)
     bellFile.write("%s %s\n" % (ts(), text))
     bellFile.flush()
     bellFile.close()
