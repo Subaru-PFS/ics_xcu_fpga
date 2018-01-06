@@ -3,7 +3,7 @@
 from __future__ import print_function
 from __future__ import division
 from builtins import chr
-from builtins import str
+from builtins import str, bytes
 from builtins import zip
 from builtins import range
 from past.builtins import basestring
@@ -227,7 +227,7 @@ class FeeControl(object):
         if noConnect is True:
             return
         self.setDevice(port)
-        
+
         if sendImage is not None:
             self.sendImage(sendImage)
         else:
@@ -794,9 +794,10 @@ class FeeControl(object):
         else:
             fullCmd = "~%s%s" % (cmdStr, EOL)
 
+        writeCmd = fullCmd.encode('latin-1')
         self.logger.debug("sending command :%r:" % (fullCmd))
         try:
-            self.device.write(fullCmd)
+            self.device.write(writeCmd)
         except serial.writeTimeoutError as e:
             raise
         except serial.SerialException as e:
@@ -806,7 +807,7 @@ class FeeControl(object):
 
         ret = self.readResponse()
         if ret != fullCmd.strip():
-            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (cmdStr, ret))
+            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
  
         ret = self.readResponse()
 
@@ -841,6 +842,7 @@ class FeeControl(object):
             except Exception as e:
                 raise
 
+            c = str(c, 'latin-1')
             if c == '':
                 self.logger.warn('pyserial device read(1) timed out')
 
