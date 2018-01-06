@@ -10,7 +10,7 @@ import time
 import astropy.io.fits as pyfits
 
 try:
-    from .pyFPGA import FPGA
+    from pyFPGA import FPGA
 except:
     FPGA = object
     
