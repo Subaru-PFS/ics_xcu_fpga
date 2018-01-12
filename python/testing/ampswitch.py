@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from builtins import range
+from builtins import object
 import argparse
 import logging
 import time
@@ -95,4 +97,4 @@ class AmpSwitch(object):
         return ret
 
     def chooseCoil(self, n):
-        return self.setCoils(on=n, off=range(16))
+        return self.setCoils(on=n, off=list(range(16)))

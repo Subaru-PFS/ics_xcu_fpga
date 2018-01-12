@@ -1,3 +1,8 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import itertools
 import logging
 import numpy as np
@@ -88,7 +93,7 @@ class Exposure(object):
     def parseHeader(self):
         try:
             self.namps = self.header['geom.namps']
-            self.nccds = self.namps / 2
+            self.nccds = self.namps//2
             
             self.leadinRows = self.header['geom.rows.leadin']
             self.overRows = self.header['geom.rows.overscan']
@@ -97,7 +102,7 @@ class Exposure(object):
             self.readDirection = self.header['geom.readDirection']
 
             self.ccdRows = self.image.shape[0] - self.overRows
-            self.ampCols = self.image.shape[1]/self.namps - self.overCols
+            self.ampCols = self.image.shape[1]//self.namps - self.overCols
 
             return True
         except Exception as e:
@@ -124,7 +129,7 @@ class Exposure(object):
                 self.leadinCols = self.leadinRows = 0
                 self.readDirection = 0
                 self.ccdRows = self.image.shape[0]
-                self.ampCols = self.image.shape[1] / self.namps
+                self.ampCols = self.image.shape[1]//self.namps
         
         imh,imw = self.image.shape
         if (self.ampCols + self.overCols)*self.namps != imw:
@@ -408,7 +413,7 @@ class Exposure(object):
             newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
             newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
 
-        print newAmps[0].shape, newOverCols[0].shape
+        print(newAmps[0].shape, newOverCols[0].shape)
         return newAmps, newOverCols
         
     def biasSubtractOne(self, im=None, byRow=False):
@@ -459,9 +464,9 @@ def clippedStats(a, nsig=3.0, niter=20):
         if nkeep1 == nkeep0:
             return mn, sd, float(nkeep1)/a.size
 
-    print "too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
+    print("too many iterations (%d): fullsize=%d clipped=%d lastclipped=%d" % (i, a.size,
                                                                                float(nkeep0)/a.size,
-                                                                               float(nkeep1)/a.size)
+                                                                               float(nkeep1)/a.size))
     return a[keep].mean(), a[keep].std(), float(nkeep1)/a.size
 
 def clippedStack(flist, dtype='i4'):
@@ -512,7 +517,7 @@ def superBias(flist):
         newAmps.append(parts[0][a_i] - (biasParts[0][a_i] - biasOffset))
         newOverCols.append(parts[1][a_i] - (biasParts[1][a_i] - biasOffset))
 
-    print newAmps[0].shape, newOverCols[0].shape
+    print(newAmps[0].shape, newOverCols[0].shape)
     return newAmps, newOverCols
         
 def finalImage(exp, bias=None, dark=None, flat=None):

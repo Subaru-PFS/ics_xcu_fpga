@@ -1,3 +1,4 @@
+from builtins import object
 class Signal(object):
     def __init__(self, bit, label, description, group=None, order=0):
         self.bit = bit

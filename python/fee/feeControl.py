@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+from __future__ import division
+from builtins import chr
+from builtins import str, bytes
+from builtins import zip
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import argparse
 import inspect
 import logging
@@ -27,7 +35,7 @@ class ModePreset(object):
         return ("ModePreset(name=%s, %s)" %
                 (self.name,
                  None if self.presets is None else ', '.join(["%s=%s" % (k,v)
-                                                              for k,v in self.presets.iteritems()])))
+                                                              for k,v in self.presets.items()])))
 
     def define(self, preload=None, force=False, 
                P_off =None, P_on =None,
@@ -66,7 +74,7 @@ class ModePreset(object):
         if False and self.preload:
             fee.sendCommandStr('lp,%s' % (self.name))
         for ch in channels:
-            for k, v in self.presets.iteritems():
+            for k, v in self.presets.items():
                 if v is not None:
                     fee.doSet('bias', k, v, ch)
         fee.sendCommandStr('sp,%s' % (self.name))
@@ -150,7 +158,7 @@ class FeeSet(object):
         """
 
         ampNum = int(ampNum)
-        return "%d%s,ch%d" % (ampNum%4, leg, ampNum/4)
+        return "%d%s,ch%d" % (ampNum%4, leg, ampNum//4)
 
 class FeeChannelSet(FeeSet):
     channels = [0,1]
@@ -219,7 +227,7 @@ class FeeControl(object):
         if noConnect is True:
             return
         self.setDevice(port)
-        
+
         if sendImage is not None:
             self.sendImage(sendImage)
         else:
@@ -321,7 +329,7 @@ class FeeControl(object):
                     if len(allVals) != len(csubs):
                         raise IndexError("getAll returned %d items instead of the required %d" % (len(allVals),
                                                                                                   len(csubs)))
-                    allVals = OrderedDict(zip(csubs, allVals))
+                    allVals = OrderedDict(list(zip(csubs, allVals)))
                 else:
                     allVals = OrderedDict()
                     for k in cset.subs:
@@ -335,7 +343,7 @@ class FeeControl(object):
                 if len(allVals) != len(csubs):
                     raise IndexError("getAll returned %d items instead of the required %d" % (len(allVals),
                                                                                               len(cset.subs)))
-                allVals = OrderedDict(zip(csubs, allVals))
+                allVals = OrderedDict(list(zip(csubs, allVals)))
             else:
                 allVals = OrderedDict()
                 for k in csubs:
@@ -355,14 +363,14 @@ class FeeControl(object):
         else:
             skip = set(skip)
     
-        for csetName in self.commands.keys():
+        for csetName in list(self.commands.keys()):
             t0 = time.time()
             if csetName in skip:
                 continue
             cmdStatus = self.getCommandStatus(csetName)
             newStatus.update(cmdStatus)
             t1 = time.time()
-            print "get all %s: %0.2fs" % (csetName, t1-t0)
+            print("get all %s: %0.2fs" % (csetName, t1-t0))
                 
         self.status = newStatus
         return self.status
@@ -382,14 +390,14 @@ class FeeControl(object):
         self.sendCommandStr('se,all,off')
 
     def printStatus(self):
-        for k, v in self.status.iteritems():
-            print k, ': ', v
+        for k, v in self.status.items():
+            print(k, ': ', v)
 
     def statusAsCards(self, useCache=False):
         if useCache is False:
             self.getAllStatus()
         cards = []
-        for k,v in self.status.iteritems():
+        for k,v in self.status.items():
             c = fits.Card('HIERARCH %s' % (k), v)
             cards.append(c)
                     
@@ -464,7 +472,7 @@ class FeeControl(object):
         if isinstance(modes, basestring):
             modes = modes,
         if modes is None:
-            modes = self.presets.keys()
+            modes = list(self.presets.keys())
         for m in modes:
             p = self.presets[m]
             p.saveToFee(self)
@@ -475,7 +483,7 @@ class FeeControl(object):
         if mode is not None:
             m = self.presets[mode]
             kws = dict(name=value, force=True)
-            print "kws: %s" % (kws)
+            print("kws: %s" % (kws))
             m.define(**kws)
 
             if doSet:
@@ -776,7 +784,7 @@ class FeeControl(object):
             ret = self.readResponse()
             if ret == '':
                 break
-            print "gobbled: ", ret
+            print("gobbled: ", ret)
                                                         
     def sendCommandStr(self, cmdStr, noTilde=False, EOL=None):
         if EOL is None:
@@ -786,9 +794,10 @@ class FeeControl(object):
         else:
             fullCmd = "~%s%s" % (cmdStr, EOL)
 
+        writeCmd = fullCmd.encode('latin-1')
         self.logger.debug("sending command :%r:" % (fullCmd))
         try:
-            self.device.write(fullCmd)
+            self.device.write(writeCmd)
         except serial.writeTimeoutError as e:
             raise
         except serial.SerialException as e:
@@ -798,7 +807,7 @@ class FeeControl(object):
 
         ret = self.readResponse()
         if ret != fullCmd.strip():
-            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (cmdStr, ret))
+            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
  
         ret = self.readResponse()
 
@@ -833,6 +842,7 @@ class FeeControl(object):
             except Exception as e:
                 raise
 
+            c = str(c, 'latin-1')
             if c == '':
                 self.logger.warn('pyserial device read(1) timed out')
 
@@ -858,12 +868,12 @@ class FeeControl(object):
 
     def _ampName(self, ampNum, leg='n'):
         ampNum = int(ampNum)
-        channel = ampNum/4
+        channel = ampNum//4
         return "%d%s,ch%d" % (ampNum%4, leg, channel)
 
     def ampParts(self, ampNum, leg='n'):
         ampNum = int(ampNum)
-        channel = ampNum/4
+        channel = ampNum//4
         return "%d%s" % (ampNum%4, leg), channel
 
     def setMode(self, newMode):
@@ -894,7 +904,7 @@ class FeeControl(object):
 
     def zeroOffsets(self, amps=None, leg=True):
         if amps is None:
-            amps = range(8)
+            amps = list(range(8))
         levels = [0.0] * len(amps)
 
         if leg is True:
@@ -910,7 +920,7 @@ class FeeControl(object):
     def setPreset(self, name):
         vset = self.presets[name]
         for ch in 0, 1:
-            for k, v in vset.iteritems():
+            for k, v in vset.items():
                 self.doSet('bias', k, v, ch)
 
 def main(argv=None):
@@ -937,7 +947,7 @@ def main(argv=None):
     fee = FeeControl(logLevel=logLevel)
     if args.raw:
         for rawCmd in args.raw:
-            print fee.getRaw(rawCmd)
+            print(fee.getRaw(rawCmd))
     else:
         fee.getAllStatus()
         fee.printStatus()

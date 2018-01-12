@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
+from builtins import range
+from past.builtins import basestring, reload
 import glob
 import logging
 import os
@@ -69,7 +73,7 @@ def note(text, tick=None):
     """ Append a single line to our night's LOG file. """
     
     ddir = lastNight()
-    bellFile = file(os.path.join(ddir, 'LOG.txt'), 'ab+', buffering=1)
+    bellFile = open(os.path.join(ddir, 'LOG.txt'), 'a+', buffering=1)
     bellFile.write("%s %s\n" % (ts(), text))
     bellFile.flush()
     bellFile.close()
@@ -132,7 +136,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
     if ncols is None:
         ncols = ccd.ampCols
     if nrows is None:
-        nrows = ccd.ccdRows / rowBinning + 5
+        nrows = ccd.ccdRows//rowBinning + 5
         
     if nwipes > 0:
         if feeControl.getMode != 'idle':
@@ -143,13 +147,13 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         feeControl.setMode('wipe')
         time.sleep(1.0)
     for i in range(nwipes):
-        print "wiping...."
+        print("wiping....")
         ccd.pciReset()
         readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
                                         clockFunc=getWipeClocks(),
                                         rowBinning=rowBinning)
         time.sleep(readTime+0.1)
-        print "wiped %d %d %g s" % (nrows, ncols, readTime)
+        print("wiped %d %d %g s" % (nrows, ncols, readTime))
 
     if toExposeMode:
         feeControl.setMode('expose')
@@ -190,7 +194,7 @@ def readout(imtype, ccd=None,
     if ccd is None:
         ccd = ccdMod.ccd
     
-    argDict = dict(everyNRows=(nrows/5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
+    argDict = dict(everyNRows=(nrows//5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getReadClocks()
@@ -219,7 +223,7 @@ def readout(imtype, ccd=None,
         time.sleep(0.5)
     t3 = time.time()
     
-    print "file : %s" % (imfile)
+    print("file : %s" % (imfile))
     print("times: %0.2f, %0.2f, %0.2f"
           % (t1-t0,t2-t1,t3-t2))
     
@@ -276,7 +280,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     if cmd is not None:
         cmd.inform('exposureState="idle",0.0')
 
-    print "file : %s" % (imfile)
+    print("file : %s" % (imfile))
     print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
           % (t1-t0,t2-t1,t3-t2,t3-t0))
     
@@ -293,7 +297,7 @@ def fastRevRead(ccd=None, rowBinning=10,
     if ccd is None:
         ccd = ccdMod.ccd
     
-    argDict = dict(everyNRows=500/rowBinning, ccd=ccd, cols=slice(50,-40))
+    argDict = dict(everyNRows=500//rowBinning, ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
         clockFunc = getFastRevReadClocks()
@@ -373,7 +377,7 @@ def expList(explist, ccd=None,
             exptype = exp[0]
             expargs = exp[1:]
             expComment = comment + " exp. %d/%d" % (e_i+1, len(explist))
-            print "%s %s" % (exptype, exp[1:])
+            print("%s %s" % (exptype, exp[1:]))
             if exptype == 'wipe':
                 exparg = expargs[0]
                 wipe(ccd=ccd, nwipes=exparg, feeControl=feeControl)
@@ -400,7 +404,7 @@ def expList(explist, ccd=None,
             elif exptype == 'flat':
                 flatTime = expargs[0]
                 ret = opticslab.pulseShutter(flatTime)
-                print ret
+                print(ret)
 
                 stime, flux, current, wave, slitWidth = ret
 
@@ -423,7 +427,7 @@ def expList(explist, ccd=None,
                 time.sleep(darkTime)
 
                 ret = opticslab.pulseShutter(flatTime)
-                print ret
+                print(ret)
 
                 stime, flux, current, wave, slitWidth = ret
 
@@ -445,7 +449,7 @@ def expList(explist, ccd=None,
 
             files.append(imfile)
 
-            print imfile    
+            print(imfile)    
     finally:
         feeControl.setMode('idle')
         
@@ -453,7 +457,7 @@ def expList(explist, ccd=None,
     return files
 
 def rowStats(line, image, errorMsg="OK", everyNRows=100, 
-             ampList=range(8), cols=None, 
+             ampList=list(range(8)), cols=None, 
              lineDetail=False, **kwargs):
 
     """ Per-row callback to print basic per-amp stats.
@@ -545,7 +549,7 @@ def main(argv=None):
 
     exec("rowFunc = %s" % (args.rowFunc))
     execStr = "rowFuncArgs = dict(%s)" % (args.rowFuncArgs)
-    print "trying to exec: %s" % (execStr)
+    print("trying to exec: %s" % (execStr))
     exec(execStr)
 
     fee = pyFPGA.FPGA()

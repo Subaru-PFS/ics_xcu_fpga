@@ -1,11 +1,19 @@
 from __future__ import absolute_import, division
+from __future__ import print_function
 
+from past.builtins import reload
+
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import collections
 import re
 
 import numpy as np
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle as pickle
 import shutil
 import subprocess
 import time
@@ -69,7 +77,7 @@ class TestRig(object):
             self.pdf.close()
             self.pdf = None
             
-        print "deleting mux...."
+        print("deleting mux....")
         if self.mux is not None:
             self.mux.mux.close()
         del self.mux
@@ -114,7 +122,7 @@ class TestRig(object):
         self.seqno = seqno
         self.dirName = dirName
         self.utday = os.path.split(dirName)[-2]
-        os.makedirs(self.dirName, mode=02775)
+        os.makedirs(self.dirName, mode=0o2775)
 
         self.seqNum = 0
 
@@ -143,7 +151,7 @@ class BenchRig(TestRig):
                      M10='TG',
                      M11='BB')
 
-    leadPins = {v:k for k,v in leadNames.items()}
+    leadPins = {v:k for k,v in list(leadNames.items())}
 
     # per-amp bias levels measured with the bench fake CCD, which
     # should always be the same, well within 1%.
@@ -253,7 +261,7 @@ class BenchRig(TestRig):
         self.powerUp()
         time.sleep(1.1)
         
-        for s in serials.keys():
+        for s in list(serials.keys()):
             if serials[s] is not None:
                 oneCmd('ccd_%s' % (self.dewar), 'fee setSerials %s=%s' % (s, serials[s]))
                 
@@ -283,7 +291,7 @@ class BenchRig(TestRig):
             
     def burnFee(self):
         feePath = "/home/pfs/fee/current.hex"
-        print "downloading fee firmware....."
+        print("downloading fee firmware.....")
         self.powerDown()
         subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
         time.sleep(1.1)
@@ -291,7 +299,7 @@ class BenchRig(TestRig):
         time.sleep(1.1)
         
         oneCmd('ccd_%s' % (self.dewar), '--level=d fee download pathname="%s"' % (feePath))
-        print "done downloading fee firmware, we hope...."
+        print("done downloading fee firmware, we hope....")
 
         self.powerDown()
         self.powerUp()
@@ -546,9 +554,9 @@ class BenchRig(TestRig):
                 if comment2 is None:
                     self.finishFullRig()
                     return True
-                print
+                print()
                 print("============= MUX reconfiguration: you need to %s" % (comment2))
-                print
+                print()
                 return True
 
             ret = self.runTest(noRun=noRun, **testArgs)
@@ -971,8 +979,8 @@ class SanityTest(OneTest):
         ok2 = self.checkVoltages(cards)
         ok = ok1 and ok2
         
-        print self.formatCheckedValues()
-        print
+        print(self.formatCheckedValues())
+        print()
 
         mdfile = self.rig.frontPage
         mdfile.write(self.formatCheckedValues())
@@ -1469,13 +1477,13 @@ class Switch1Test(OneTest):
             clocks = np.array(pix.ticks) * pix.tickTime
             
         self.clocks = clocks
-        print "clocks: %s" % (self.clocks)
+        print("clocks: %s" % (self.clocks))
         
     def plot(self, channels=[0,1]):
         #self.setClocks()
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          channels=range(3),
+                          channels=list(range(3)),
                           offsets=[0,-1,0,0],
                           noWide=False,
                           xoffset=self.pixTime,
@@ -1525,13 +1533,13 @@ class Switch2Test(OneTest):
             clocks = np.array(pix.ticks) * pix.tickTime
             
         self.clocks = clocks
-        print "clocks: %s" % (self.clocks)
+        print("clocks: %s" % (self.clocks))
         
     def plot(self, channels=[0,1]):
         #self.setClocks()
         xscale = 1e-6
         fig, pl = sigplot(self.testData['waveforms'], xscale=xscale,
-                          channels=range(3),
+                          channels=list(range(3)),
                           offsets=[0,0,0,-10],
                           noWide=False,
                           # xoffset=self.delayTime,
@@ -1560,7 +1568,7 @@ def sigplot(waves,
             title=None):
 
     if channels is None:
-        channels = range(4)
+        channels = list(range(4))
     if offsets is None:
         offsets = np.zeros(4)
 

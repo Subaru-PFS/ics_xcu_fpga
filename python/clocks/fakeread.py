@@ -1,6 +1,7 @@
-from clocks import Clocks
+from __future__ import absolute_import
+from .clocks import Clocks
 
-from clockIDs import *
+from .clockIDs import *
 
 def readClocks():
     pre = Clocks()

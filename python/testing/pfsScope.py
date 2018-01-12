@@ -1,3 +1,7 @@
+from __future__ import print_function
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 from collections import OrderedDict
 import logging
 import re

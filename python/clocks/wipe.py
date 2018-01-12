@@ -1,5 +1,6 @@
-from clocks import Clocks
-from clockIDs import *
+from __future__ import absolute_import
+from .clocks import Clocks
+from .clockIDs import *
 
 def wipeClocks(tickTime=40e-9):
     pre = Clocks(tickTime)
