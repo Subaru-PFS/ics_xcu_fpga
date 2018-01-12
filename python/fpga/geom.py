@@ -291,10 +291,10 @@ class Exposure(object):
         ampImg = self.ampImage(ampId, im=im)
 
         amph, ampw = ampImg.shape
-        hslice = slice(int(amph/2.0 - 50 + offset[0]),
-                       int(amph/2.0 + 50 + offset[0]))
-        wslice = slice(int(ampw/2.0 - 50 + offset[1]),
-                       int(ampw/2.0 + 50 + offset[1]))
+        hslice = slice(int(amph/2.0 - 200 + offset[0]),
+                       int(amph/2.0 + 200 + offset[0]))
+        wslice = slice(int(ampw/2.0 - 200 + offset[1]),
+                       int(ampw/2.0 + 200 + offset[1]))
     
         return ampImg[hslice, wslice]
 
@@ -347,7 +347,7 @@ class Exposure(object):
 
         return osIms
 
-    def splitImage(self, doTrim=True, doFull=False):
+    def splitImage(self, doTrim=False, doFull=False):
 
         if doTrim and doFull:
             raise RuntimeError("cannot accept both doFull and doTrim")

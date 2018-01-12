@@ -617,6 +617,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
             allBiasOsCols, allBiasOsRows)
 
 statDtype = ([('amp', 'i2'),
+              ('npix', 'i4'),
               ('signal','f4'),
               ('sqrtSig', 'f4'),
               ('bias', 'f4'),
@@ -632,13 +633,16 @@ statDtype = ([('amp', 'i2'),
               ('ccd0temp', 'f4'),
               ('preamptemp', 'f4')])
 
-def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
+def areaStats(ampIm, osIm, exptime, ampNum=-1,
+              hdr=None, asBias=False):
+    
     stats = np.zeros(shape=(1,),
                      dtype=statDtype)
-
     a_i = 0
-    
-    stats[a_i]['amp'] = a_i
+
+    stats[a_i]['amp'] = ampNum
+    stats[a_i]['npix'] = ampIm.size
+
     ampSig = np.median(ampIm)
     osSig = np.median(osIm)
     if osSig is np.nan:
@@ -647,11 +651,10 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
 
     stats[a_i]['flux'] = signal/exptime
     stats[a_i]['exptime'] = exptime
-    try:
+    if hdr is not None:
         stats[a_i]['preamptemp'] = hdr['temps.PA']
         stats[a_i]['ccd0temp'] = hdr['temps.CCD0']
-    except:
-        pass
+
     stats[a_i]['sqrtSig'] = np.sqrt(signal)
     stats[a_i]['bias'] = osSig
 
@@ -675,6 +678,12 @@ def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
 
     return stats
 
+def ampStats(ampIm, osIm, hdr=None, exptime=0.0, asBias=False):
+
+    stats = areaStats(ampIm, osIm, exptime, hdr=hdr, asBias=asBias)
+
+    return stats
+
 def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     stats = np.zeros(shape=(1,),
                      dtype=statDtype)
@@ -683,6 +692,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     _s1 = np.median(ampIm1) - np.median(osIm1)
     _s2 = np.median(ampIm2) - np.median(osIm2)
     stats[a_i]['signal'] = signal = (_s1 + _s2)/2
+    stats[a_i]['npix'] = ampIm1.size
     stats[a_i]['sqrtSig'] = np.sqrt(signal)
     stats[a_i]['bias'] = (np.median(osIm1) + np.median(osIm2))/2
 
@@ -707,16 +717,24 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
 
     return stats, ampIm, osIm
 
-def imStats(im, asBias=False):
+def imStats(im, asBias=False,
+            rowTrim=(5,5), colTrim=(5,5),
+            osColTrim=(3,1)):
 
     exp = geom.Exposure(im)
     
-    ampIms, osIms, _ = exp.splitImage(doTrim=True)
+    ampIms, osIms, _ = exp.splitImage()
 
     stats = []
 
+    ampRows = slice(rowTrim[0], None if rowTrim[-1] in {0,None} else -rowTrim[1])
+    ampCols = slice(colTrim[0], None if colTrim[-1] in {0,None} else -colTrim[1])
+
+    osRows = ampRows
+    osCols = slice(osColTrim[0], None if osColTrim[-1] in {0,None} else -osColTrim[1])
+
     for a_i in range(8):
-        stats1 = ampStats(ampIms[a_i], osIms[a_i], exp.header,
+        stats1 = ampStats(ampIms[a_i][ampRows,ampCols], osIms[a_i][osRows,osCols], exp.header,
                           exptime=exp.header['EXPTIME'],
                           asBias=asBias)
         stats1['amp'] = a_i
