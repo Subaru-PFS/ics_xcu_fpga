@@ -1,4 +1,5 @@
-from builtins import str
+from past.builtins import basestring
+
 import logging
 import socket
 import time
@@ -208,7 +209,7 @@ def setFilter(filt):
         %s
     """ % (str(filters))
     
-    if isinstance(filt, str):
+    if isinstance(filt, basestring):
         slot = filters.index(filt)
     else:
         slot = filt
@@ -218,7 +219,7 @@ def setFilter(filt):
         return slot
 
     if slot < 1 or slot > 6:
-        raise KeyError("filter slots are 1..6")
+        raise KeyError("filter slots are 1..6:%s"%slot)
     
     ret = opticsLabCommand('filter %d' % (slot), timeout=10.0)
     if ret != 'filter %d' % (slot):
