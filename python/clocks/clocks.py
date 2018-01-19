@@ -281,13 +281,10 @@ class Clocks(object):
         return "\n".join(json), cutSpans
 
     def orderForPlot(self, signals):
-        def _sort(a, b):
-            if a.group == b.group:
-                return cmp(a.order, b.order)
-            else:
-                return cmp(a.group, b.group)
+        def _key(a):
+            return a.group, a.order
 
-        return sorted(signals, cmp=_sort)
+        return sorted(signals, key=_key)
 
     def outputAt(self, at, turnOn, mask):
         """ set the given sets of bits at the given time.. 
