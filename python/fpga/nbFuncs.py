@@ -125,7 +125,7 @@ def plotAmps(im, row=None, cols=None, amps=None, plotOffset=100, fig=None, figWi
     else:
         title = title + '\n'
     title += 'row %d, amps: %s, cols [%d,%d]' % (row, amps, 
-                                                  cols[0],cols[-1])
+                                                 cols[0],cols[-1])
     plt.title(title)
     fig.show()
     
@@ -402,7 +402,7 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
         #p.xaxis.set_visible(False)
         p.yaxis.set_visible(False)
 
-        ph = p.hist(ampIm, bins=np.arange(histRange) - histRange/2.0 - 0.5), normed=False)
+        ph = p.hist(ampIm, bins=np.arange(histRange) - histRange/2.0 - 0.5, normed=False)
 
         p.annotate("s=%0.2f" % (devs[a]), xy=(0.65, 0.85), xycoords="axes fraction")
         p.annotate("amp %d,%d" % (a//4, a%4), xy=(0.05, 0.85), xycoords="axes fraction")
@@ -745,7 +745,7 @@ def detrend(v, order=2):
 
     return v-trend
     
-def plotTopFreqs(im, plot=None, topN=5, fs=1/13.92e-6), label=None):
+def plotTopFreqs(im, plot=None, topN=5, fs=1/13.92e-6, label=None):
     """ Plot the FFT of a given vector, and identify the first few
     """
 

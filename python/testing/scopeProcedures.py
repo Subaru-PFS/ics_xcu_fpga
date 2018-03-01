@@ -298,7 +298,7 @@ class BenchRig(TestRig):
         subprocess.call('oneCmd.py xcu_%s power on fee' % (self.dewar), shell=True)
         time.sleep(1.1)
         
-        oneCmd('ccd_%s' % (self.dewar), '--level=d fee download pathname="%s"' % (feePath))
+        oneCmd('ccd_%s' % (self.dewar), 'fee download pathname="%s"' % (feePath))
         print("done downloading fee firmware, we hope....")
 
         self.powerDown()
@@ -656,7 +656,7 @@ class OneTest(object):
             raise RuntimeError("no data to save yet")
 
         path = self.newPath()
-        with open(path, "w+") as f:
+        with open(path, "wb+") as f:
             pickle.dump(self.testData, f, protocol=-1)
 
         return path
@@ -799,7 +799,7 @@ class SanityTest(OneTest):
 
     @staticmethod
     def asciiCnv(val):
-        return val.decode('ascii')
+        return val
                 
     @staticmethod
     def base10Cnv(val):
@@ -964,10 +964,10 @@ class SanityTest(OneTest):
     def runTest(self, trigger=None, **testArgs):
         self.rig.powerDown()
         self.rig.powerUp()
-        oneCmd('ccd_%s' % (self.dewar), '--level=d fee setMode idle', doPrint=True)
+        oneCmd('ccd_%s' % (self.dewar), 'fee setMode idle', doPrint=True)
         time.sleep(3)
         
-        cards = oneCmd('ccd_%s' % (self.dewar), '--level=d fee status', doPrint=False)
+        cards = oneCmd('ccd_%s' % (self.dewar), 'fee status', doPrint=False)
         if 'command echo mismatch' in ' '.join(cards):
             print("################################################################")
             print("  cannot read FEE revision: has FEE firmware been downloaded?")

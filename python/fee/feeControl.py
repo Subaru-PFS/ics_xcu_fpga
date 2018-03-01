@@ -308,7 +308,7 @@ class FeeControl(object):
         
         status = OrderedDict()
 
-        if isinstance(cset, str):
+        if isinstance(cset, basestring):
             cset = self.commands[cset]
             
         if cset.getLetter is None:
