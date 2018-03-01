@@ -63,7 +63,7 @@ logger = logging.getLogger('opticsLab')
 logger.setLevel(logging.DEBUG)
 
 
-def opticsLabCommand(cmdStr, timeout=30.0):
+def opticsLabCommand(cmdStr, timeout=60.0):
     host = 'tron.pfs'
     port = 50000
 
@@ -100,7 +100,7 @@ def pulseShutter(stime):
        pos : 'in' or 'out'
     """
     t0 = time.time()
-    ret = opticsLabCommand('pulse %g' % (stime), max(10, stime+6))
+    ret = opticsLabCommand('pulse %g' % (stime), max(10, stime+10))
     
     parts = ret.split()
     if len(parts) != 7 or parts[0] != 'OK' or parts[1] != 'pulse':

@@ -195,34 +195,109 @@ def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
                ('dark', 100),
                
                ('flat', 30),
+               ('flat', 30),
+               ('flat', 1),
                ('flat', 1),
                ('flat', 2),
+               ('flat', 2),
                ('flat', 3),
+               ('flat', 3),               
+               ('flat', 4),
                ('flat', 4),
                ('flat', 5),
+               ('flat', 5),
                
+               ('flat', 30),                              
                ('flat', 30),
                ('flat', 6),
+               ('flat', 6),
+               ('flat', 7),
                ('flat', 7),
                ('flat', 8),
+               ('flat', 8),               
                ('flat', 9),
+               ('flat', 9),               
                ('flat', 10),
-
+               ('flat', 10),
+ 
+               ('flat', 30),              
                ('flat', 30),
-               ('flat', 10),
+               ('flat', 12),
+               ('flat', 12),               
+               ('flat', 14),
                ('flat', 14),
                ('flat', 20),
+               ('flat', 20),               
                ('flat', 28),
+               ('flat', 28),
+               ('flat', 32),
+               ('flat', 32),
+               
+               ('flat', 30),              
+               ('flat', 30),
+               ('flat', 36),
+               ('flat', 36),               
                ('flat', 40),
-
+               ('flat', 40),
+               ('flat', 44),
+               ('flat', 44),               
+               ('flat', 48),
+               ('flat', 48),
+               ('flat', 52),
+               ('flat', 52),              
+               
+               ('flat', 30),              
+               ('flat', 30),
+               ('flat', 55),
+               ('flat', 55),               
+               ('flat', 57),
+               ('flat', 57),
+               ('flat', 62),
+               ('flat', 62),               
+               ('flat', 65),
+               ('flat', 65),
+               ('flat', 67),
+               ('flat', 67),               
+               
+               
+               ('flat', 30),               
                ('flat', 30),
                ('flat', 50),
+               ('flat', 50),
                ('flat', 60),
+               ('flat', 60),               
                ('flat', 70),
+               ('flat', 70),               
+               ('flat', 71),
+               ('flat', 71),               
+               ('flat', 73),
+               ('flat', 73),
+               
+               ('flat', 30),               
+               ('flat', 30),               
+               ('flat', 75),
+               ('flat', 75),               
+               ('flat', 77),
+               ('flat', 77),               
+               ('flat', 78),
+               ('flat', 78),               
+               ('flat', 79),
+               ('flat', 79),  
                ('flat', 80),
-               ('flat', 90),
-
+               ('flat', 80),                
+               
+               ('flat', 30),               
                ('flat', 30),
+               ('flat', 72),
+               ('flat', 72),
+               ('flat', 74),
+               ('flat', 74),
+               ('flat', 76),
+               ('flat', 76),
+               ('flat', 85),
+               ('flat', 85),
+               ('flat', 90),
+               ('flat', 90),               
 
                ('bias', 0),
                ('flat', 100),
@@ -233,7 +308,7 @@ def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
                ('bias', 0),
                
                ('flat', 30),
-               
+               ('flat', 30),      
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
@@ -263,39 +338,61 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                ('dark', 100),
                
                ('flat', 112),
+               ('flat', 112),
+               ('flat', 1),
                ('flat', 1),
                ('flat', 2),
+               ('flat', 2),
+               ('flat', 3),
                ('flat', 3),
                ('flat', 5),
+               ('flat', 5),
+               ('flat', 7),
                ('flat', 7),
 
                ('flat', 112),
-               ('flat', 7),
+               ('flat', 112),
+               ('flat', 8),
+               ('flat', 8),
+               ('flat', 10),
                ('flat', 10),
                ('flat', 14),
+               ('flat', 14),               
                ('flat', 20),
+               ('flat', 20),               
+               ('flat', 28),
                ('flat', 28),
                ('flat', 40),
+               ('flat', 40),
 
                ('flat', 112),
-               ('flat', 40),
+               ('flat', 112),
+               ('flat', 45),
+               ('flat', 45),               
+               ('flat', 56),
                ('flat', 56),
                ('flat', 80),
+               ('flat', 80),               
                ('flat', 112),
+               ('flat', 112),               
                ('flat', 160),
+               ('flat', 160),               
                ('flat', 224),
+               ('flat', 224),               
                ('flat', 320),
+               ('flat', 320),               
                ('flat', 450),
-
+               ('flat', 450),
                ('flat', 112),
-
+               ('flat', 112),
+               
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('bias', 0),
                ('dark', 100))
-
+               
     ccdFuncs.expList(explist, ccd=ccd,
                      feeControl=feeControl,
                      comment=comment,
@@ -378,7 +475,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
 
     median the frames pixel-by pixel and subtract a medianed bias, prepared the same way, and 
     also adjusted additively so that the median of the overscan area is the same as the frame--thus 
-    the median of the overscanExtentsin the corrected frame is zero.
+    the median of the overscan extents in the corrected frame is zero.
 
     let Ib be the median of the last illuminated row (for parallel CTE) or column (for serial), 
     (the last with level ~like the rest of the illuminated area.
@@ -393,7 +490,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
 
     Where Npix is the number of transfers to get to the edge you are
     investigating--512 for the serial CTE and 4xxx for the parallel.
-    If Ic is not much less than Ib, the CTE is awful and it does notematter what you do.
+    If Ic is not much less than Ib, the CTE is awful and it does not matter what you do.
 
     The last illuminated row or column is, of course, a property of the
     device, so determine it from the high flats and use the number
@@ -585,7 +682,7 @@ def ampDiffStats(ampIm1, ampIm2, osIm1, osIm2, exptime=0.0):
     a_i = 0
     _s1 = np.median(ampIm1) - np.median(osIm1)
     _s2 = np.median(ampIm2) - np.median(osIm2)
-    stats[a_i]['signal'] = signal = (_s1 + _s2),2
+    stats[a_i]['signal'] = signal = (_s1 + _s2)/2
     stats[a_i]['sqrtSig'] = np.sqrt(signal)
     stats[a_i]['bias'] = (np.median(osIm1) + np.median(osIm2))/2
 
