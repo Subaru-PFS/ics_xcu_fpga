@@ -274,6 +274,9 @@ architecture rtl of FPGA35S6045_TOP is
 			reps_o		: out std_logic_vector (31 downto 0);
 
 			waveform_o	: out std_logic_vector (15 downto 0);
+			waveform_o_en	: out std_logic_vector (15 downto 0);
+                        lvds_out_en     : in std_logic;
+                        
                         active_o        : out std_logic;
 			crcctl_o	: out std_logic
 		);
@@ -420,7 +423,9 @@ architecture rtl of FPGA35S6045_TOP is
 	-- IO signals
 	-- these are single ended, connected directly to LVDS IO primitives
 	signal lvds_cn4		: std_logic_vector (11 downto 0); -- 12 outs
+	signal lvds_cn4_en	: std_logic_vector (11 downto 0); -- 12 outs
 	signal lvds_cn9		: std_logic_vector (11 downto 0); -- 12 outs
+	signal lvds_cn9_en	: std_logic_vector (11 downto 0); -- 12 outs
 	signal lvds_cn8		: std_logic_vector (19 downto 0); -- 20 ins
 
 	-- PFS FEE signals
@@ -448,6 +453,7 @@ architecture rtl of FPGA35S6045_TOP is
 	signal crcctl			: std_logic;
 
 	signal ccd_waveform		: std_logic_vector (15 downto 0);
+	signal ccd_waveform_en		: std_logic_vector (15 downto 0);
 
 	signal sram_adr1		: std_logic_vector (17 downto 0);
 	signal sram_dat1		: std_logic_vector (31 downto 0);
@@ -488,7 +494,7 @@ architecture rtl of FPGA35S6045_TOP is
 	constant	R_WPU_COUNT	: natural := 16#0024#/4;
 	constant	R_WPU_START_STOP: natural := 16#0028#/4;
 	constant	R_WPU_STATUS	: natural := 16#002C#/4;
-	
+        
 	-- R_WPU_CTRL bits:
 	-- bit 0: 1 = enable synchronization clock
 	-- bit 1: 1 = hold WPU in reset
@@ -497,7 +503,7 @@ architecture rtl of FPGA35S6045_TOP is
 	-- bit 4: 1 = reset write FIFO (FEE side)
 	-- bit 5: 1 = 18 bit AD7690, 0 = 16 bit AD7686
 	-- bit 6: 1 = Given AD7690, drop 2*MSB; 0 = drop MSB,LSB
-
+        -- bit 7: 1 = enable LVDS outputs
 begin
 
 	port_output_en_n <= '0'; -- Enable I/O ports as soon as we are configured.
@@ -522,6 +528,23 @@ begin
 	lvds_cn4(2) 	<= ccd_adc_sck;
 	lvds_cn4(11) 	<= ccd_drain_gate;
 	lvds_cn4(4) 	<= ccd_interrupt;
+
+	lvds_cn4_en(6) 	<= ccd_waveform_en(0);
+	lvds_cn4_en(8) 	<= ccd_waveform_en(1);
+	lvds_cn4_en(9) 	<= ccd_waveform_en(2);
+	lvds_cn4_en(7) 	<= ccd_waveform_en(3);
+	lvds_cn9_en(1) 	<= ccd_waveform_en(4);
+	lvds_cn4_en(1) 	<= ccd_waveform_en(5);
+	lvds_cn4_en(5) 	<= ccd_waveform_en(6);
+	lvds_cn4_en(3) 	<= ccd_waveform_en(7);
+	lvds_cn4_en(10)	<= ccd_waveform_en(8);
+	lvds_cn9_en(0) 	<= ccd_waveform_en(9);
+	lvds_cn9_en(2) 	<= ccd_waveform_en(10);
+	lvds_cn9_en(3) 	<= ccd_waveform_en(11);
+	lvds_cn4_en(0) 	<= ccd_waveform_en(12);
+	lvds_cn4_en(2) 	<= ccd_waveform_en(13);
+	lvds_cn4_en(11)	<= ccd_waveform_en(14);
+	lvds_cn4_en(4) 	<= ccd_waveform_en(15);
 
 	-- if you have a working FEE, connect lvds_cn8(16)
 	ccd_adc_sck_ret		<= lvds_cn8(16);
@@ -611,6 +634,9 @@ begin
 			reps_o		=> register_file(R_WPU_STATUS).default,
 
 			waveform_o	=> ccd_waveform,
+			waveform_o_en	=> ccd_waveform_en,
+                        lvds_out_en     => register_file(R_WPU_CTRL).data(7),
+
                         active_o        => adc_sck_active,
 			crcctl_o        => crcctl
 		);
@@ -863,7 +889,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"beefa070"; -- BEE board ID
+	register_file(R_ID).default 	<= x"beefa071"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
@@ -883,27 +909,29 @@ begin
 	-----------------------------------------------------------------------
 	-- Port 0 -- 12 LVDS outputs on CN4
 	G_PORT0: for i in 0 to 11 generate
-		OBUFDS0_inst : OBUFDS
+		OBUFDS0_inst : OBUFTDS
 		generic map (
 			IOSTANDARD => "default"
 		)
 		port map (
 			O => port0_p(i),
 			OB => port0_n(i),
-			I => lvds_cn4(i)
+			I => lvds_cn4(i),
+			T => lvds_cn4_en(i)
 		);
 	end generate;
 	
 	-- Port 1 -- 12 LVDS outputs on CN9
 	G_PORT1: for i in 0 to 11 generate
-		OBUFDS1_inst : OBUFDS
+		OBUFDS1_inst : OBUFTDS
 		generic map (
 			IOSTANDARD => "default"
 		)
 		port map (
 			O => port1_p(i),
 			OB => port1_n(i),
-			I => lvds_cn9(i)
+			I => lvds_cn9(i),
+			T => lvds_cn9_en(i)
 		);
 	end generate;
 	

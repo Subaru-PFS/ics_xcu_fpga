@@ -66,7 +66,9 @@ entity ccd_wpu is
     
     -- waveform output
     waveform_o          : out std_logic_vector (15 downto 0);
-
+    waveform_o_en       : out std_logic_vector (15 downto 0);
+    lvds_out_en         : in std_logic;
+    
     -- active_o indicates that ADC SCK is active
     active_o            : out std_logic;
     crcctl_o            : out std_logic
@@ -86,7 +88,8 @@ architecture rtl of ccd_wpu is
   signal reps           : unsigned (31 downto 0);
   signal finished       : boolean;
   signal adc_18bit_q    : std_logic;
-
+  signal waveform_en    : std_logic_vector(15 downto 0);
+  
 begin
   -- output ports
   sram_adr_o <= STD_LOGIC_VECTOR(sram_adr) & "00";
@@ -94,7 +97,8 @@ begin
   waveform_o(15 downto 14) <= waveform(15 downto 14);
   waveform_o(12 downto 0) <= waveform(12 downto 0);
   reps_o <= STD_LOGIC_VECTOR(reps);
-
+  waveform_o_en(15 downto 0) <= waveform_en(15 downto 0);
+  
   -- This 200MHz process exists only to generate the ADC SCK signal.  For the
   -- ADC, the requirement is that SCK is mostly idle, and then when we
   -- trigger it, we get 65 50MHz pulses.  The trigger is a positive transition
@@ -183,5 +187,17 @@ begin
       end if; -- if global reset; else
     end if; -- if rising edge of clock
   end process;
+
+  process(synch_i)
+  begin
+    if rising_edge(synch_i) then
+      if (lvds_out_en = '1') then
+        waveform_en <= x"ffff";
+      else
+        waveform_en <= x"fffb";         -- XXXCPL only toggle PAR3 for now.
+      end if;
+    end if;
+  end process;
+  
 end rtl;
 
