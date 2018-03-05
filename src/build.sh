@@ -38,7 +38,7 @@ bitgen -filter "iseconfig/filter.filter" -intstyle xflow -f ${PROJ}.ut ${PROJ}.n
 
 echo
 echo "=========================================================================="
-echo "To load the FPGA, run something like 'xc3sprog -c xpc -p 0 -v ${PROJ}.bit'"
+echo "To load the FPGA, run something like 'xc3sprog -c ft232h -p 0 -v ${PROJ}.bit'"
 echo 
-echo "   Note: 'xc3sprog -c' lists the bus types, and 'xc3sprog -c xpc' lists the Xilinx Platform Cable bus."
+echo "   Note: 'xc3sprog -c' lists the bus types, and 'xc3sprog -c ft232h' lists the FTDI bus."
 echo "   Note: you might also need to 'setup xc3sprog' if the program is not found."
