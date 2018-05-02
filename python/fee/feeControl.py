@@ -376,10 +376,19 @@ class FeeControl(object):
         return self.status
 
     def getTemps(self):
+        """ Return readings from all temperature sensors. 
+
+        Returns:
+        FEE, PA, ccd0, ccd1 : float
+          If a ccd temp is under range (144.38K), it will be -1
+        """
+        
         temps = dict()
-        for probe in 'FEE', 'PA', 'ccd0', 'ccd1':
-            val = self.sendCommandStr('rt,%s' % (probe))
-            temps[probe] = float(val)
+        rawVals = self.sendCommandStr('rt,all')
+        vals = rawVals.split(',')
+        for p_i, probe in enumerate(('FEE', 'PA', 'ccd0', 'ccd1')):
+            temp = float(vals[p_i])
+            temps[probe] = temp if (temp >=0 and temp <= 350) else -1
 
         return temps
                          
