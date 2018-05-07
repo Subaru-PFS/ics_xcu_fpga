@@ -386,7 +386,7 @@ class FeeControl(object):
         temps = dict()
         rawVals = self.sendCommandStr('rt,all')
         vals = rawVals.split(',')
-        for p_i, probe in enumerate(('FEE', 'PA', 'ccd0', 'ccd1')):
+        for p_i, probe in enumerate(('ccd0', 'ccd1', 'FEE', 'PA')):
             temp = float(vals[p_i])
             temps[probe] = temp if (temp >=0 and temp <= 350) else -1
 
