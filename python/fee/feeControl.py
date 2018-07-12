@@ -1,17 +1,10 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-from __future__ import division
-from builtins import chr
-from builtins import str, bytes
-from builtins import zip
-from builtins import range
-from past.builtins import basestring
-from builtins import object
 import argparse
 import inspect
 import logging
 import sys
+import threading
 import time
 
 from collections import OrderedDict
