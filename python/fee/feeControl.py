@@ -204,6 +204,7 @@ class FeeControl(object):
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
+        self.deviceLock = threading.RLock()
         self.status = OrderedDict()
         self.devConfig = dict(port=port, 
                               baudrate=38400,
@@ -797,21 +798,22 @@ class FeeControl(object):
             fullCmd = "~%s%s" % (cmdStr, EOL)
 
         writeCmd = fullCmd.encode('latin-1')
-        self.logger.debug("sending command :%r:" % (fullCmd))
-        try:
-            self.device.write(writeCmd)
-        except serial.writeTimeoutError as e:
-            raise
-        except serial.SerialException as e:
-            raise
-        except Exception as e:
-            raise
+        with self.deviceLock:
+            self.logger.debug("sending command :%r:" % (fullCmd))
+            try:
+                self.device.write(writeCmd)
+            except serial.writeTimeoutError as e:
+                raise
+            except serial.SerialException as e:
+                raise
+            except Exception as e:
+                raise
 
-        ret = self.readResponse()
-        if ret != fullCmd.strip():
-            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
+            ret = self.readResponse()
+            if ret != fullCmd.strip():
+                raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
  
-        ret = self.readResponse()
+            ret = self.readResponse()
 
         return ret
 
