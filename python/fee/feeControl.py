@@ -1,17 +1,10 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-from __future__ import division
-from builtins import chr
-from builtins import str, bytes
-from builtins import zip
-from builtins import range
-from past.builtins import basestring
-from builtins import object
 import argparse
 import inspect
 import logging
 import sys
+import threading
 import time
 
 from collections import OrderedDict
@@ -211,6 +204,7 @@ class FeeControl(object):
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
+        self.deviceLock = threading.RLock()
         self.status = OrderedDict()
         self.devConfig = dict(port=port, 
                               baudrate=38400,
@@ -308,7 +302,7 @@ class FeeControl(object):
         
         status = OrderedDict()
 
-        if isinstance(cset, basestring):
+        if isinstance(cset, str):
             cset = self.commands[cset]
             
         if cset.getLetter is None:
@@ -478,7 +472,7 @@ class FeeControl(object):
     def saveModesOnFee(self, modes=None):
         """ Save our voltage presets to the FEE. """
         
-        if isinstance(modes, basestring):
+        if isinstance(modes, str):
             modes = modes,
         if modes is None:
             modes = list(self.presets.keys())
@@ -804,21 +798,22 @@ class FeeControl(object):
             fullCmd = "~%s%s" % (cmdStr, EOL)
 
         writeCmd = fullCmd.encode('latin-1')
-        self.logger.debug("sending command :%r:" % (fullCmd))
-        try:
-            self.device.write(writeCmd)
-        except serial.writeTimeoutError as e:
-            raise
-        except serial.SerialException as e:
-            raise
-        except Exception as e:
-            raise
+        with self.deviceLock:
+            self.logger.debug("sending command :%r:" % (fullCmd))
+            try:
+                self.device.write(writeCmd)
+            except serial.writeTimeoutError as e:
+                raise
+            except serial.SerialException as e:
+                raise
+            except Exception as e:
+                raise
 
-        ret = self.readResponse()
-        if ret != fullCmd.strip():
-            raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
+            ret = self.readResponse()
+            if ret != fullCmd.strip():
+                raise RuntimeError("command echo mismatch. sent :%r: rcvd :%r:" % (fullCmd, ret))
  
-        ret = self.readResponse()
+            ret = self.readResponse()
 
         return ret
 
@@ -935,7 +930,7 @@ class FeeControl(object):
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
-    if isinstance(argv, basestring):
+    if isinstance(argv, str):
         argv = argv.split()
 
     parser = argparse.ArgumentParser(description="Send one or more commands to the FEE controller.",
