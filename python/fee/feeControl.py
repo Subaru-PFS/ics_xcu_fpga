@@ -302,7 +302,7 @@ class FeeControl(object):
         
         status = OrderedDict()
 
-        if isinstance(cset, basestring):
+        if isinstance(cset, str):
             cset = self.commands[cset]
             
         if cset.getLetter is None:
@@ -472,7 +472,7 @@ class FeeControl(object):
     def saveModesOnFee(self, modes=None):
         """ Save our voltage presets to the FEE. """
         
-        if isinstance(modes, basestring):
+        if isinstance(modes, str):
             modes = modes,
         if modes is None:
             modes = list(self.presets.keys())
@@ -930,7 +930,7 @@ class FeeControl(object):
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
-    if isinstance(argv, basestring):
+    if isinstance(argv, str):
         argv = argv.split()
 
     parser = argparse.ArgumentParser(description="Send one or more commands to the FEE controller.",
