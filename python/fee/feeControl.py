@@ -718,28 +718,29 @@ class FeeControl(object):
             if not sendReset:
                 self.device.timeout = 15
                 ret = self.device.readline()
-            retline = ret.strip()
+            retline = ret.decode('latin-1').strip()
             isBootLoader = 'Bootloader' in retline
             if not isBootLoader:
                 raise RuntimeError("not at bootloader prompt (%s)" % (retline))
             isBlank = retline[-1] == 'B'
             self.logger.warn('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
             if not isBlank:
-                self.device.write('*')
+                self.device.write(b'*')
         else:
-            self.device.write('*')
+            self.device.write(b'*')
 
         ret = self.device.readline()
-        ret = ret.strip()
+        ret = ret.decode('latin-1').strip()
         if not ret.startswith('*Waiting for Data...'):
             self.logger.warn('at bootloader *, got %r' % (ret))
-            ret = self.device.readline()
+            ret = self.device.readline().decode('latin-1')
             if not ret.startswith('*Waiting for Data...'):
                 raise RuntimeError('could not get *Waiting for Data')
 
         logLevel = self.logger.level
         self.logger.setLevel(logging.INFO)
         self.device.timeout = self.devConfig['timeout']
+        strTrans = str.maketrans('', '', '\x11\x13')
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
             t0 = time.time()
@@ -757,9 +758,9 @@ class FeeControl(object):
                     if verbose and lineNumber%100 == 1:
                         self.logger.info('sending line %d / %d', lineNumber, len(lines))
                     self.logger.debug("sending command :%r:", fullLine)
-                    self.device.write(fullLine)
-                    retline = self.device.read(size=len(l)+len(eol)+1)
-                    retline = retline.translate(None, '\x11\x13')
+                    self.device.write(fullLine.encode('latin-1'))
+                    retline = self.device.read(size=len(l)+len(eol)+1).decode('latin-1')
+                    retline = retline.translate(strTrans)
 
                     if l != retline[:len(l)]:
                         self.logger.warn("command echo mismatch. sent :%r: rcvd :%r:" % (l, retline))
