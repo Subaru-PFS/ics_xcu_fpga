@@ -93,6 +93,19 @@ cdef class FPGA:
     def resetReadout(self, force=False):
         return resetReadout(1 if force else 0)
         
+    def setClockLevels(self, turnOn=None, turnOff=None):
+        from .clocks.clocks import genSetClocks
+        ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
+                                                       turnOff=turnOff)
+        for i in range(len(ticks)):
+            print("setting clocks: 0x%04x 0x%04x" % (opcodes[i], ticks[1]))
+            ret = sendOneOpcode(opcodes[i], ticks[i])
+            if not ret:
+                raise RuntimeError("failed to send opcode %d" % (i))
+        if not armReadout(0, 0, self.adc18bit):
+            raise RuntimeError("failed to arm for readout)")
+        finishReadout()
+        
     def configureReadout(self, nrows, ncols, doTest=False,
                          clockFunc=None, rowBinning=1):
 
