@@ -195,7 +195,7 @@ class FeeChannelSet(FeeSet):
 
 class FeeControl(object):
     def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None,
-                 noConnect=False, noPowerup=False):
+                 noConnect=False, noPowerup=False, fpga=None):
 
         global fee
         
@@ -226,7 +226,7 @@ class FeeControl(object):
             self.sendImage(sendImage)
         else:
             if not noPowerup:
-                self.powerUp()
+                self._powerUp(fpga=fpga)
 
         fee = self
 
@@ -266,20 +266,42 @@ class FeeControl(object):
         self.raw('cal,bias')
         self.setMode('idle')
         
-    def powerUp(self, preset='idle'):
+    def _powerUp(self, preset='idle', fpga=None):
         """ Bring the FEE up to a sane and useable configuration. 
 
         Specifically, and in order: 
           1. mode voltage set (default=idle)
-          2. power supplies on
-          3. clocks enabled, but idle.
+          2. Configure the integrator level (INSTRM-486)
+          3. power supplies on
+          4. clocks enabled, but idle.
         """
 
         self.setMode(preset)
-        self.sendCommandStr('se,all,on')
+
+        self.sendCommandStr('se,5V,on')
+        self.sendCommandStr('se,12V,on')
+        self.sendCommandStr('se,24V,on')
+        self.sendCommandStr('se,54V,on')
+        self.sendCommandStr('se,54V,on')
+
+        if fpga is None:
+            self.logger.warn('NO FPGA available to configure I+,I-,IR')
+        else:
+            from clocks.clockIDs import I_P, I_M, IR
+            fpga.setClockLevels(turnOff=[I_P], turnOn=[I_M, IR])
+            time.sleep(0.25)
+            
+        self.sendCommandStr('se,LVDS,on')
         self.sendCommandStr('se,Clks,on')
+
         self.setMode('offset')
-        
+        self.setMode(preset)
+
+        # Finally, enable the preamp feeds.
+        self.sendCommandStr('se,PA,on') 
+        self.sendCommandStr('se,Vbb0,on')
+        self.sendCommandStr('se,Vbb1,on')
+
         # Send a spurious read, to paper over a device error on the first read.
         self.sendCommandStr('ro,2p,ch1')
 
