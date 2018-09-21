@@ -280,6 +280,8 @@ class BenchRig(TestRig):
         subprocess.call('oneCmd.py ccd_%s fee calibrate' % (self.dewar), shell=True)
 
     def powerDown(self):
+        subprocess.call('oneCmd.py ccd_%s disconnect controller=fee' % (self.dewar), shell=True)
+        time.sleep(1.1)
         subprocess.call('oneCmd.py xcu_%s power off fee' % (self.dewar), shell=True)
         time.sleep(1.1)
 
