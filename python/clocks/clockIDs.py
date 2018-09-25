@@ -1,4 +1,3 @@
-from builtins import object
 class Signal(object):
     def __init__(self, bit, label, description, group=None, order=0):
         self.bit = bit
@@ -46,3 +45,5 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
            S1, S2, RG, SW,
            DCR, IR, I_M, I_P, DG,
            CNV, SCK)
+
+signalsByName = {s.label:s for s in signals}
