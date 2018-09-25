@@ -94,13 +94,14 @@ cdef class FPGA:
     def resetReadout(self, force=False):
         return resetReadout(1 if force else 0)
         
-    def setClockLevels(self, turnOn=None, turnOff=None):
+    def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
         """Set some clock lines on or off.
         
         Args
         ----
         turnOn : list of Clocks to set on
         tunOff : list of Clocks to set off
+        cmd : optional Command to report to
 
         In order to set clocks we need to fire up the FPGA's clocking
         routine. This was mostly designed to readout the detector,
@@ -116,6 +117,8 @@ cdef class FPGA:
         ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
                                                        turnOff=turnOff)
         for i in range(len(ticks)):
+            if cmd is not None:
+                cmd.inform('text="setting clocks: 0x%08x %d"' % (opcodes[i], ticks[i]))
             print("setting clocks: 0x%08x %d" % (opcodes[i], ticks[i]))
             ret = sendOneOpcode(opcodes[i], ticks[i])
             if not ret:
