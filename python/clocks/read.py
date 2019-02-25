@@ -1,8 +1,9 @@
-from __future__ import absolute_import
-from builtins import range
-from .clocks import Clocks
+from importlib import reload
 
+from . import clocks
 from .clockIDs import *
+
+reload(clocks)
 
 def insertIdlePixels(clks, cnt):
     """ Insert a number of complete pixel clockings, without shift or conversion. 
@@ -41,15 +42,15 @@ def insertIdlePixels(clks, cnt):
         clks.changeFor(duration=12,
                        turnOff= [RG])
 
-def readClocks():
-    pre = Clocks()
+def readClocks(holdOn=None, holdOff=None):
+    pre = clocks.Clocks(holdOn=holdOn, holdOff=holdOff)
     pre.changeFor(duration=120,
-                  turnOn= [P1,P3,S1,CNV])
+                  turnOn= [P1,P3,S1,CNV,IR])
     
-    pix = Clocks(initFrom=pre, logLevel=20)
+    pix = clocks.Clocks(initFrom=pre, logLevel=20)
     pix.changeFor(duration=8,
-                  turnOff=[S1],
-                  turnOn= [S2,DCR,IR,SCK])
+                  turnOff=[S1,IR],
+                  turnOn= [S2,DCR,SCK])
 
     pix.changeFor(duration=8,
                   turnOn=[SW])
@@ -58,14 +59,15 @@ def readClocks():
                   turnOff=[SCK])
 
     pix.changeFor(duration=8,
-                  turnOff=[S2,IR],
+                  turnOff=[S2],
                   turnOn= [S1])
 
     pix.changeFor(duration=6,
                   turnOff=[DCR])
 
-    pix.changeFor(duration=2,
-                  turnOff=[CNV])
+    pix.changeFor(duration=16, # was 2
+                  turnOff=[CNV],
+                  turnOn=[IR])
 
     pix.changeFor(duration=108,
                   turnOn= [I_M])
