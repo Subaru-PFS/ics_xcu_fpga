@@ -49,7 +49,7 @@ entity deserializer is
     -- adc_18bit = 0 means serial data from 16 bit AD7686
     adc_18bit_i         : in  std_logic;
     -- adc_18lowbits = 1 means drop 2*MSB
-    -- adc_18lowbits = 0 means drop MSB,LSB
+    -- adc_18lowbits = 0 means drop 2*LSB
     adc_18lowbits_i         : in  std_logic;
 
     -- test_pattern = 1 means ignore MISO lines and return test pattern
@@ -173,16 +173,15 @@ begin
                 dat_q(111 downto 96) <= dat_b(52 downto 37);
                 dat_q(127 downto 112) <= dat_b(70 downto 55);
               else    
-                -- We want to discard two MSBs from each 18 bit word.
-                -- Actual negative voltages will show up as large positive voltages.
-                dat_q(15 downto 0) <= dat_a(15 downto 0);
-                dat_q(31 downto 16) <= dat_a(33 downto 18);
-                dat_q(47 downto 32) <= dat_a(51 downto 36);
-                dat_q(63 downto 48) <= dat_a(69 downto 54);
-                dat_q(79 downto 64) <= dat_b(15 downto 0);
-                dat_q(95 downto 80) <= dat_b(33 downto 18);
-                dat_q(111 downto 96) <= dat_b(51 downto 36);
-                dat_q(127 downto 112) <= dat_b(69 downto 54);
+                -- We want to discard two LSBs from each 18 bit word.
+                dat_q(15 downto 0) <= dat_a(17 downto 2);
+                dat_q(31 downto 16) <= dat_a(35 downto 20);
+                dat_q(47 downto 32) <= dat_a(53 downto 38);
+                dat_q(63 downto 48) <= dat_a(71 downto 56);
+                dat_q(79 downto 64) <= dat_b(17 downto 2);
+                dat_q(95 downto 80) <= dat_b(35 downto 20);
+                dat_q(111 downto 96) <= dat_b(53 downto 38);
+                dat_q(127 downto 112) <= dat_b(71 downto 56);
               end if;
               -- If we want negative voltages to be written as zeros or some
               -- other special warning value, we could stick that 
