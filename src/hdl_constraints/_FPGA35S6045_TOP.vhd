@@ -267,7 +267,6 @@ architecture rtl of FPGA35S6045_TOP is
 			sram_dat_i	: in  std_logic_vector (31 downto 0);
 
 			wpu_rst_i	: in  std_logic;
-			adc_18bit_i	: in  std_logic;
 			start_i		: in  std_logic_vector (15 downto 0);
 			stop_i		: in  std_logic_vector (15 downto 0);
 			reps_i		: in  std_logic_vector (31 downto 0);
@@ -604,7 +603,6 @@ begin
 			sram_dat_i	=> sram_dat1,
 
 			wpu_rst_i	=> register_file(R_WPU_CTRL).data(1),
-			adc_18bit_i	=> register_file(R_WPU_CTRL).data(5),
 			start_i		=> wpu_start,
 			stop_i		=> wpu_stop,
 			reps_i		=> register_file(R_WPU_COUNT).data,
@@ -863,7 +861,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"beefa070"; -- BEE board ID
+	register_file(R_ID).default 	<= x"beefa082"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register

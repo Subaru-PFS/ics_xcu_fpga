@@ -31,8 +31,7 @@ use ieee.numeric_std.all;
 -- zero.  This loop occurs "reps" times, after which time the WPU stalls in a
 -- finished state.
 --
--- If adc_18bit_i is 1, we send 73 clock pulses, targeting the AD7690.  If
--- it is 0, we send 65 pulses, targeting the AD7686.
+-- We send 73 clock pulses, targeting the 18-bit AD7690.
 --
 -- This logic is all clocked by the synch_in clock.  To synchronize multiple
 -- units, software should take the following steps:
@@ -58,7 +57,6 @@ entity ccd_wpu is
     
     -- control signals to and from register block
     wpu_rst_i           : in  std_logic;
-    adc_18bit_i         : in  std_logic;
     start_i             : in  std_logic_vector (15 downto 0);
     stop_i              : in  std_logic_vector (15 downto 0);
     reps_i              : in  std_logic_vector (31 downto 0);
@@ -85,7 +83,6 @@ architecture rtl of ccd_wpu is
   signal sram_adr       : unsigned (15 downto 0);
   signal reps           : unsigned (31 downto 0);
   signal finished       : boolean;
-  signal adc_18bit_q    : std_logic;
 
 begin
   -- output ports
@@ -97,7 +94,7 @@ begin
 
   -- This 200MHz process exists only to generate the ADC SCK signal.  For the
   -- ADC, the requirement is that SCK is mostly idle, and then when we
-  -- trigger it, we get 65 50MHz pulses.  The trigger is a positive transition
+  -- trigger it, we get 73 50MHz pulses.  The trigger is a positive transition
   -- on waveform(13).
   process(clk_200mhz_i, rstn_i)
   begin
@@ -107,11 +104,7 @@ begin
         sck_timer <= x"000";
         scken_fifo <= x"00";
         active_o <= '0';
-        adc_18bit_q <= '0';
       else
-        -- this is a clock domain crossing but there is no need to be careful
-        -- because adc_18bit_i should not be changing during a readout.
-        adc_18bit_q <= adc_18bit_i;
         -- SCK needs to idle high, so it is inverted at this stage
         sck <= not sck_timer(1); -- tap 1 of a 200MHz counter is a 50MHz clock
         scken_fifo <= scken_fifo(6 downto 0) & waveform(13);
@@ -125,13 +118,10 @@ begin
           -- This is tricky here, but this starting value of 259 gives you
           -- 65 pulses on tap 1.  x"104" or x"105" would also work, with 
           -- an added 5ns or 10ns delay.
-          sck_timer <= x"104";
-          if (adc_18bit_q = '1') then
-            -- For the AD7690, we want 8 extra pulses, so the initial counter
-            -- value is higher by 32.
-            sck_timer <= x"124";
-          end if;
-        end if;
+          -- For the AD7690, we want 8 extra pulses, so the initial counter
+          -- value is higher by 32.
+          sck_timer <= x"124";
+       end if;
       end if;
     end if;
   end process;
