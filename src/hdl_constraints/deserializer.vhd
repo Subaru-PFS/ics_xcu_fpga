@@ -154,9 +154,6 @@ begin
             bytes <= x"0";
             -- We could assign words to dat_q with any ordering
             -- that is convenient for the CPU.
-            -- 16 bit ADC version:
-            dat_q <= dat_b(63 downto 0) & dat_a(63 downto 0);
-            -- 18 bit ADC version:
             if (adc_18bit_i = '1') then
               if (adc_18lowbits_i = '0') then
                 -- We want to discard the MSB and LSB from each 18 bit word.

@@ -863,7 +863,7 @@ begin
 	---------------------------------------------------------------------------
 	
 	-- ID Readonly Register
-	register_file(R_ID).default 	<= x"beefa081"; -- BEE board ID
+	register_file(R_ID).default 	<= x"beefa082"; -- BEE board ID
 	register_file(R_ID).readonly 	<= true;
 	
 	-- Power Supply Status/EEPROM Read Register
