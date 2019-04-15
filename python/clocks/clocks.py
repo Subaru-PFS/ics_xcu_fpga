@@ -1,18 +1,15 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
+from importlib import reload
 
-from past.builtins import cmp
-from builtins import chr
-from builtins import range
-from builtins import object
 from collections import OrderedDict
 import logging
 import numpy as np
 import re
+import logging
 
 from . import clockIDs
 from functools import reduce
+
+reload(clockIDs)
 
 class Clocks(object):
     """ Access the FPGA's clocking sequences.
@@ -23,15 +20,32 @@ class Clocks(object):
 
     tickTime = 40e-9
 
-    def __init__(self, tickTime=None, initFrom=None, logLevel=logging.INFO):
+    def __init__(self, tickTime=None, initFrom=None,
+                 holdOn=set(), holdOff=set(),
+                 logLevel=logging.INFO):
+
+        self.logger = logging.getLogger('clocks')
         self.clear()
 
         if tickTime is not None:
             self.tickTime = tickTime
-        self.initSet = set() if initFrom is None else initFrom.enabled[-1]
+        if initFrom is None:
+            self.initSet = set()
+            self.holdOn = set()
+            self.holdOff = set()
+            self.setHold(holdOn, holdOff)
+        else:
+            self.initSet = initFrom.enabled[-1]
+            self.holdOff = initFrom.holdOff
+            self.holdOn = initFrom.holdOn
+
+            if holdOn or holdOff:
+                import pdb; pdb.set_trace()
+                raise RuntimeError('confused by overriding inherited held clocks. Will not.')
+            
         self.logger = logging.getLogger('clocks')
         self.logger.setLevel(logLevel)
-
+        
     def clear(self):
         self.enabled = []
         self.ticks = []
@@ -46,16 +60,48 @@ class Clocks(object):
         sm = reduce(int.__or__, [s.mask for s in m])
         return sm
 
+    @property
+    def netEnabled(self):
+        """ Return self.enabled modified by self.holdOn and self.holdOff """
+        
+        if not (self.holdOn or self.holdOff):
+            return self.enabled
+
+        enabled = self.enabled.copy()
+        for i, e in enumerate(enabled):
+            enabled[i] |= self.holdOn
+            enabled[i] -= self.holdOff
+
+        return enabled
+    
+    def setHold(self, holdOn=None, holdOff=None):
+        """ Declare certain clocks to be held on or off. 
+
+        Args
+        ----
+        holdOn, holdOff : None or sets of clockID signal names
+        """
+
+        if holdOn is None:
+            holdOn = set()
+        if holdOff is None:
+            holdOff = set()
+
+        self.holdOn = {clockIDs.signalsByName[sigName] for sigName in holdOn}
+        self.holdOff = {clockIDs.signalsByName[sigName] for sigName in holdOff}
+        
     def genClocks(self):
-        if len(self.ticks) != len(self.enabled)+1:
+        enabled = self.netEnabled
+        
+        if len(self.ticks) != len(enabled)+1:
             raise RuntimeError("the duration of the final opcode state must be known.")
 
-        states = np.zeros(len(self.enabled), dtype='u4')
-        durations = np.zeros(len(self.enabled), dtype='u2')
+        states = np.zeros(len(enabled), dtype='u4')
+        durations = np.zeros(len(enabled), dtype='u2')
 
-        for i in range(len(self.enabled)):
+        for i in range(len(enabled)):
             duration = self.ticks[i+1] - self.ticks[i]
-            states[i] = self.stateMask(self.enabled[i])
+            states[i] = self.stateMask(enabled[i])
             durations[i] = duration
 
         return durations, states
@@ -64,6 +110,8 @@ class Clocks(object):
         ticks = []
         transitions = []
 
+        enabled = self.netEnabled
+        
         if includeInit:
             ticks.append(-1)
             transitions.append(signal in self.initSet)
@@ -75,15 +123,15 @@ class Clocks(object):
                           signal, ticks, lastState, transitions, [s.label for s in self.initSet])
 
 
-        for i in range(len(self.enabled)):
-            newState = signal in self.enabled[i]
+        for i in range(len(enabled)):
+            newState = signal in enabled[i]
             self.logger.debug('%s new :%s %s %s', signal, self.ticks[i], lastState, newState)
             if newState != lastState or i == 0 or i == len(self.ticks)-1:
                 ticks.append(self.ticks[i])
                 transitions.append(newState)
                 lastState = newState
 
-        if len(self.enabled) < len(self.ticks):
+        if len(enabled) < len(self.ticks):
             ticks.append(self.ticks[-1])
             transitions.append(transitions[-1])
 
@@ -91,7 +139,7 @@ class Clocks(object):
 
     def allSignals(self):
         signals = set()
-        for e in self.enabled:
+        for e in self.netEnabled:
             signals = signals.union(e)
         return signals
 
@@ -465,6 +513,9 @@ def genRowClocks(ncols, clocksFunc, rowBinning=1):
     opcodesList.extend(opcodes)
 
     pixTicks, opcodes = pix.genClocks()
+    for i in range(len(pixTicks)):
+        print("%6d : 0x%08x" % (pixTicks[i], opcodes[i]))
+        
     for i in range(ncols):
         ticksList.extend(pixTicks)
         opcodesList.extend(opcodes)
