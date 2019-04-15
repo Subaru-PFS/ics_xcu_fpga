@@ -9,8 +9,8 @@ def wipeClocks(tickTime=40e-9):
 
     pix = Clocks(tickTime, initFrom=pre)
     pix.changeFor(duration=16,
-                  turnOff=[S1,IR],
-                  turnOn= [S2,SW,RG,DCR])
+                  turnOff=[S1],
+                  turnOn= [S2,SW,RG,DCR,IR])
 
     pix.changeFor(duration=8,
                   turnOff=[RG])
@@ -21,8 +21,8 @@ def wipeClocks(tickTime=40e-9):
 
     post = Clocks(tickTime, initFrom=pix)
     post.changeFor(duration=1000,
-                   turnOff=[P1,IR],
-                   turnOn= [RG,DCR])
+                   turnOff=[P1],
+                   turnOn= [RG,IR,DCR])
 
     post.changeFor(duration=1000,
                    turnOn= [P2,TG])
@@ -40,8 +40,7 @@ def wipeClocks(tickTime=40e-9):
                    turnOn=[P3])
 
     post.changeFor(duration=50,
-                   turnOff=[RG],
-                   turnOn= [IR])
+                   turnOff=[RG,IR])
 
     post.changeFor(duration=2,
                    turnOff= [DCR])
