@@ -105,17 +105,29 @@ class Clocks(object):
             print("%s: %s %s" % (s.label, ticks, states))
 
     def genJSON(self, tickDiv=2, cutAfter=20, signals=None,
-                includeAll=False, title=''):
+                includeAll=False, keepGroups=None, title=''):
+
+        enabled = self.netEnabled
+        if keepGroups is None:
+            keepGroups = set()
+        for g in keepGroups:
+            if g not in clockIDs.allGroups:
+                raise ValueError(f"unknown group {g} not in {clockIDs.allGroups}")
+            
         if signals is None:
             signals = set()
-            for e in self.enabled:
+            for gname in keepGroups:
+                signals |= clockIDs.allGroups[gname]
+            for e in enabled:
                 signals = signals.union(e)
             if not includeAll:
                 unchanged = set()
                 for s in signals:
                     _, transitions = self.signalTrace(s)
                     if np.all([transitions[0] == t for t in transitions[1:]]):
-                        unchanged.add(s)
+                        if s.group not in keepGroups:
+                            unchanged.add(s)
+                        
                 signals.difference_update(unchanged)
         else:
             signals = set(signals)
