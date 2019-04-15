@@ -47,3 +47,5 @@ signals = (P1, P2, P3, TG, CRC, IRQ,
            CNV, SCK)
 
 signalsByName = {s.label:s for s in signals}
+groupNames = {s.group for s in signals}
+allGroups = {name:{s for s in signals if s.group == name} for name in groupNames}
