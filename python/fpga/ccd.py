@@ -1,11 +1,9 @@
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from builtins import object
+from importlib import reload
 import logging
 import numpy as np
 import sys
 import time
+from functools import partial
 
 import astropy.io.fits as pyfits
 
@@ -88,7 +86,15 @@ class CCD(FPGA):
         self.leadinCols = 8
         self.leadinRows = 48
         self.namps = 8
-        self.readDirection = 0b10101010
+        self.readDirection = 0b10101010 
+        self.logger.warn('ccd is: %s', str(self))
+
+        self.holdOn = set()
+        self.holdOff = set()
+        
+        self.logger.warn('pre: %s', str(self))
+        self.setAdcType(adc18bit)
+        self.logger.warn('post: %s', str(self))
         
     @property
     def nrows(self):
@@ -116,6 +122,71 @@ class CCD(FPGA):
 
     def fpgaVersion(self):
         return "0x%08x" % ((self.peekWord(0) & 0xffff) + 1)
+    
+    def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
+        """Set some clock lines on or off.
+        
+        Args
+        ----
+        turnOn : list of Clocks to set on
+        tunOff : list of Clocks to set off
+        cmd : optional Command to report to
+
+        In order to set clocks we need to fire up the FPGA's clocking
+        routine. This was mostly designed to readout the detector,
+        sequencing clocks for P pixels and R rows, where R >= 1
+
+        So we construct the clocking for a 0 pixel image, which simply
+        prepares the clocks for a row. Then we run that for one one row.
+
+        """
+        
+        from clocks import clocks
+        reload(clocks)
+        ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
+                                                       turnOff=turnOff)
+        for i in range(len(ticks)):
+            if cmd is not None:
+                cmd.inform('text="setting clocks: 0x%08x %d"' % (opcodes[i], ticks[i]))
+            sys.stderr.write("setting clocks: 0x%08x %d\n" % (opcodes[i], ticks[i]))
+            ret = self.sendOneOpcode(opcodes[i], ticks[i])
+            if not ret:
+                raise RuntimeError("failed to send opcode %d" % (i))
+        if not self.armReadout(1, 0, self.adc18bit):
+            raise RuntimeError("failed to arm for readout)")
+        self.finishReadout()
+        
+    def holdClocks(self, holdOn=None, holdOff=None, cmd=None):
+        """Set some clock lines on or off during subsequent reads.
+        
+        Args
+        ----
+        turnOn : list of Clocks to set on
+        tunOff : list of Clocks to set off
+        cmd : optional Command to report to
+
+        In order to set clocks we need to fire up the FPGA's clocking
+        routine. This was mostly designed to readout the detector,
+        sequencing clocks for P pixels and R rows, where R >= 1
+
+        So we construct the clocking for a 0 pixel image, which simply
+        prepares the clocks for a row. Then we run that for one one row.
+
+        """
+
+        self.holdOn = holdOn
+        self.holdOff = holdOff
+        
+        cmd.debug(f'text="set read clock holdOn={holdOn} and holdOff={holdOff}"')
+
+    def getReadClocks(self):
+        import clocks.read
+        reload(clocks.read)
+
+        readClocks = partial(clocks.read.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
+        self.logger.info(f'clocks with holdon={self.holdOn}, holdOff={self.holdOff}')
+        
+        return readClocks
     
     def ampidx(self, ampid, im=None):
         """ Return an ndarray mask for a single amp. 
@@ -145,9 +216,12 @@ class CCD(FPGA):
         cards.append(('HIERARCH W_VERSIONS_FPGA', self.fpgaVersion(), "FPGA version, read from FPGA."))
         cards.append(('SPECNUM', self.spectroId, "Spectrograph number: 1..4, plus engineering 5..9"))
         cards.append(('DEWARNAM', self.arm, "DEPRECATED: use ARM"))
-        cards.append(('ARM', self.arm, "Dewar name: 'blue', 'red', 'NIR'"))
+        cards.append(('W_ARM', self.arm, "Dewar name: 'blue', 'red', 'NIR'"))
         cards.append(('DETNUM', self.detectorNum, "Detector number: 0/1, or 2 if both detectors."))
-
+        if self.holdOn:
+            cards.append(('W_HLDON', ','.join({str(s) for s in self.holdOn}), "clocks held on"))
+        if self.holdOff:
+            cards.append(('W_HLDOFF', ','.join({str(s) for s in self.holdOff}), "clocks held off"))
         return cards
 
     def geomCards(self):
