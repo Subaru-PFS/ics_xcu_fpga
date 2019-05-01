@@ -22,16 +22,17 @@ def insertIdlePixels(clks, cnt):
 
     for i in range(cnt):
         clks.changeFor(duration=8,
-                       turnOn= [DCR,IR])
+                       turnOff=[IR],
+                       turnOn= [DCR])
 
-        clks.changeFor(duration=8+8,
+        clks.changeFor(duration=8+8+8,
                        turnOn=[SW])
 
-        clks.changeFor(duration=8,
-                       turnOff=[IR])
-
-        clks.changeFor(duration=6+2+108,
+        clks.changeFor(duration=6,
                        turnOff=[DCR])
+
+        clks.changeFor(duration=16+108,
+                       turnOn=[IR])
 
         clks.changeFor(duration=20+108+16+32,
                        turnOff=[SW])
