@@ -9,7 +9,8 @@ import logging
 from . import clockIDs
 from functools import reduce
 
-reload(clockIDs)
+# Danger! This causes much set() work to fail confusingly!
+# reload(clockIDs)
 
 class Clocks(object):
     """ Access the FPGA's clocking sequences.
