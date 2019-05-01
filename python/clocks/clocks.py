@@ -4,7 +4,9 @@ from collections import OrderedDict
 import logging
 import numpy as np
 import re
-import logging
+
+logger = logging.getLogger('clocks')
+logger.setLevel(logging.DEBUG)
 
 from . import clockIDs
 from functools import reduce
@@ -44,9 +46,6 @@ class Clocks(object):
                 import pdb; pdb.set_trace()
                 raise RuntimeError('confused by overriding inherited held clocks. Will not.')
             
-        self.logger = logging.getLogger('clocks')
-        self.logger.setLevel(logLevel)
-        
     def clear(self):
         self.enabled = []
         self.ticks = []
@@ -73,6 +72,8 @@ class Clocks(object):
             enabled[i] |= self.holdOn
             enabled[i] -= self.holdOff
 
+        self.logger.info(f'netEnabled: {self.holdOn}, {self.holdOff}')
+        
         return enabled
     
     def setHold(self, holdOn=None, holdOff=None):
@@ -512,10 +513,14 @@ def genRowClocks(ncols, clocksFunc, rowBinning=1):
     preTicks, opcodes = pre.genClocks()
     ticksList.extend(preTicks)
     opcodesList.extend(opcodes)
-
+    logger.info(f'generating clocks with {pix.holdOff} {pix.holdOn}')
+    
     pixTicks, opcodes = pix.genClocks()
     for i in range(len(pixTicks)):
-        print("%6d : 0x%08x" % (pixTicks[i], opcodes[i]))
+        logger.debug("%6d : 0x%08x" % (pixTicks[i], opcodes[i]))
+        for s in pix.holdOff:
+            if s.mask & opcodes[i]:
+                logger.warn(f'holdoff found in opcodes[{i}]: {s}, 0x%04x 0x%04x' % (s.mask, opcodes[i]))
         
     for i in range(ncols):
         ticksList.extend(pixTicks)
