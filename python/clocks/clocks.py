@@ -142,7 +142,8 @@ class Clocks(object):
     def allSignals(self):
         signals = set()
         for e in self.netEnabled:
-            signals = signals.union(e)
+            signals |= e
+            
         return signals
 
     def printTransitions(self, signals=None):
@@ -166,10 +167,10 @@ class Clocks(object):
             
         if signals is None:
             signals = set()
+            for e in enabled:
+                signals |= e
             for gname in keepGroups:
                 signals |= clockIDs.allGroups[gname]
-            for e in enabled:
-                signals = signals.union(e)
             if not includeAll:
                 unchanged = set()
                 for s in signals:
