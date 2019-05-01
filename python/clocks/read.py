@@ -94,13 +94,13 @@ def readClocks(holdOn=None, holdOff=None):
     # We want each phase of the parallel clocking to take ~40us.
     # We also want each phase to consist of an integral number of
     # complete pixels clockings. With the current pixel time
-    # of 13.92 us, we make it 3.
+    # of 14.48 us, we make it 3.
     #
     pixTicks = pix.ticks[-1]
     parPhasePixCnt = 3 # np.int(np.ceil(40000 / (pixTicks * 40)))
     parPhaseTicks = pixTicks * parPhasePixCnt
 
-    par = Clocks(initFrom=pix, logLevel=20)
+    par = clocks.Clocks(initFrom=pix, logLevel=20)
     par.changeAt(at=0,
                  turnOff=[P1])
     insertIdlePixels(par, parPhasePixCnt)
