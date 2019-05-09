@@ -1,8 +1,9 @@
-from __future__ import absolute_import
-from builtins import range
-from .clocks import Clocks
+from importlib import reload
 
+from . import clocks
 from .clockIDs import *
+
+reload(clocks)
 
 def insertIdlePixels(clks, cnt):
     """ Insert a number of complete pixel clockings, without shift or conversion. 
@@ -21,16 +22,19 @@ def insertIdlePixels(clks, cnt):
 
     for i in range(cnt):
         clks.changeFor(duration=8,
-                       turnOn= [DCR,IR])
-
-        clks.changeFor(duration=8+8,
-                       turnOn=[SW])
-
-        clks.changeFor(duration=8,
                        turnOff=[IR])
 
-        clks.changeFor(duration=6+2+108,
+        clks.changeFor(duration=4,
+                       turnOn=[SW])
+
+        clks.changeFor(duration=4+8+12,
+                       turnOn=[DCR])
+
+        clks.changeFor(duration=2,
                        turnOff=[DCR])
+
+        clks.changeFor(duration=16+108,
+                       turnOn=[IR])
 
         clks.changeFor(duration=20+108+16+32,
                        turnOff=[SW])
@@ -41,31 +45,35 @@ def insertIdlePixels(clks, cnt):
         clks.changeFor(duration=12,
                        turnOff= [RG])
 
-def readClocks():
-    pre = Clocks()
+def readClocks(holdOn=None, holdOff=None):
+    pre = clocks.Clocks(holdOn=holdOn, holdOff=holdOff)
     pre.changeFor(duration=120,
-                  turnOn= [P1,P3,S1,CNV])
+                  turnOn= [P1,P3,S1,CNV,IR])
     
-    pix = Clocks(initFrom=pre, logLevel=20)
+    pix = clocks.Clocks(initFrom=pre, logLevel=20)
     pix.changeFor(duration=8,
-                  turnOff=[S1],
-                  turnOn= [S2,DCR,IR,SCK])
+                  turnOff=[S1,IR],
+                  turnOn= [S2,SCK])
 
-    pix.changeFor(duration=8,
+    pix.changeFor(duration=4,
                   turnOn=[SW])
+
+    pix.changeFor(duration=4,
+                  turnOn=[DCR])
 
     pix.changeFor(duration=8,
                   turnOff=[SCK])
 
-    pix.changeFor(duration=8,
-                  turnOff=[S2,IR],
+    pix.changeFor(duration=12,
+                  turnOff=[S2],
                   turnOn= [S1])
 
-    pix.changeFor(duration=6,
+    pix.changeFor(duration=2,
                   turnOff=[DCR])
 
-    pix.changeFor(duration=2,
-                  turnOff=[CNV])
+    pix.changeFor(duration=16, # was 2
+                  turnOff=[CNV],
+                  turnOn=[IR])
 
     pix.changeFor(duration=108,
                   turnOn= [I_M])
@@ -91,13 +99,13 @@ def readClocks():
     # We want each phase of the parallel clocking to take ~40us.
     # We also want each phase to consist of an integral number of
     # complete pixels clockings. With the current pixel time
-    # of 13.92 us, we make it 3.
+    # of 14.48 us, we make it 3.
     #
     pixTicks = pix.ticks[-1]
     parPhasePixCnt = 3 # np.int(np.ceil(40000 / (pixTicks * 40)))
     parPhaseTicks = pixTicks * parPhasePixCnt
 
-    par = Clocks(initFrom=pix, logLevel=20)
+    par = clocks.Clocks(initFrom=pix, logLevel=20)
     par.changeAt(at=0,
                  turnOff=[P1])
     insertIdlePixels(par, parPhasePixCnt)

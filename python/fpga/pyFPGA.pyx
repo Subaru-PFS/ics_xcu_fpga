@@ -1,3 +1,5 @@
+# cython: language_level=3
+
 import sys
 import time
 import cython
@@ -77,6 +79,9 @@ cdef class FPGA:
     def __repr__(self):
         return self.str()
 
+    def setAdcType(self, adcType):
+        self.adc18bit = adcType
+        
     def readoutState(self):
         return readoutState
 
@@ -93,39 +98,6 @@ cdef class FPGA:
 
     def resetReadout(self, force=False):
         return resetReadout(1 if force else 0)
-        
-    def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
-        """Set some clock lines on or off.
-        
-        Args
-        ----
-        turnOn : list of Clocks to set on
-        tunOff : list of Clocks to set off
-        cmd : optional Command to report to
-
-        In order to set clocks we need to fire up the FPGA's clocking
-        routine. This was mostly designed to readout the detector,
-        sequencing clocks for P pixels and R rows, where R >= 1
-
-        So we construct the clocking for a 0 pixel image, which simply
-        prepares the clocks for a row. Then we run that for one one row.
-
-        """
-        
-        from clocks import clocks
-        reload(clocks)
-        ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
-                                                       turnOff=turnOff)
-        for i in range(len(ticks)):
-            if cmd is not None:
-                cmd.inform('text="setting clocks: 0x%08x %d"' % (opcodes[i], ticks[i]))
-            print("setting clocks: 0x%08x %d" % (opcodes[i], ticks[i]))
-            ret = sendOneOpcode(opcodes[i], ticks[i])
-            if not ret:
-                raise RuntimeError("failed to send opcode %d" % (i))
-        if not armReadout(1, 0, self.adc18bit):
-            raise RuntimeError("failed to arm for readout)")
-        finishReadout()
         
     def configureReadout(self, nrows, ncols, doTest=False,
                          clockFunc=None, rowBinning=1):
@@ -151,7 +123,16 @@ cdef class FPGA:
             raise RuntimeError("failed to arm for readout)")
 
         return readTime * nrows
+
+    def finishReadout(self):
+        return finishReadout()
+        
+    def armReadout(self, int nrows, doTest=False, adcMode=1):
+        return armReadout(nrows, doTest, adcMode)
     
+    def sendOneOpcode(self, int opcode, int ticks):
+        return sendOneOpcode(opcode, ticks)
+        
     cpdef _readImage(self, int nrows=-1, int ncols=-1,  
                      doTest=False, debugLevel=1, 
                      doAmpMap=True, 
@@ -246,6 +227,9 @@ cdef class FPGA:
                         image[row_i,amp_i*ncols + col_i] = rowImage[col_i*namps + amp_i]
             else:
                 image[row_i,:] = rowImage
+
+            if self.adc18bit > 1:
+                image[row_i, :] ^= 0x8000
 
             if rowFunc:
                 rowFunc(row_i, image, error=errorMsg, 
