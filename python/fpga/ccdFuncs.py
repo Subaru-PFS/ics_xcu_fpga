@@ -181,7 +181,6 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
 def readout(imtype, ccd=None,
             expTime=0, darkTime=None,
             nrows=None, ncols=None,
-            clockFunc=None,
             doSave=True, comment='',
             extraCards=(),
             doFeeCards=True,
@@ -195,9 +194,6 @@ def readout(imtype, ccd=None,
         ccd = ccdMod.ccd
     
     argDict = dict(everyNRows=(nrows//5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
-
-    if clockFunc is None:
-        clockFunc = getReadClocks()
 
     if feeControl is None:
         feeControl = feeMod.fee
@@ -215,7 +211,7 @@ def readout(imtype, ccd=None,
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
-                               clockFunc=clockFunc, doSave=doSave,
+                               doSave=doSave,
                                comment=comment, addCards=feeCards)
     t2 = time.time()
     if doModes:

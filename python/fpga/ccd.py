@@ -161,17 +161,11 @@ class CCD(FPGA):
         
         Args
         ----
-        turnOn : list of Clocks to set on
-        tunOff : list of Clocks to set off
+        holdOn  : list of Clocks to set on
+        holdOff : list of Clocks to set off
         cmd : optional Command to report to
 
-        In order to set clocks we need to fire up the FPGA's clocking
-        routine. This was mostly designed to readout the detector,
-        sequencing clocks for P pixels and R rows, where R >= 1
-
-        So we construct the clocking for a 0 pixel image, which simply
-        prepares the clocks for a row. Then we run that for one one row.
-
+        All this does is save what we want to do.
         """
 
         self.holdOn = holdOn
@@ -180,6 +174,8 @@ class CCD(FPGA):
         cmd.debug(f'text="set read clock holdOn={holdOn} and holdOff={holdOff}"')
 
     def getReadClocks(self):
+        """ Fetch the final read mode clocking routine. """
+        
         import clocks.read
         reload(clocks.read)
 
@@ -288,8 +284,7 @@ class CCD(FPGA):
                   doReread=False,
                   rowFunc=None, rowFuncArgs=None,
                   doReset=True, doSave=True, 
-                  comment=None, addCards=None,
-                  clockFunc=None):
+                  comment=None, addCards=None):
                   
         """ Configure and readout the detector; write image to disk. 
 
@@ -308,6 +303,10 @@ class CCD(FPGA):
         documentation for most of the arguments.
         """
 
+        self.logger.warn('ccd is: %s', str(self))
+
+        clockFunc = self.getReadClocks()
+        
         if nrows is None:
             nrows = self.nrows
         if ncols is None:
@@ -317,7 +316,6 @@ class CCD(FPGA):
         if readRows * rowBinning != nrows:
             print("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
                                                                                        nrows))
-            
         if doReset:
             self.pciReset()
 
@@ -337,6 +335,14 @@ class CCD(FPGA):
 
         # INSTRM-40: Paper over an FPGA bug which we have not found, where there is
         # a spurious 0th pixel, which effectively wraps the rest of the pixels.
+        #
+        # I'm pretty sure this comes from the fact that we clock out
+        # the pixel data from the ADC _before_ we convert it: we clock
+        # out the previous pixel's value. So there is an _extra_ 0th
+        # pixel, and we never read the last one.
+        #
+        # Not sure we should fix this.
+        #
         imShape = im.shape
         im = im.ravel()
         im[:-1] = im[1:]
