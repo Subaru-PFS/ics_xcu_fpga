@@ -377,7 +377,7 @@ def rawAmpGrid(im, ccd, amps=None,
     
     return fig, gs
 
-def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=None):
+def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=None, sigClip=None):
     if fig is None:
         fig = plt.figure('amp_images')
     fig.clf()
@@ -393,7 +393,7 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
     r = 2
     c = 4
     hists = []
-    means, devs = ampStats(im, ccd=ccd, rows=rows, cols=cols)
+    means, devs = ampStats(im, ccd=ccd, rows=rows, cols=cols, sigClip=sigClip)
     for a in range(8):
         ampIm = im[rows, ccd.ampidx(a, im)[cols]].flatten()
         #ampIm -= np.round(np.mean(ampIm))
@@ -414,7 +414,7 @@ def ampHistGrid(im, ccd, cols=None, rows=None, fig=None, histRange=10, figWidth=
 # Routines to set the mean amp levels to some handy level.
 # tuneLevels() does all amps, to about 10k.
 
-def ampStats(im, cols=None, rows=None, ccd=None):
+def ampStats(im, cols=None, rows=None, ccd=None, sigClip=None):
     if cols is None:
         cols = np.arange(im.shape[1]//ccd.namps)
     if rows is None:
@@ -425,8 +425,16 @@ def ampStats(im, cols=None, rows=None, ccd=None):
     devs = []
     for a in np.arange(8):
         ampCols = ccd.ampidx(a, im=im)[cols]
-        means.append(rowim[:, ampCols].mean())
-        devs.append(rowim[:, ampCols].std())
+        statIm = rowim[:, ampCols].astype('f4')
+        mn = statIm.mean()
+        std = statIm.std()
+        if sigClip is not None:
+            keep_w = (statIm < (mn + sigClip*std)) & (statIm > (mn - sigClip*std))
+            statIm = statIm[keep_w]
+            mn = statIm.mean()
+            std = statIm.std()
+        means.append(statIm.mean())
+        devs.append(statIm.std())
 
     return np.array(means), np.array(devs)
 
