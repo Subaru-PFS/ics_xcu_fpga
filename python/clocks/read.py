@@ -24,10 +24,13 @@ def insertIdlePixels(clks, cnt):
         clks.changeFor(duration=8,
                        turnOff=[IR])
 
-        clks.changeFor(duration=8+8+8+2,
-                       turnOn=[SW,DCR])
-
         clks.changeFor(duration=4,
+                       turnOn=[SW])
+
+        clks.changeFor(duration=4+8+12,
+                       turnOn=[DCR])
+
+        clks.changeFor(duration=2,
                        turnOff=[DCR])
 
         clks.changeFor(duration=16+108,
@@ -52,17 +55,20 @@ def readClocks(holdOn=None, holdOff=None):
                   turnOff=[S1,IR],
                   turnOn= [S2,SCK])
 
-    pix.changeFor(duration=8,
-                  turnOn=[SW,DCR])
+    pix.changeFor(duration=4,
+                  turnOn=[SW])
+
+    pix.changeFor(duration=4,
+                  turnOn=[DCR])
 
     pix.changeFor(duration=8,
                   turnOff=[SCK])
 
-    pix.changeFor(duration=10,
+    pix.changeFor(duration=12,
                   turnOff=[S2],
                   turnOn= [S1])
 
-    pix.changeFor(duration=4,
+    pix.changeFor(duration=2,
                   turnOff=[DCR])
 
     pix.changeFor(duration=16, # was 2
