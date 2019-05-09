@@ -45,8 +45,8 @@ entity deserializer is
     ddr_wr_en_o         : out std_logic;
     ddr_wr_data_o       : out std_logic_vector(31 downto 0);
 
-    -- adc_18bit = 1 means serial data from 18 bit AD7690
-    -- adc_18bit = 0 means serial data from 16 bit AD7686
+    -- adc_18bit = 1 means to take the 16 MSBs from the 18 bit AD7690
+    -- adc_18bit = 0 means to use adc_18lowbits to select 16 bits
     adc_18bit_i         : in  std_logic;
     -- adc_18lowbits = 1 means drop 2*MSB
     -- adc_18lowbits = 0 means drop 1*LSB,1*MSB

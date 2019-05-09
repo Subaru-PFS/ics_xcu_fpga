@@ -1,3 +1,5 @@
+# cython: language_level=3
+
 import sys
 import time
 import cython
@@ -77,6 +79,9 @@ cdef class FPGA:
     def __repr__(self):
         return self.str()
 
+    def setAdcType(self, adcType):
+        self.adc18bit = adcType
+        
     def readoutState(self):
         return readoutState
 
@@ -118,7 +123,16 @@ cdef class FPGA:
             raise RuntimeError("failed to arm for readout)")
 
         return readTime * nrows
+
+    def finishReadout(self):
+        return finishReadout()
+        
+    def armReadout(self, int nrows, doTest=False, adcMode=1):
+        return armReadout(nrows, doTest, adcMode)
     
+    def sendOneOpcode(self, int opcode, int ticks):
+        return sendOneOpcode(opcode, ticks)
+        
     cpdef _readImage(self, int nrows=-1, int ncols=-1,  
                      doTest=False, debugLevel=1, 
                      doAmpMap=True, 
@@ -213,6 +227,9 @@ cdef class FPGA:
                         image[row_i,amp_i*ncols + col_i] = rowImage[col_i*namps + amp_i]
             else:
                 image[row_i,:] = rowImage
+
+            if self.adc18bit > 1:
+                image[row_i, :] ^= 0x8000
 
             if rowFunc:
                 rowFunc(row_i, image, error=errorMsg, 
