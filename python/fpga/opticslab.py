@@ -75,9 +75,9 @@ def opticsLabCommand(cmdStr, timeout=60.0):
     t0 = time.time()
     try:
         s.settimeout(timeout)
-        s.send('%s\n' % (cmdStr))
+        s.send(('%s\n' % (cmdStr)).encode('latin-1'))
         data = s.recv(1024)
-        data = data.strip()
+        data = data.strip().decode('latin-1')
     finally:
         s.close()
     t1 = time.time()
