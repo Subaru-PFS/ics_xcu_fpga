@@ -215,11 +215,11 @@ cdef class FPGA:
             if dataCrc != fpgaCrc:
                 errorMsg = ("CRC mismatch: FPGA: 0x%08x calculated: 0x%08x. FPGA CRC MUST start with 0xccc0000\n" %
                             (fpgaCrc, dataCrc))
+                sys.stderr.write("row %d %s\n" % (row_i+1, errorMsg))
             elif ret != 0:
                 errorMsg = ("CRCs FPGA: 0x%08x calculated: 0x%08x." % (fpgaCrc, dataCrc))
             else:
                 errorMsg = "OK?"
-
             
             if doAmpMap:
                 for amp_i in range(namps):

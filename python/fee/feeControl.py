@@ -386,7 +386,7 @@ class FeeControl(object):
             cmdStatus = self.getCommandStatus(csetName)
             newStatus.update(cmdStatus)
             t1 = time.time()
-            print("get all %s: %0.2fs" % (csetName, t1-t0))
+            self.logger.debug("get all %s: %0.2fs" % (csetName, t1-t0))
                 
         self.status = newStatus
         return self.status

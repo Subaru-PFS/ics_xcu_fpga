@@ -87,15 +87,18 @@ class CCD(FPGA):
         self.leadinRows = 48
         self.namps = 8
         self.readDirection = 0b10101010 
-        self.logger.warn('ccd is: %s', str(self))
+        # self.logger.warn('ccd is: %s', str(self))
 
         self.holdOn = set()
         self.holdOff = set()
+
+        # self.logger.warn('ccd: %s', str(self))
         
-        self.logger.warn('pre: %s', str(self))
-        self.setAdcType(adc18bit)
-        self.logger.warn('post: %s', str(self))
-        
+    def __str__(self):
+        return "FPGA(readoutState=%d,ver=0x%08x,adc18=%s,correctSignBit=%s)" % (self.readoutState(),
+                                                                                self.peekWord(0),
+                                                                                self.adc18bit,
+                                                                                self.doCorrectSignBit)
     @property
     def nrows(self):
         """ Number of rows for the readout, derived from .ccdRows + .overRows. """
@@ -314,8 +317,8 @@ class CCD(FPGA):
 
         readRows = nrows/rowBinning
         if readRows * rowBinning != nrows:
-            print("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
-                                                                                       nrows))
+            self.logger.warn("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
+                                                                                                  nrows))
         if doReset:
             self.pciReset()
 
@@ -330,8 +333,10 @@ class CCD(FPGA):
                              doAmpMap=doAmpMap,
                              rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
         t1 = time.time()
-
-        print("readTime = %g; expected %g" % (t1-t0, expectedTime))
+        elapsedTime = t1-t0
+        
+        if abs(elapsedTime-expectedTime) > 0.1*expectedTime:
+            self.logger.warn("readTime = %g; expected %g" % (elapsedTime, expectedTime))
 
         # INSTRM-40: Paper over an FPGA bug which we have not found, where there is
         # a spurious 0th pixel, which effectively wraps the rest of the pixels.

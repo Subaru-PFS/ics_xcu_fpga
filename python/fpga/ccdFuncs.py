@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
-from builtins import range
-from past.builtins import basestring, reload
+from importlib import reload
 import glob
 import logging
 import os
@@ -30,7 +25,7 @@ def rowProgress(row_i, image, errorMsg="OK",
 
     nrows, ncols = image.shape
 
-    if (everyNRows is not None and (row_i%everyNRows == 0 or row_i == nrows-1)) or errorMsg is not "OK":
+    if (everyNRows is not None and (row_i%everyNRows == 0 or row_i == nrows-1)) or errorMsg != "OK":
         sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
 def getReadClocks():
