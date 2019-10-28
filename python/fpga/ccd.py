@@ -55,7 +55,9 @@ class CCD(FPGA):
 
     def __init__(self, spectroId, arm,
                  rootDir='/data/pfs', site=None,
-                 splitDetectors=False, adc18bit=3):
+                 splitDetectors=False, adc18bit=3,
+                 doCorrectSignBit=True):
+
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
             raise RuntimeError('spectroId must be 1..9')
         try:
