@@ -113,7 +113,7 @@ begin
         sck_q    <= sck_q(2 downto 0) & adc_sck_i;
         miso_a_q <= miso_a_q(2 downto 0) & adc_miso_a_i;
         miso_b_q <= miso_b_q(2 downto 0) & adc_miso_b_i;
-        if (sck_q(3 downto 2) = "10") then -- sck falling edge
+        if (sck_q(3 downto 2) = "01") then -- sck rising edge
           -- store the mosi values from the last time slice where
           -- SCK was high.
           dat_a <= dat_a(70 downto 0) & miso_a_q(3);
