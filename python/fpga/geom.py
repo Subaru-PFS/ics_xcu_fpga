@@ -1,10 +1,5 @@
-from __future__ import print_function
-from __future__ import division
-from builtins import range
-from past.builtins import basestring
-from builtins import object
-import itertools
 import logging
+import pathlib
 import numpy as np
 
 import astropy.io.fits as pyfits
@@ -29,7 +24,7 @@ class Exposure(object):
             if copyExposure:
                 self.image = self.image.copy()
                 self.header = self.header.copy()
-        elif isinstance(obj, basestring):
+        elif isinstance(obj, (str, pathlib.Path)):
             ffile = pyfits.open(obj)
             self.image = ffile[0].data
             self.header = ffile[0].header
@@ -133,8 +128,8 @@ class Exposure(object):
         
         imh,imw = self.image.shape
         if (self.ampCols + self.overCols)*self.namps != imw:
-            raise RuntimeError("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
-                               (self.namps, self.ampCols, self.overCols, imw))
+            self.logger.warn("Strange geometry: %d amps * (%d cols + %d overscan cols) != image width %d)" %
+                             (self.namps, self.ampCols, self.overCols, imw))
                                
     def _setDefaultGeometry(self):
         self.ampCols = 520
