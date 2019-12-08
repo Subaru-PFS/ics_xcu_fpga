@@ -1016,6 +1016,9 @@ class ReadnoiseTest(OneTest):
         if 'zeroOffsets' in testArgs:
             oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0', doPrint=True)
             self.expectedLevels = self.rig.expectedLevels
+        elif 'benchOffsets' in testArgs:
+            oneCmd(ccdName, 'fee setOffsets n=100,100,100,100,100,100,100,100 p=0,0,0,0,0,0,0,0', doPrint=True)
+            self.expectedLevels = self.rig.expectedLevels
         else:
             oneCmd(ccdName, 'fee setMode offset')
             self.expectedLevels = [1000]*8
@@ -1137,7 +1140,7 @@ class OffsetTest(OneTest):
             np.set_printoptions(linewidth=500)
 
             for leg in 'n', 'p':
-                for i, v in enumerate(np.linspace(0.0, -399.9, 5)):
+                for i, v in enumerate(np.linspace(0.0, 100, 5)):
                     vlist = [v]*8
                     if leg == 'p':
                         print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
