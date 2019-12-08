@@ -724,7 +724,7 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=True, sendReset=False):
+    def sendImage(self, path, verbose=True, doWait=False, sendReset=True):
         """ Download an image file. """
 
         eol = chr(0x0a)
