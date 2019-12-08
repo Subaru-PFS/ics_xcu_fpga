@@ -1,13 +1,5 @@
-from __future__ import absolute_import, division
-from __future__ import print_function
+from importlib import reload
 
-from past.builtins import reload
-
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import range
-from builtins import object
 import collections
 import re
 
@@ -239,6 +231,13 @@ class BenchRig(TestRig):
                              [0, 0, ReadnoiseTest, None],
                              [0, 0, None, None],
             ]
+        elif sequence in ('video'):
+            self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, VideoTest, None],
+                             [0, 0, None, None],
+            ]
+            self.connect()
+            
         else:
             raise RuntimeError('unknown rig type')
         
@@ -1272,6 +1271,43 @@ class V0Test(OneTest):
                        xlim=(-1,10), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
+class VideoTest(OneTest):
+    testName = 'Integrator'
+    label = "Look at the output of the integrator"
+    leads = ('RG', 'S1', 'S2', 'SW')
+    timeout = 15
+    
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test SP' % (self.dewar), shell=True)
+        
+    def setup(self, trigger=None):
+        self.scope.setAcqMode(numAvg=0)
+        self.delayTime = 13.520*1e-6
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0)
+        if trigger is None:
+            self.scope.setEdgeTrigger(source='ch1',
+                                      level=1.0, slope='rise', holdoff='10e-6')
+        else:
+            self.scope.setEdgeTrigger(**trigger)
+
+        # C4 C5 C7 C9
+        self.scope.setWaveform(1, 'RG', scale=2)
+        self.scope.setWaveform(2, 'S1', scale=2)
+        self.scope.setWaveform(3, 'S2', scale=2)
+        self.scope.setWaveform(4, 'Iout', scale=0.5)
+
+        subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
+        time.sleep(1.1)
+
+        
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1e-6,
+                       noWide=False,
+                       xlim=(-0.5,14),
+                       ylim=(-8,4), 
+                       showLimits=True, title=self.title)        
+
 class S0Test(OneTest):
     testName = 'S0'
     label = "main serial clocks"
@@ -1300,7 +1336,6 @@ class S0Test(OneTest):
 
         subprocess.call('oneCmd.py ccd_%s fee setMode read' % (self.dewar), shell=True)
         time.sleep(1.1)
-
         
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
