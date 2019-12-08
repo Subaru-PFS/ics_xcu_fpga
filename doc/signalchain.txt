@@ -1,0 +1,474 @@
+
+            PFS CCD SIGNAL CHAIN PARAMETERS v6
+
+          JEG 190327 rev 190502, 190505,06,09,10,0809
+
+*************** GAIN: **************************************************
+CCD:
+4.5uV/e-, 1e5 full well, 0.45 V out at ~physical full well (taken to be 100Ke-)
+0.295V out for 65536e-
+Video POSITIVE
+
+Preamp:
+Gain +5.99, 2.7V out for 1e5 e-, 
+Output impedance is 47ohms, both video and video common legs.
+noload output 1.77V for 65536e-; peg here, though FS will be somewhat bigger
+
+
+Signal chain: 
+Video to inverting input of input difamp. Input impedance 4K on (+) input, 2K
+on (-) input. 
+Input  gain nominally 1, with preamp output impedance gain is 0.977. 
+So -1.73V to integrator
+
+integrator: 2.0K, 1.0 nf, so dV/dt = V/RC = 5.00e5*V; t=4.32us !! (not 4.8)
+    so gain is 2.16
+
+so 65536e- -> 3.74V at output of integrator
+
+***** New system Fs = 4.5V, 78900e- ******************
+With the currently planned system, Vref=4.5V and we swing this full
+amount, so the full scale range is 78900 e-, 65536ADU, so
+
+***** the gain is 1.204e/ADU *************************
+
+For the old sysrem, FS = 5.0V,    fs = 85700e-, gain 1.31 
+(FWIW, this is what we measured and thought was wrong!!!)
+ 
+We will leave the signal chain gain resistors at 2.0K
+
+***** TARGET GAIN = 1.20e-/ADU *************
+
+At the preamp input, 1 electron is 0.833 ADU, or 4.5uV, so the overall
+digital gain from the input of the preamp is 1 ADU per 5.40uV, or 
+
+G = 1.85e5ADU/V at input to preamp.
+
+G = 3.09e4ADU/V at input to signal chain
+
+1000 ADU is therefore 5.40mV, 65536ADU is 0.354V, our 78.9K electrons full
+(digital) scale.
+
+
+XXXXXXXXXXXXXXXXX  filter on ADC lowers response (linear?) to ~95%;
+remarkably noisy if filter is raised in frequency.
+
+******************* FAKE CCD *****************************
+
+The video signal on the fakeCCD is generated from the SW gate signal,
+which is divided down by a resistor divider and AC coupled to make an
+AC output source signal at a DC voltage level approximately correct for
+a real CCD. The transconductance of the output FET on the CCD package
+is about 6mS at our operating point of 1 ma, so the output
+resistance is about 150 ohms. We have 147 ohm resistors, so we will use
+these.
+
+On the fake CCD, the divider is some large resistor Ri, for channel i,
+i-1,2,3,4, feeding 147 ohms paralleled with 50K, resultant 146.6 ohms,
+in turn in parallel with the input impedance of the preamp, 20K, or
+145.5 ohms.  Call this resistance Ro.  These resistances Ri + 146 ohms
+are all in parallel from the point of view of the supply, and call this
+parallel resistance Rp.  Call the voltage at the top of this parallel
+combination Vs; the bottom is at ground. 
+
+The voltage at the top of the 146 ohm resistors is Vi, and this
+signal is fed to the preamp. We have already accounted for the preamp
+input impedance.
+
+Vi = Vs*Ro/(Ri + R0). Call Ri+R0 Ri'. Then
+Vi = Vs*Ro/Ri'
+
+This relates the `mid' supply voltage Vs to the output voltage for each
+channel. But there is some source resistance between the summing well
+switch and the top of this resistor combination, 1.25K, which we
+will call Rs. The nominal SW swing is Vo, 11.0V. The SW signal is filtered 
+with small caps and a total of Rs=1.25K (1K on the preamp, 249 ohms on the 
+FEE). The voltage Vs at the top of the Ri' combination is then
+
+Vs = Vo*Rp/(Rs+Rp)
+1/Vs = (Rs/Vo)(1/Rs + 1/Rp) = (Rs/Vo)(1/Rs + Sum(1/Ri'))
+
+At this point, let us choose the Vi to give reasonable output ADU, from
+about 15000 to about 45000, a factor of three. To space the outputs
+evenly geometrically, one wants a factor of the cube root of 3, 1.442,
+so we will strive for outputs of
+
+S1 = 15000 ADU, V1 = 15000/1.88e5 = 0.081V
+S2 = 21600 ADU, V2 = 21500/1.88e5 = 0.117V
+S3 = 31200 ADU, V3 = 31200/1.88e5 = 0.169V
+S4 = 45000 ADU, V4 = 45000/1.88e5 = 0.243V
+
+Which clearly means that the Ri' are in the same ratios,
+
+R2 = R1/1.442
+R3 = R1/1.442^2
+R3 = R1/1.442^3 = R1/3
+
+and Sum(1/Ri') = 7.52/R1', just summing the coefficients. So
+
+1/Vs = (Rs/Vo)(1/Rs + 7.52/R1')
+
+but
+
+V1 = Vs*Ro/R1', so R1' = Vs*Ro/V1. Substituting this in the above
+equation and solving, we get an equation which expresses Vs in terms of known
+quantities:
+
+Vs = Vo - 7.52*V1*Rs/Ro,
+
+Which does not have a positive solution for some combinations of the input 
+values, but is, it turns out, OK for us. V1 = .0811V, Rs = 1250 ohms, Ro=145.5
+ohms, Vo = 11.0V, gives
+
+Vs = 5.76V, about half the `supply' 11.0V . Then Ri' = Ro*Vs/Vi, and
+
+R1' =  10.3K    R1 =  10.2K
+R2' =  7.16K    R2 =  7.01K
+R3' =  4.96K    R3 =  4.81K
+R4' =  3.45K    R4 =  3.30K
+                
+Rp =  1.373K                  
+
+installed on test board, NO bulk trims (-4,5V bulk trim supply jumpered OFF)
+
+R1 = 10.0K  signal   .0840V  15800 ADU  
+R2 = 7.50K           .112V   21000 ADU
+R3 = 5.11K           .162V   30500 ADU
+R4 = 3.48K           .235V   44200 ADU
+
+Rp = 1.439K 
+
+total installed resistance 1.44+1.25= 2.69K 
+switch resistance ~5 ohms, negligible 
+supply source ~10ohms, 50% duty, so ~5 ohms 
+DAC output resistance 0.5 ohma, 
+so Rs ~ 1.26K Vs should be 5.86V, Measure 5.81V; OK. 
+
+*************** NOISE: *********************************************
+
+DCS noise is just sqrt(100kHz)*noise density for white noise. 
+= 0.32uV*noise density(nV/sqrtHz)
+
+noise well below the cutoff at f_0 = 1/(t_I+ + t_I- + space) ~ 100kHz
+is attenuated at 6dB/octave, as is noise at frequencies higher
+than twice f_0. When one does the integrals, the noise is just
+the noise density at f_0 times sqrt(f_0)....
+
+Johnson noise is 2nV*sqrt(R_k)/rtHz, so noise for 100KHz BW is 0.7uV*sqrt(R_k)
+
+AD8620 -- 4.5nV/sqrtHz above ~ 10 kHz, to 100kHz, 1.5uV of noise.
+This is 0.33e-, which is uncomfortably high.
+Gain of preamp is +6, so noise out of preamp is 9uV from amp in addition
+is 400ohm Johnson, 0.4uV, so negligible. 9uV from preamp, 0.33e-
+
+First stage:
+
+ADA4610. 2uV to 100kHz, plus 2 independent 1K JN to the two inputs, 
+2.2uV. Gain is 1, so noise at this point is 9.3uV.
+
+Inverter: 1K Jn + 2uV, 2.1uV added to noise at output of first stage,
+9.5uV at output, plus noise from trim. Noise from trim unfiltered is
+15nV/sqrtHz. If we roll off at 10KHz with a 0.1uF cap, noise is
+1.5uV, so get about 9.6uV of noise on the reference line, 9.3 on 
+the video line. The CDS sees the AVERAGE of these, so say 9.5uV
+
+The gain of the integrator is -2.16, so noise for a perfect
+integrator is 20.5uV. The integrator is an ADA4625, and adds about
+1uV times the gain, and the reference adds 1.5uV times the gain, so the
+output of the integrator has about 20.8uV of noise.
+
+1 electron is 
+    4.5uV from CCD 
+    27uV at input to integrator 
+    58uV at output of integrator.
+
+Full scale (65536, top 16 bits) is
+    4.5Y at output of integrator,   68uV/ADU
+    2.08V at input to integrator,   32uV/ADU, 31.2 ADU/mV
+    0.347V at input to preamp       5.3uV/ADU
+
+The diffamp has a noise density of 2.5nV/sqrtHz, so adds about 1uV,
+which is entirely negligible. Let us say that there is 21uV of noise
+from the upstream electronics, 0.36 electrons, completely dominated
+by the preamp.
+
+The ADC swings 4.5V at each input, so full scale is 78Ke-, and 1 ADU is
+68.7uV, 1.18e-. The ADC noise *should* be about 0.38 ADU, about 0.46
+electrons, so the system noise should be about 0.58 e-, almost as
+good as SDSS, 20 years on, but still dominated by the "18 bit" ADC,
+and almost twice as good as we are doing currently.
+
+************* TIMING *********************************************
+
+        IR off at   900ns
+        I- on  at  1600ns
+        I- off at  5920ns    ref + master integrates for 4320ns, gain 2.16
+                   6320ns    middle of settling period I- to I+ 
+        I+ on  at  6720ns
+        I+ off at 11040ns    master integrates for 4320ns, so 8640 total
+        SC set at 11680ns    
+
+************* ADC **************************************5A5A*************
+
+The ADC is differential, and we input 0-4.5V from the integrator, 
+a swing of about 78900 ADU. This is fed to a diffamp, a LT6363-2, of
+differential gain 2, so each leg swings 4.5V. The - input is held at
+2.25V, so the output of the difamp is symmetric, swinging from 
+V0CM-2.25V to V0CM+2.25V. V0CM is set to 2.25V, so each
+output swings from 0.0 to 4.5, the reference voltage. The 6363 operates
+between -0.5 and 5V, so the 0 to 4.5V range is OK at the ends.
+
+The output of the ADC is ((V+ - V-) - Vref)*65535/(2*Vref), and is
+0 ADU at V + =0, V- = 4.5V = Vref.
+
+
+************ TRIMS *****************************************************
+
+This is new.  I had been doing this wrong forever, did it wrong again,
+and `fixed' it, and did it wrong *again*, and 'fixed' it, I would say
+the probability of this being correct is in the general neighborhood of
+10^{-11}, but it is what it is. 
+
+Circuit is calibrated in mV at the reference inputs to the
+integrator and inverting amp, both of which are on the scale of
+32uV/ADU at the output, or 31.2 ADU/mV. This is with the integrator gain
+of 2.16, and the offset is NOT multiplied by the gain, so be careful.
+Also, the inverting amplifier is a NON-inverting gain +2 amp for the
+trim INPUT, so the present calibration is in mV for the output of the
+inverter, NOT for its trim input.
+
+***********************************************************************
+NB!!!! the current TELEMETRY on the voltage input to the trims is
+incorrect, because the resistances have changed. The values calcuated
+here are REAL millivolts on the 10uF trim filter capacitors. 
+The telemetry needs to be fixed, or, better, changed completely.
+***********************************************************************
+
+Very Important Points:
+1. The integrator sits at the I+ trim voltage after a reset !
+2. The integrator integrates anything only when an input is active !
+3. The integrator integrates signals differentially with respect to the I+
+    trim voltage--it integrates CURRENT !
+4. The video is POSITIVE at the output of the integrator, and so is
+    NEGATIVE-going at the input to the integrator, ie INVERTED with
+    respect to the output of the preamp. (Video goes to - input on the
+    differential input stage).
+5. The trim voltage at the output of the inverting input amplifier
+    is TWICE its input trim voltage; the amp has gain -1 for signal, but
+    gain +2 for trim
+
+Nomenclature:
+
+I+t is the master trim signal in mV on the masrer trim filter capacitor
+
+I-t is the reference trim signal in mV on the reference trim filter capacitor.
+
+M1 is the equivalent desired signal in ADU at the integrator ouput in the
+    interval between  I+ and I- times, normally about 500 ADU. It can
+    be measured noninvasively by turning I+ OFF, so no integration
+    is done during I+ time.
+
+M2 is the desired integrated signal at the ouput of the integrator during
+    I+ time with zero input to the signal chain. It will normally be also 
+    about 500 ADU, about 34 mV, for a total signal of 1000 ADU with zero
+    video (+SW feedthru) input, which we call
+
+R is the desired total output of the integrator including M1, M2, and W,
+    in ADU, normally about 1000 ADU.
+
+W is the the summing well feedthrough signal. The feedthru is a positive
+    signal at the CCD, so masquerades as positive video SIGNAL. Its value
+    is about 11000 ADU (~13000e-). We must inject a negative trim signal to
+    offset this to achieve the desired output R.
+
+Master:
+
+Master trim is connected to the positive input on the integrator opamp, so
+simply shifts the virtual common. With no input, a positive trim on master
+shifts the voltage output of the integrator AND, if I+ is connected,
+injects a current equal to the trim voltage across the 2K input resistor.
+
+The integrated signal is 
+
++1 mV in -> +2.16mV out of integ, +31.7ADU at end of I-
++1 mV in -> +4.32mV out of integ, +63.4ADU at end of I+
+
+With no connected input, the integrator sits at I+t after a reset, and
+the ADC reads
+
++1 mV in -> +1 mV out of integ, +14.6 ADU
+
+so +14.6*I+t is an offset in ADU which must be added to ANY integrated changes;
+the total trim signal from Master is this offset plus the sum of any integrated
+signal from the trim,
+
+Reference:
+
+Reference trim goes to the  (+) input on the inverting amp, with gain
+of +2, so the output of the inverter is + twice the trim voltage. This
+feeds the inverting input of the integrator, so the input current to
+the integrator during I- is twice the I- trim voltage MINUS the I+ trim 
+voltage across 2K...Note that when 2*I-t and I+t are equal, there is
+no current to integrate!
+
+So the integration during I- has output 2.16*I+t - 4.32*I-t mV,
+to which must be added I+t for the offset.
+
+Combination, with expected feedthrough:
+
+We wish to buck about W = 11000 ADU (the new gain is higher, so 10000 ADU
+with the old signal chain is 11000 with the new) of feedthru and leave
+about R = +1000 ADU, with about M1 = +500 ADU on the integrator at the end 
+of I-. The feedthru W corresponds to about 755mV at the ADC, -350mV at 
+the input to the integrator.
+
+So think about the output. When I+ and I- are off, there is no 
+current to be integrated, and the output of the integrator sits at
+I+, feeding the ADC, and the output is +14.6*I+t ADU. When I- is
+switched on, a current flows into the integrator which is the difference
+of I+t and 2*I-t across 2Kohm, and the integrator integrates this with
+gain 2.16, so the ADC will read, after I- turns off,
+
+M1 = 31.7*(I+t - 2*I-t) + 14.6*I+t = 46.3*I+t - 63.4*I-t . 
+
+so for a given I+t, and desired mid-time offset M1,
+
+I-t = -M1/63.4 + 0.730*I+t mV;   (*)
+
+During I+ time, the integrator integrates I+t through the 2K I+
+resistor, plus the video summing-well feedthrough. (Careful with
+signs: The feedthrough is positive video, negative at input to
+I+ switch, so makes POSITIVE integrator output.
+
+M2 = 31.7*(I+t) + W.
+
+or
+
+I+t = (-W + M2)/31.7 mV = .0316*(-W + M2) mV  (**)
+
+for W=11000 ADU and M2=500 ADU, we get
+
+I+t = -331mV
+
+The expression for the output over the whole I+,I- time is the sum
+of M1 and M2:
+
+R = 46.3*I+t - 63.4 I-t + 31.7*(I+t) + W
+  = 78.0*I+t - 63.4 I-t + W
+
+This displays the sensitivity of the output to the trim voltages, 
+78ADU/mV for I+t and -63.4 ADU/mV for I-t. (REAL millivolts at C3 and C6)
+
+Inserting the expression (**) for I+t into the expression (*)
+for I-t, we get
+
+I-t = -M1/63.4 + 0.730*(-W + M2)/31.7
+    = (1.461*M2 - M1)/63.4  - 0.730*W/31.7  
+    = .0230*M2 - .0158*M1 - .0230*W
+
+In the usual case in which M1=M2=M, we get
+
+I-t = .00720*M - .0230*W
+
+For M=500 ADU and W = 11000 ADU, we got  
+
+I+t = -332mV
+
+and for I-t we get
+
+I-t = -250mV
+
+R = M1 + M2 = 1000 ADU
+
+So, summary: To set the trims such that you get M1 at the midpoint
+of the integration and R at the end with zero real video signal but
+with the SW feedthru, 
+
+***************************************************************
+M2 = R - M1
+I+t = (-W + M2)/31.7 mV = .0316*(-W + M2) mV = .0316*(M2 - W)
+I-t = .0230*M2 - .0158*M1 - .0230*W = .0158*M1 + .0230*(M2 - W)
+
+these are the real trim voltages in mV at the top end of the trim filter
+caps for both trims.  Remember that the reference trim voltage actually
+fed the integrator is twice I-t. 
+**********************************************************
+
+Trim Range:
+
+We would like to have low-noise DC trim signals to accomplish this gross
+setup.  The resistors at the bottom of the divider are, on the new board
+currently 1.5K.  There are 100K resistors to the noisy DACs for the
+adjustable trims, so the equivalent bottom resistors are 1.48K.  So the
+voltages at I+t0 and I-t0 with zero trim input from the DACS are
+
+I+t0 = -4500*1.48/(1.48 + R+_k) mV = -332 mV   measured 190507 -323 mV
+I-t0 = -4500*1.48/(1.48 + R-_k) mV = -250 mV,  measured 190507 -482 mV before
+                                                                       change
+where R+_k and R-_k are the feed resistors from the -4.5V reference in
+kilohms. This results in 
+
+R+_k = 18.6K
+R-_k = 25.1K
+
+The top end of the 100K trim resistors are fed from incredibly
+noisy DACs on the FEE. The DACs can swing from -10V to +10V.
+The equivalent bottom resistor is 1.40K (1.5K||18.6K) for I+t and 
+1.42K (1.5K||25.1K) for I-t. So the slope and range of the trim voltages is
+
+1.40/101.4, 13.8mV/V for I+t, range -138mV to +138mV, +/- 10800 ADU
+1.42/101.4  14.0mV/V for I-t, range -140mV to +140mV, +/- 8880  ADU
+
+or, since 20V is 65536 DADU on the DACs, the input voltage from the 
+DACS is 3277DADU/V, and the outputs are 
+
+4.21uV/DADU for I+t 
+
+and 
+
+4.27uV/DADU for I-t
+
+OR, if one wishes to go directly from DADU,  to output ADU, the slopes
+for I+t and I+t, are, from above, 78.0ADU/mV for I+ and -63.4ADU/mv for
+I-, so  
+
+Output = .327*(DADU+ - 32768) - 0.271*(DADU- - 32768)
+
+Pehaps somewhat better would be to characterize the DAC input in terms
+of percentages, I+% and I-% of 32768DADU, so the scale on each goes from 
+-100% to +100%, and we would then get
+
+Output = 100*I+% - 89*I-%
+
+M = 50*I+%
+
+IMPORTANT:
+**********************************************************************
+SteveHope needs to chage the FEE firmware to fix this, so the telemetry
+reads
+
+mv on I+t = (DADU - 32768)*1.40/20. = 0.700*(DADU - 32768)mV
+
+mv on I-t = (DADU - 32768)*1.42/20. = 0.710*(DADU - 32768)mV
+
+OR percents, or whatever.
+
+AND remove the setting restriction to get the FULL DAC range. Something
+cuts it off and +/-400 indicated mV for some reason which I presume must
+have been relevant/correct at some time, but is no longer.
+
+**********************************************************************
+
+For reference, the current telemetry reports results for a bottom
+resistor of 6.28K, no bulk resistors, so 59.1mV trim per V from the DAC.
+This should have a range of -590mV to 590mV, but it cuts off at +/-400
+(???), and the current reported scaling is too high by a factor of 
+59.1/13.7 = 4.31 for I+ and 59.1/13.1 =4.51 for I-. I hope we can change
+the FEE firmware remotely. If not, this is not a disaster, because the
+mV trim voltages are some fiction anyway; what matters is the
+ADU shift at the output per any arbitrary input, and if that input
+is the incorrect currently reported mV, the numbers just change.
+
+I sincerely hope that most of the above is correct, but can, of course,
+NOT swear to it.
+

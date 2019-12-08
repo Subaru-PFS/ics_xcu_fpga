@@ -160,12 +160,11 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
         if wavelength is None:
             wavelength = 550
         lamp = 'arc'
+        slitWidth = 1.0
         if wavelength == 550 and flux == 10:
-            slitWidth = 1.0
-            filter = 'ND4'
+            filter = 'ND3'
         elif wavelength == 550 and flux == 1000:
-            slitWidth = 0.5
-            filter = 'ND2'
+            filter = 'ND1'
         else:
             raise KeyError("unknown preset configuration, sorry.")
     elif arm == 'red':
@@ -184,12 +183,14 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
     else:
         raise KeyError('unknown arm')
 
+
     if getLamp() != lamp:
         raise RuntimeError("the lamp must be set outside of the .setup function")
-    if getPower() == 0:
+    power = getPower()
+    if power == 0:
         raise RuntimeError('the lamp is not on.')
-    if getPower() < 900:
-        raise RuntimeError('the lamp has not been warmed for 15 min.')
+    if power < 900:
+        raise RuntimeError(f'the lamp has not been warmed for 15 min ({900-power} seconds left).')
 
     if clearFe55:
         setFe55('home')

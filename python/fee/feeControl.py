@@ -386,7 +386,7 @@ class FeeControl(object):
             cmdStatus = self.getCommandStatus(csetName)
             newStatus.update(cmdStatus)
             t1 = time.time()
-            print("get all %s: %0.2fs" % (csetName, t1-t0))
+            self.logger.debug("get all %s: %0.2fs" % (csetName, t1-t0))
                 
         self.status = newStatus
         return self.status
@@ -724,7 +724,7 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=True, sendReset=False):
+    def sendImage(self, path, verbose=True, doWait=False, sendReset=True):
         """ Download an image file. """
 
         eol = chr(0x0a)

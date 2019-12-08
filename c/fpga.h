@@ -27,7 +27,7 @@ typedef enum { OFF, IDLE, ARMED, READING, FAILED, UNKNOWN } readoutStates;
 #define FIFO_RD_RST	(1<<3)
 #define FIFO_WR_RST	(1<<4)
 #define WPU_18BIT	(1<<5)
-#define WPU_18LOWBITS	(1<<6)
+#define WPU_18BIT2	(1<<6)
 
 // Default image size. Should probably not be here.
 #define PIX_H 4224 // number of rows

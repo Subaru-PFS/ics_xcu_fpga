@@ -43,18 +43,18 @@ def bitHist(fname, doPrint=True):
     
     namps = 8
     ampCols = im.shape[1]//namps
-    cols = np.arange(10, ampCols-10)
-    
+    cols = np.arange(10, ampCols-50)
+
+    bitFracs = np.zeros((namps, 16))
     for a in range(namps):
         ampPixels =  im[:, cols + a*ampCols].flatten()
         pixCount = float(len(ampPixels))
-        bitFracs = np.zeros(16)
         for i in range(16):
-            setCount = ((ampPixels & (0o1 << i)) != 0).sum()
-            bitFracs[i] = setCount/pixCount
+            setCount = ((ampPixels & (1 << i)) != 0).sum()
+            bitFracs[a,i] = setCount/pixCount
 
-        bitFracs = bitFracs[::-1]
-        print("%s[%d]: %s" % (os.path.basename(fname), a, np.round(bitFracs, 3)))
+        bitFracs[a,:] = bitFracs[a,::-1]
+        print("%s[%d]: %s" % (os.path.basename(fname), a, np.round(bitFracs[a], 3)))
 
     return bitFracs
 
