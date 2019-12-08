@@ -618,6 +618,7 @@ def CTEStats(flist, bias, amps=None, useCols=None):
 
 statDtype = ([('amp', 'i2'),
               ('npix', 'i4'),
+              ('adus', 'f4'),
               ('signal','f4'),
               ('sqrtSig', 'f4'),
               ('bias', 'f4'),
@@ -647,6 +648,7 @@ def areaStats(ampIm, osIm, exptime, ampNum=-1,
     osSig = np.median(osIm)
     if osSig is np.nan:
         osSig = 0
+    stats[a_i]['adus'] = ampSig
     stats[a_i]['signal'] = signal = ampSig - osSig
 
     stats[a_i]['flux'] = signal/exptime
@@ -722,6 +724,7 @@ def imStats(im, asBias=False,
             osColTrim=(3,1)):
 
     exp = geom.Exposure(im)
+    expTime = exp.expTime
     
     ampIms, osIms, _ = exp.splitImage()
 
@@ -740,7 +743,7 @@ def imStats(im, asBias=False,
         stats1['amp'] = a_i
         stats.append(stats1)
 
-    return ampIms, osIms, stats
+    return expTime, ampIms, osIms, stats
 
 def flatStats(f1name, f2name):
     """ Return stats from two compatible flats.
@@ -827,10 +830,10 @@ def printStats(stats):
     po = np.get_printoptions()
     np.set_printoptions(formatter=dict(float=lambda f: "%0.2f" % (f)))
     
-    print("amp readnoise readnoiseM  gain  gainM    signal    bias sig^0.5 shotnoise shotnoiseM noise(e-) dn/s\n")
+    print("amp readnoise readnoiseM  gain  gainM      adus    signal     bias sig^0.5 shotnoise shotnoiseM noise(e-)   dn/s\n")
 
     for i in range(len(stats)):
-        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(signal)9.2f %(bias)7.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)10.2f %(flux)5.1f" % stats[i])
+        print( "%(amp)d   %(readnoise)9.2f %(readnoiseM)9.2f %(gain)6.2f %(gainM)6.2f %(adus)9.2f %(signal)9.2f %(bias)8.2f %(sqrtSig)7.2f %(shotnoise)9.2f %(shotnoiseM)9.2f %(noise)10.2f %(flux)7.1f" % stats[i])
 
     np.set_printoptions(**po)
         
