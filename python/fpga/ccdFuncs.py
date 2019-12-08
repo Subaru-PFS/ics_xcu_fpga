@@ -179,6 +179,7 @@ def readout(imtype, ccd=None,
             doSave=True, comment='',
             extraCards=(),
             doFeeCards=True,
+            clockFunc=None,
             feeControl=None, cmd=None,
             rowStatsFunc=None,
             doModes=True):
@@ -206,6 +207,7 @@ def readout(imtype, ccd=None,
     feeCards.extend(extraCards)
     im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
+                               clockFunc=clockFunc,
                                doSave=doSave,
                                comment=comment, addCards=feeCards)
     t2 = time.time()
@@ -493,7 +495,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     for a in ampList:
         ampMasks[a] = ccd.ampidx(a, image)[cols]
 
-    if (everyNRows is not None and (line % everyNRows == 0 or line == nrows-1)) or errorMsg is not "OK":
+    if (everyNRows is not None and (line % everyNRows == 0 or line == nrows-1)) or errorMsg != "OK":
         imRow = image[line]
 
         parts = ["%04d" % line]

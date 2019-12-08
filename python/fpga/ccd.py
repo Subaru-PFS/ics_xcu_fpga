@@ -7,10 +7,7 @@ from functools import partial
 
 import astropy.io.fits as pyfits
 
-try:
-    from pyFPGA import FPGA
-except:
-    FPGA = object
+from pyFPGA import FPGA
     
 from . import SeqPath
 
@@ -288,6 +285,7 @@ class CCD(FPGA):
                   doAmpMap=True, 
                   doReread=False,
                   rowFunc=None, rowFuncArgs=None,
+                  clockFunc=None,
                   doReset=True, doSave=True, 
                   comment=None, addCards=None):
                   
@@ -310,7 +308,8 @@ class CCD(FPGA):
 
         self.logger.warn('ccd is: %s', str(self))
 
-        clockFunc = self.getReadClocks()
+        if clockFunc is None:
+            clockFunc = self.getReadClocks()
         
         if nrows is None:
             nrows = self.nrows
