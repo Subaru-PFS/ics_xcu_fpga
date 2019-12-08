@@ -184,12 +184,14 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
     else:
         raise KeyError('unknown arm')
 
+
     if getLamp() != lamp:
         raise RuntimeError("the lamp must be set outside of the .setup function")
-    if getPower() == 0:
+    power = getPower()
+    if power == 0:
         raise RuntimeError('the lamp is not on.')
-    if getPower() < 900:
-        raise RuntimeError('the lamp has not been warmed for 15 min.')
+    if power < 900:
+        raise RuntimeError(f'the lamp has not been warmed for 15 min ({900-power} seconds left).')
 
     if clearFe55:
         setFe55('home')
