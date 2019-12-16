@@ -1097,11 +1097,21 @@ class ReadnoiseTest(OneTest):
         
         return fig, gs
 
-def calcOffsets(target, current):
+def calcOffsetsV(target, current):
     m = np.round((target - current) / 30, 2)
     r = np.round(m * 40.0/57.0, 2)
     
     return m, r
+
+def calcOffsets1(levels, target=500):
+    """ Given offsets of 0,-100 and data levels, return the I+ offsets. """
+
+    return (np.array(levels)-target)/88
+
+def calcOffsets2(levels, target=1000):
+    """ Given correct I+ offsets and new data levels, return the I- offsets. """
+
+    return -(np.array(levels)-target)/106
 
 
 class OffsetTest(OneTest):
@@ -1129,7 +1139,7 @@ class OffsetTest(OneTest):
                 nrows=None, ref=None, master=None,
                 walkOffsets=False, checkOffsets=False, **testArgs):
         ccdName = "ccd_%s" % (self.dewar)
-        baseMaster = 0 if master is None else master
+        baseMaster = 100 if master is None else master
         baseRef = 0 if ref is None else ref
         if walkOffsets:
             self.outputs = dict(n=dict(), p=dict())
