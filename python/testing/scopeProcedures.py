@@ -25,7 +25,7 @@ reload(scopeMux)
 
 # Configure the default formatter and logger.
 logging.basicConfig(datefmt = "%Y-%m-%d %H:%M:%S",
-                    format = "%(asctime)s.%(msecs)03dZ %(name)-16s %(levelno)s %(filename)s:%(lineno)d %(message)s")
+                    format = "%(asctime)s.%(msecs)03dZ %(name)-16s %(levelno)s %(message)s")
 logging.getLogger().setLevel(logging.INFO)
 
 waveColors = ('#c0c000', 'cyan', 'magenta', '#00bf00')
@@ -411,7 +411,7 @@ class BenchRig(TestRig):
         return test
     
     def _runTest(self, testClass, ccd, amp, trigger=None,
-                 comment=None, noRun=False, **testArgs):
+                 comment=None, noRun=False, doRaise=True, **testArgs):
         
         test = testClass(self, ccd, amp,
                          dewar=self.dewar,
@@ -433,6 +433,8 @@ class BenchRig(TestRig):
                 ret = self.scope.runTest(test, trigger=trigger, **testArgs)
         except Exception as e:
             print("test FAILED: %s" % (e))
+            if doRaise:
+                raise
             return False
 
         if ret is False:
