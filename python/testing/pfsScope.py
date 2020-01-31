@@ -1,17 +1,9 @@
-from __future__ import print_function
-from builtins import range
-from past.builtins import basestring
-from builtins import object
-from collections import OrderedDict
 import logging
-import re
 import sys
 import time
 import numpy as np
 
-import visa
-
-import clocks
+import pyvisa as visa
 
 def qstr(s):
     if len(s) > 2 and s[0] in '"\'' and s[-1] in '"\'':
@@ -74,8 +66,10 @@ class KVSet(object):
 class PfsCpo(object):
     modes = {'sample', 'average', 'envelope'}
 
-    def __init__(self, host='10.1.1.52'):
+    def __init__(self, host='10.1.1.52', debug=False):
         self.logger = logging.getLogger('scope')
+        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
+        
         self.host = host
         self.resourceManager = None
         self.scope = None
@@ -99,7 +93,11 @@ class PfsCpo(object):
         if not self.resourceManager:
             self.resourceManager = visa.ResourceManager('@py')
         self.scope = self.resourceManager.open_resource('TCPIP.*::%s::INSTR' % (self.host))
-
+        self.scope.timeout = 10000
+        self.getScopeStatus()
+        self.write('*RST')
+        self.logger.info('Scope is: %s', self.scope.query('*IDN?'))
+                         
         self.flush()
 
     def flush(self):
@@ -110,8 +108,14 @@ class PfsCpo(object):
         self.settings = ret.split(';')
 
     def getScopeStatus(self):
-        ret = self.query('*ESR?')
-        return int(ret)
+        while True:
+            ret = self.query('*ESR?')
+            code = int(ret)
+            if code == 0:
+                return 0
+            ret = self.query('evmsg?')
+            self.logger.warn(f'error {code}: {ret}')
+            
 
     def setChannel(self, channel=None):
         if channel is not None:
@@ -188,7 +192,15 @@ class PfsCpo(object):
                     delayMode='on', delayTime=0, delayUnits='s',
                     recordLength=100000):
         self.write('horiz:delay:mode %s' % (delayMode))
-        self.write('horiz:delay:time %s %s' % (delayTime, delayUnits))
+        if delayUnits == 'us':
+            delayTime /= 1e6
+        elif delayUnits == 'ms':
+            delayTime /= 1e3
+        elif delayUnits == 'ns':
+            delayTime /= 1e9
+        elif delayUnits != 's':
+            raise RuntimeError(f'unknown delayUnits {delayUnits}')
+        self.write('horiz:delay:time %s' % (delayTime))
         self.write('horiz:scale %s' % (scale))
         self.write('horiz:pos %s' % (pos))
         self.write('horiz:trigger:pos %s' % (triggerPos))
@@ -220,15 +232,15 @@ class PfsCpo(object):
         return ret
 
     def getKeySet(self, queryPrefix, keys):
-        output = OrderedDict()
+        output = dict()
         for k, ctype in keys:
             query = "%s:%s?" % (queryPrefix, k)
             v = self.query(query)
             v = v.strip()
-            #self.logger.info("%s: %s -> %s", k, ctype, v)
+            # self.logger.info("%s: %s -> %s", k, ctype, v)
             try:
                 output[k] = ctype(v)
-                #self.logger.info("%s: %s -> %s", k, v, ctype(v))
+                # self.logger.info("%s: %s -> %s", k, v, ctype(v))
             except:
                 output[k] = None
                 
@@ -238,10 +250,12 @@ class PfsCpo(object):
         channel = self.setChannel(channel)
 
         self.write('data:resolution full')
+        self.write('data:composition composite_yt')
         self.write('WFMoutpre:byt_nr %d' % (self.dataWidth))
-        self.write('WFMoutpre:bn_or msb')
+        self.write('WFMoutpre:byt_or msb')
+        self.write('WFMoutpre:encdg bin')
 
-        keys = OrderedDict(name=channel)
+        keys = dict(name=channel)
         keys.update(self.getKeySet(channel, channelKeys))
         keys.update(self.getKeySet('WFMOut', waveformKeys))
 
@@ -261,19 +275,19 @@ class PfsCpo(object):
                 raise RuntimeError('timeout waiting for operation end')
 
     def runTest(self, test, debug=False, trigger=None, **testArgs):
-        startLevel = self.logger.level
-
         self.logger.info('running test %s', test.testName)
+        self.getScopeStatus()
         test.setup(trigger=trigger)
 
         self.logger.info('starting test %s (timer=%s)', test.testName, self.triggerAfter)
+        self.getScopeStatus()
 
-        self.scope.write('acq:state run')
+        self.write('acq:state run')
         if self.triggerAfter is not None:
             self.logger.info('waiting for end of %s sec trigger', self.triggerAfter)
             time.sleep(self.triggerAfter)
             self.logger.info('forcing trigger')
-            self.scope.write('trigger force')
+            self.write('trigger force')
 
         if hasattr(test, 'triggerCB'):
             self.logger.info('calling test trigger...')
@@ -281,6 +295,7 @@ class PfsCpo(object):
             
         self.logger.info('waiting for end of test %s', test.testName)
         timeout = test.timeout if hasattr(test, 'timeout') else 30.0
+        self.getScopeStatus()
         self.busyWait(timeout=timeout)
 
         self.logger.info('fetching data for test %s', test.testName)
@@ -298,16 +313,28 @@ class PfsCpo(object):
         if getEnvelope:
             self.write('WFMoutPRE:composition composite_env')
         else:
-            comp = self.query('data:composition:avail?')
-            self.write('WFMoutPRE:composition %s' % (comp))
+            comp = self.query('data:composition:avail?').split(',')
+            self.write('WFMoutPRE:composition %s' % (comp[0]))
 
         keys = self.getChannelShape(channel=channel)
         self.logger.debug('query_binary_values...')
-        rawdata = self.scope.query_binary_values('CURVE?', 
-                                                 'h' if self.dataWidth == 2 else 'b', 
-                                                 is_big_endian=True,
-                                                 container=np.array)
-        self.logger.debug('query_binary_value done')
+        oldTimeout = self.scope.timeout
+        self.scope.timeout = 30000
+        startLevel = self.logger.level
+        self.getScopeStatus()
+        # self.logger.setLevel(20)
+        try:
+            rawdata = self.scope.query_binary_values('CURVE?', 
+                                                     'h' if self.dataWidth == 2 else 'b', 
+                                                     is_big_endian=True,
+                                                     expect_termination=False,
+                                                     container=np.array)
+            self.logger.debug('query_binary_value done')
+        except visa.VisaIOError:
+            self.getScopeStatus()
+        finally:
+            self.scope.timeout = oldTimeout
+            self.logger.setLevel(startLevel)
 
         keys['rawdata'] = rawdata
         keys['data'] = keys['yzero'] + keys['ymult'] * (rawdata - keys['yoff'])
