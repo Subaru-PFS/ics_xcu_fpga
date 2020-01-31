@@ -147,6 +147,7 @@ class CCD(FPGA):
         reload(clocks)
         ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
                                                        turnOff=turnOff)
+        self.resetReadout()     # Clear FPGA waveform array.
         for i in range(len(ticks)):
             if cmd is not None:
                 cmd.inform('text="setting clocks: 0x%08x %d"' % (opcodes[i], ticks[i]))
