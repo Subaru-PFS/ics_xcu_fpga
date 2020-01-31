@@ -724,71 +724,93 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=False, sendReset=True):
-        """ Download an image file. """
+    def sendImage(self, path, verbose=True, doWait=False, sendReboot=True, straightToCode=False):
+        """ Download an image file to the interlock board. 
+
+        For a blank pic (bootloader only), do not send a reboot command.
+        Normally, _do_ send a reboot.
+        """
 
         eol = chr(0x0a)
-        ack = chr(0x06)
-        nak = chr(0x15)
+        ack = chr(0x06) # ; ack='+'
+        nak = chr(0x15) # ; name='-'
         lineNumber = 1
         maxRetries = 5
 
-        if sendReset:
-            ret = self.sendCommandStr('reboot')
+        if straightToCode:
+            sendReboot = False
+            doWait = False
             
+        if sendReboot:
+            try:
+                ret = self.sendCommandStr('reboot')
+            except:
+                pass
+        time.sleep(0.5)
+        
         if doWait:
-            if not sendReset:
-                self.device.timeout = 15
-                ret = self.device.readline()
+            self.device.timeout = 5
+            ret = self.device.readline()
             retline = ret.decode('latin-1').strip()
+            self.logger.info('at wait, recv: %r', retline)
             isBootLoader = 'Bootloader' in retline
             if not isBootLoader:
                 raise RuntimeError("not at bootloader prompt (%s)" % (retline))
             isBlank = retline[-1] == 'B'
-            self.logger.warn('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
+            self.logger.info('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
             if not isBlank:
+                self.logger.info('at bootloader, sending *')
                 self.device.write(b'*')
         else:
-            self.device.write(b'*')
+            if not straightToCode:
+                self.logger.info('at bootloader, sending *')
+                self.device.write(b'*')
 
-        ret = self.device.readline()
-        ret = ret.decode('latin-1').strip()
-        if not ret.startswith('*Waiting for Data...'):
-            self.logger.warn('at bootloader *, got %r' % (ret))
-            ret = self.device.readline().decode('latin-1')
+        if not straightToCode:
+            ret = self.device.readline()
+            ret = ret.decode('latin-1').strip()
+            self.logger.debug('after * got :%r:', ret)
             if not ret.startswith('*Waiting for Data...'):
-                raise RuntimeError('could not get *Waiting for Data')
+                self.logger.info('at bootloader *, got %r' % (ret))
+                ret = self.device.readline().decode('latin-1')
+                self.logger.debug('after * retry got %r', ret)
+                if not ret.startswith('*Waiting for Data...'):
+                    raise RuntimeError('could not get *Waiting for Data')
 
         logLevel = self.logger.level
-        self.logger.setLevel(logging.INFO)
-        self.device.timeout = self.devConfig['timeout']
+        # self.logger.setLevel(logging.INFO)
+        self.device.timeout = 1.0 # self.devConfig['timeout'] * 100
         strTrans = str.maketrans('', '', '\x11\x13')
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
             t0 = time.time()
             self.logger.info('sending image file %s, %d lines' % (path, len(lines)))
-            for l in lines:
-                l = l.strip()
-                if l[0] == ';':
+            for l_i, rawl in enumerate(lines):
+                hexl = rawl.strip()
+                if hexl[0] == ';':
                     continue
                 retries = 0
                 while True:
                     if verbose and retries > 0:
                         self.logger.warn('resending line %d; try %d' % (lineNumber, 
                                                                         retries))
-                    fullLine = l+eol
+                    fullLine = hexl+eol
                     if verbose and lineNumber%100 == 1:
                         self.logger.info('sending line %d / %d', lineNumber, len(lines))
-                    self.logger.debug("sending command :%r:", fullLine)
-                    self.device.write(fullLine.encode('latin-1'))
-                    retline = self.device.read(size=len(l)+len(eol)+1).decode('latin-1')
+                    self.logger.debug("sending line %d: %r", lineNumber, fullLine)
+                    if True:
+                        retline = self.sendOneLinePerChar(fullLine)
+                    else:
+                        self.device.write(fullLine.encode('latin-1'))
+                        retline = self.device.read(size=len(hexl)+len(eol)+1).decode('latin-1')
+                    self.logger.debug('recv %r' % (retline))
                     retline = retline.translate(strTrans)
 
-                    if l != retline[:len(l)]:
-                        self.logger.warn("command echo mismatch. sent :%r: rcvd :%r:" % (l, retline))
+                    if fullLine != retline[:len(fullLine)]:
+                        self.logger.warn("command echo mismatch. sent %r rcvd %r" % (fullLine, retline))
                     ret = retline[-1]
                     lineNumber += 1
-                    if ret == ack or l == ':00000001FF':
+                    if ret == ack or hexl == ':00000001FF':
                         break
                     if ret != nak:
                         raise RuntimeError("unexpected response (%r in %r) after sending line %d" %
@@ -799,10 +821,38 @@ class FeeControl(object):
                                            (retries, lineNumber-1))
 
             t1 = time.time()
-            self.logger.info('sent image file %s in %0.2f seconds' % (path, t1-t0))
+            
+        self.logger.info('sent image file %s in %0.2f seconds' % (path, t1-t0))
+        time.sleep(1)
+        line = self.device.readline().decode('latin-1')
+        self.logger.info('recv: %s', line)
+        if 'Bootloader' not in line:
+            self.logger.warn('did not get expected Booloader line after loading image (%s)' % line)
+        else:
+            time.sleep(2)
+            line = self.device.readline().decode('latin-1')
+            self.logger.info('recv: %s', line)
+            if 'FEE' not in line:
+                self.logger.warn('did not get expected FEE line after loading image (%s)' % line)
 
         self.logger.setLevel(logLevel)
 
+    def sendOneLinePerChar(self, strline):
+        line = strline.encode('latin-1')
+        ret = bytearray(len(line) + 1)
+        for c_i in range(len(line)):
+            c = line[c_i:c_i+1]
+            self.device.write(c)
+            # time.sleep(0.001)
+            retc = self.device.read(1)
+            if c != retc:
+                raise RuntimeError('boom: mismatch at %d: sent %r but recv %r' % (c_i,c,retc))
+            ret[c_i] = retc[0]
+        ackNak = self.device.read(1)
+        ret[-1] = ackNak[0]
+
+        return ret.decode('latin-1')
+    
     def gobbleInput(self):
         """ Read and drop any buffered input."""
         

@@ -16,7 +16,6 @@
 # iseconfig/filter.filter 
 #
 *.bgn
-*.bit
 *.bld
 *.cfi
 *.cmd_log
