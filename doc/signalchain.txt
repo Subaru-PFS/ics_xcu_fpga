@@ -1,7 +1,7 @@
 
-            PFS CCD SIGNAL CHAIN PARAMETERS v6
+            PFS CCD SIGNAL CHAIN PARAMETERS v8
 
-          JEG 190327 rev 190502, 190505,06,09,10,0809
+          JEG 190327 rev 190502, 190505,06,09,10,0809,0923
 
 *************** GAIN: **************************************************
 CCD:
@@ -198,6 +198,11 @@ electrons, so the system noise should be about 0.58 e-, almost as
 good as SDSS, 20 years on, but still dominated by the "18 bit" ADC,
 and almost twice as good as we are doing currently.
 
+But all of this seems irrelevant; the vast bulk of the noise seems to
+depend only on the bandwidth into the ADC, and we can achieve good
+performance only by restricting this bandwidth enough to affect the
+gain by a few percent.
+
 ************* TIMING *********************************************
 
         IR off at   900ns
@@ -281,6 +286,29 @@ W is the the summing well feedthrough signal. The feedthru is a positive
     is about 11000 ADU (~13000e-). We must inject a negative trim signal to
     offset this to achieve the desired output R.
 
+D is the DC offset meant to approximately cancel W. It is nominally about
+    -9700 ADU. It is accomplished by injecting a fixed (negative) current 
+    into the master trim input and another into the referernce trim input--
+    -329mV into master, -252 mV into ref, this results in a nominal offset
+    of +744 - 10430 = -9690 ADU. The measured number is 9450 for one board,
+    average 8 channels, so ~2.5 percent lower than calculated, which probably
+    reflects a gain loss of ~25% because of smoothing. Not bad.
+
+190920:
+Data taken with no I+ on this board has R~1000 with no video in, and
+R ~ 870 - 450*V/30,000 ~ 870 - 0.015V, VERY roughly. Why it depends on the 
+vidoe level at all is not completely clear, as is the sign. Note that here
+V is the total video level including SW feedgthrough.
+The two tested channels are different, slightly, proably because of
+variation in switch speed. One channel looks like
+R ~ 960 - .017V, and the other looks like
+R ~ 780 - .013V
+
+The calculated value (intgercept? see below) is about 740ADU, so not too bad. 
+We should try to understand the feedthru into I- time.
+
+
+
 Master:
 
 Master trim is connected to the positive input on the integrator opamp, so
@@ -312,7 +340,11 @@ voltage across 2K...Note that when 2*I-t and I+t are equal, there is
 no current to integrate!
 
 So the integration during I- has output 2.16*I+t - 4.32*I-t mV,
-to which must be added I+t for the offset.
+to which must be added I+t for the offset, or a total of
+
+3.16*I+t - 4.32*I-t. With the DC offsets of -325 and -252, this becomes
+M1(mV) = 3.16*I+t - 4.32I-t + 49 mV, so the output at the end of I- should
+be slightly positive.
 
 Combination, with expected feedthrough:
 
@@ -331,30 +363,36 @@ gain 2.16, so the ADC will read, after I- turns off,
 
 M1 = 31.7*(I+t - 2*I-t) + 14.6*I+t = 46.3*I+t - 63.4*I-t . 
 
-so for a given I+t, and desired mid-time offset M1,
+with the DC offset on, we have to add its contribution,
+(I+t = -329mv ,I-t = -252mV). They do not quite cancel, and 
 
-I-t = -M1/63.4 + 0.730*I+t mV;   (*)
+M1 = 46.3*I+t - 63.4*I-t + 744 ADU.
+
+So for a given I+t, and desired mid-time offset M1,
+
+I-t = -(M1 - 744)/63.4 + 0.730*I+t mV;   (*)
 
 During I+ time, the integrator integrates I+t through the 2K I+
 resistor, plus the video summing-well feedthrough. (Careful with
 signs: The feedthrough is positive video, negative at input to
-I+ switch, so makes POSITIVE integrator output.
+I+ switch, so makes POSITIVE integrator output. The DC offset signal
+is -329mV, so 
 
-M2 = 31.7*(I+t) + W.
+M2 = 31.7*(I+t - 329) + W. = 31.7*I+t - 10430 + W
 
 or
 
-I+t = (-W + M2)/31.7 mV = .0316*(-W + M2) mV  (**)
+I+t = (-W + M2 + 10430)/31.7 mV = .0316*(-W + M2 + 10430) mV  (**)
 
 for W=11000 ADU and M2=500 ADU, we get
 
-I+t = -331mV
+I+t = -2 mV
 
 The expression for the output over the whole I+,I- time is the sum
 of M1 and M2:
 
-R = 46.3*I+t - 63.4 I-t + 31.7*(I+t) + W
-  = 78.0*I+t - 63.4 I-t + W
+R = 46.3*I+t - 63.4 I-t + 31.7*(I+t) + W -10430 + 744
+  = 78.0*I+t - 63.4 I-t + W - 9686
 
 This displays the sensitivity of the output to the trim voltages, 
 78ADU/mV for I+t and -63.4 ADU/mV for I-t. (REAL millivolts at C3 and C6)
@@ -364,7 +402,7 @@ for I-t, we get
 
 I-t = -M1/63.4 + 0.730*(-W + M2)/31.7
     = (1.461*M2 - M1)/63.4  - 0.730*W/31.7  
-    = .0230*M2 - .0158*M1 - .0230*W
+    = .0230*M2 - .0158*M1 - .0230*( W - 9686 )
 
 In the usual case in which M1=M2=M, we get
 
@@ -382,7 +420,10 @@ R = M1 + M2 = 1000 ADU
 
 So, summary: To set the trims such that you get M1 at the midpoint
 of the integration and R at the end with zero real video signal but
-with the SW feedthru, 
+with the SW feedthru, But this will vary with the value of W, which
+we can expect to vary from chip to chip and from amp to amp. But M1
+is NOT affected by W (in principle, though with the feedthrough
+into I- time this is not QUITE true. We address this below.
 
 ***************************************************************
 M2 = R - M1
@@ -436,38 +477,60 @@ Output = .327*(DADU+ - 32768) - 0.271*(DADU- - 32768)
 
 Pehaps somewhat better would be to characterize the DAC input in terms
 of percentages, I+% and I-% of 32768DADU, so the scale on each goes from 
--100% to +100%, and we would then get
+-100% to +100%, 1.38mv/% for I+, 1.40mV/% for I-
+and we would then get
 
-Output = 100*I+% - 89*I-%
+R = 100*I+% - 89*I-%
 
-M = 50*I+%
+OBSERVED is 
 
-IMPORTANT:
-**********************************************************************
-SteveHope needs to chage the FEE firmware to fix this, so the telemetry
-reads
+R = 106.3*I+% - 88.3*I-% + 780 for really zero video (including SW fdthru)
 
-mv on I+t = (DADU - 32768)*1.40/20. = 0.700*(DADU - 32768)mV
+or
 
-mv on I-t = (DADU - 32768)*1.42/20. = 0.710*(DADU - 32768)mV
+R = 106.3*I+% - 88.3*I-% + (~550) + (W - 9450) (***)
 
-OR percents, or whatever.
+We wish to set the trims so that M1 is about 500, and to do this
+we need to recognize that for a given pair of I+%, I-%, M2 is
+very nearly independent of W, and would be exactly so if the feedthrough
+into I- time were zero.
 
-AND remove the setting restriction to get the FULL DAC range. Something
-cuts it off and +/-400 indicated mV for some reason which I presume must
-have been relevant/correct at some time, but is no longer.
+In terms of trim *voltage*, 
+M1 = 46.3*I+t - 63.4*I-t + 744 ADU  
 
-**********************************************************************
+or, in terms of percents, 
 
-For reference, the current telemetry reports results for a bottom
-resistor of 6.28K, no bulk resistors, so 59.1mV trim per V from the DAC.
-This should have a range of -590mV to 590mV, but it cuts off at +/-400
-(???), and the current reported scaling is too high by a factor of 
-59.1/13.7 = 4.31 for I+ and 59.1/13.1 =4.51 for I-. I hope we can change
-the FEE firmware remotely. If not, this is not a disaster, because the
-mV trim voltages are some fiction anyway; what matters is the
-ADU shift at the output per any arbitrary input, and if that input
-is the incorrect currently reported mV, the numbers just change.
+M1 = 65*I*% - 89*I-% + 744 (****)
+
+So the setting procedure is as follows:
+
+Set I-% to zero,
+Set I+% to make R = 1000, leaving I-% = 0. Call the value of
+I+% to make this happen I0. We need now to set M1 to the desired value
+of 500, leaving R unchanged.
+
+But for changes dI+% and dI-%, the change in the output is 
+
+dR = 106.3*dI+% - 88,3*dI-% = 0 for the desired changes. 
+   = 106.3*(I+% - I0) - 80.3*I-% = 0
+    
+the desired setting 
+in M1 is 500, so, from ****,
+
+65*I+% - 89*I-% = 500 -744 = -244
+
+Subtracting (and realizing that the 88,3 is measured and is the
+same quantitiy as the theoretical 89, we get
+
+106*(I+% - I0) - 65*I+% = 244,
+41*I+% = 244 + 106*I0
+
+and so
+
+I+% = 5.95 + 2.58*I0
+I-% = 1.28*(I+% - I0)
+
+**************************************************************************
 
 I sincerely hope that most of the above is correct, but can, of course,
 NOT swear to it.
