@@ -1657,6 +1657,9 @@ def sigplot(waves,
             label = label + " - %g" % (-offsets[i])
         elif offsets[i] > 0:
             label = label + " + %g" % (offsets[i])
+        if len(xslice) == 0:
+            logging.getLogger('testrig').warn(f"xslice is empty: xrange=({x.min()}, {x.max()}")
+            logging.getLogger('testrig').warn(f"                 xdatalim=({xdatalim[0]}, {xdatalim[1]})")
         p0.plot(x[xslice]/xscale, y[xslice], 
                 color=colors[i], label=label)
         if not noWide:
