@@ -191,6 +191,9 @@ class PfsCpo(object):
     def setSampling(self, scale='1e-6', pos=50, triggerPos=20, 
                     delayMode='on', delayTime=0, delayUnits='s',
                     recordLength=100000):
+        if delayMode not in {'on', 'off'}:
+            raise ValueError('delayMode must be on or off')
+        
         self.write('horiz:delay:mode %s' % (delayMode))
         if delayUnits == 'us':
             delayTime /= 1e6
@@ -300,6 +303,7 @@ class PfsCpo(object):
 
         self.logger.info('fetching data for test %s', test.testName)
 
+        startLevel = self.logger.level
         self.logger.setLevel(20)
         test.fetchData()
         self.logger.setLevel(startLevel)
