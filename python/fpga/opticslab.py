@@ -153,13 +153,38 @@ def getPower():
         
     return float(parts[-1])
     
-def setup(arm, wavelength=None, flux=None, clearFe55=True):
-    """ """
+def setup(arm, wavelength=None, flux=None, clearFe55=True, lamp=None):
+    """Set up the optics lab visible illuminator to some pre-baked configurations. 
+
+    In simplest terms, we provide ~10 adu/s and ~1000 adu/s
+    configurations. These are only valid for certain wavelengths; QE
+    tests will need to do their own configuration.
+
+    Args
+    ----
+    arm : 'red' or 'blue'
+    wavelength : `int`
+      The target wavelength. Currently only 550 or 800: the defaults
+    flux : `int`
+      The desired flux, in ADU/s. Currently only 10 and 1000
+    clearFe55 : `bool`
+      Whether to actively take the Fe55 source out of the way. Takes a few seconds.
+    lamp : `arc` or `qth`
+      Override the default lamps (Xe arc for blue, quartz for red).
+      The quartz lamp has died, and we do have a valid configuration
+      for using Xe on the red side, at 800nm.
+
+    """
 
     if arm == 'blue':
+        if lamp is None:
+            lamp = 'arc'
+        elif lamp != 'arc':
+            raise ValueError('blue lamp must be the Xe arc')
+        
         if wavelength is None:
             wavelength = 550
-        lamp = 'arc'
+
         slitWidth = 1.0
         if wavelength == 550 and flux == 10:
             filter = 'ND3'
@@ -168,17 +193,20 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True):
         else:
             raise KeyError("unknown preset configuration, sorry.")
     elif arm == 'red':
-        if wavelength is None:
-            wavelength = 800
-        lamp = 'qth'
-        if wavelength == 800 and flux == 10:
-            slitWidth = 0.5
-            filter = 'ND5'
-        elif wavelength == 800 and flux == 1000:
-            slitWidth = 1.5
-            filter = 'ND3'
+        if lamp is None:
+            lamp = 'qth'
+
+        if lamp == 'arc':
+            if wavelength is None:
+                wavelength = 800
+            if wavelength == 800 and flux == 10:
+                slitWidth = 1.1
+                filter = 'ND4'
+            elif wavelength == 800 and flux == 1000:
+                slitWidth = 1.0
+                filter = 'None'
         else:
-            raise KeyError("unknown preset configuration, sorry.")
+            raise KeyError("unknown preset configuration, sorry. Look at the code.")
 
     else:
         raise KeyError('unknown arm')
