@@ -1019,7 +1019,7 @@ class ReadnoiseTest(OneTest):
             oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0', doPrint=True)
             self.expectedLevels = self.rig.expectedLevels
         elif 'benchOffsets' in testArgs:
-            oneCmd(ccdName, 'fee setOffsets n=100,100,100,100,100,100,100,100 p=0,0,0,0,0,0,0,0', doPrint=True)
+            oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
             self.expectedLevels = self.rig.expectedLevels
         else:
             oneCmd(ccdName, 'fee setMode offset')
@@ -1105,16 +1105,18 @@ def calcOffsetsV(target, current):
     
     return m, r
 
-def calcOffsets1(levels, target=500):
-    """ Given offsets of 0,-100 and data levels, return the I+ offsets. """
+IPscale = 106.3
+IMscale = 88.3
 
-    return (np.array(levels)-target)/88
+def calcOffsets1(levels, target=1000, atPercent=-100):
+    """ Given offsets of I-=0, I+=-100 and data levels, return the I-,I+ offsets. """
+    return ([0]*8,
+            (np.array(levels)-target)/IMscale + atPercent)
 
 def calcOffsets2(levels, target=1000):
     """ Given correct I+ offsets and new data levels, return the I- offsets. """
 
     return -(np.array(levels)-target)/106
-
 
 class OffsetTest(OneTest):
     testName = 'SetOffsets'
@@ -1186,7 +1188,7 @@ class OffsetTest(OneTest):
             
         else:
             oneCmd(ccdName, 'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%d,%d,%d,%d,%d,%d,%d,%d'
-                   % tuple([0]*16))
+                   % tuple([0]*8 + [-100]*8))
             time.sleep(1.1)
             oneCmd(ccdName, 'wipe')
             nrows = 500
@@ -1199,7 +1201,8 @@ class OffsetTest(OneTest):
             means, _ = nbFuncs.ampStats(im, ccd=fakeCcd, rows=np.arange(10, nrows-20))
             
         if ref is None and master is None:
-            m, r = calcOffsets(1000,means)
+            m, r = calcOffsets1(means, target=1000)
+            print("means: %s" % (means))
             print("applying master: %s" % (m))
             print("applying refs  : %s" % (r))
 
