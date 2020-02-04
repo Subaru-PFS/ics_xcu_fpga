@@ -1273,7 +1273,7 @@ class V0Test(OneTest):
         self.scope.setWaveform(4, 'BB', scale=5)
 
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=2.0, pos=10, triggerPos=10, delayMode=0, delayTime=0)
+        self.scope.setSampling(scale=2.0, pos=10, triggerPos=10, delayMode='off', delayTime=0)
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
         else:
@@ -1302,7 +1302,7 @@ class VideoTest(OneTest):
     def setup(self, trigger=None):
         self.scope.setAcqMode(numAvg=0)
         self.delayTime = 13.520*1e-6
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=0)
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode='off')
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch1',
                                       level=1.0, slope='rise', holdoff='10e-6')
@@ -1377,7 +1377,7 @@ class S1Test(OneTest):
     def setup(self, trigger=None):
         self.scope.setAcqMode(numAvg=1)
         self.delayTime = 13.920*1e-6 * 10
-        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode=1, delayTime=self.delayTime)
+        self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode='on', delayTime=self.delayTime)
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3',
                                       level=2, slope='fall', holdoff='10e-6')
@@ -1417,7 +1417,7 @@ class P0Test(OneTest):
         self.scope.setWaveform(4, 'P3', scale=2)
 
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode='off', delayTime=120e-6)
 
         if trigger is None:
             self.scope.setEdgeTrigger(level=0.0, slope='fall', holdoff='250e-6')
@@ -1451,7 +1451,7 @@ class P1Test(OneTest):
         self.scope.setWaveform(4, 'P3S', scale=2)
 
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode='off', delayTime=120e-6)
 
         if trigger is None:
             self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
@@ -1484,7 +1484,7 @@ class P2Test(OneTest):
         self.scope.setWaveform(4, 'IG2', scale=5)
 
         self.scope.setAcqMode(numAvg=0)
-        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode=0, delayTime=120e-6)
+        self.scope.setSampling(scale=50e-6, pos=50, triggerPos=20, delayMode='off', delayTime=120e-6)
 
         self.scope.setEdgeTrigger(level=-2.0, slope='fall', holdoff='250e-6')
 
@@ -1513,7 +1513,7 @@ class Switch1Test(OneTest):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=20e-9, # recordLength=1000000,
                                triggerPos=20,
-                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
+                               delayMode='on', delayTime=self.delayTime / 1e-6, delayUnits='us')
 
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch2', level=1.3, slope='rise', holdoff='10e-6')
@@ -1569,7 +1569,7 @@ class Switch2Test(OneTest):
         self.scope.setAcqMode(numAvg=0)
         self.scope.setSampling(scale=20e-9, # recordLength=1000000,
                                triggerPos=0.2,
-                               delayMode=1, delayTime=self.delayTime / 1e-6, delayUnits='us')
+                               delayMode='on', delayTime=self.delayTime / 1e-6, delayUnits='us')
 
         if trigger is None:
             self.scope.setEdgeTrigger(level=1.3, slope='rise', holdoff='10e-6')
