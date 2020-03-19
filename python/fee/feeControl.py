@@ -724,11 +724,31 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=False, sendReboot=True, straightToCode=False):
+    def sendImage(self, path, verbose=True, doWait=False, sendReboot=False, straightToCode=False,
+                  charAtATime=False, cmd=None):
         """ Download an image file to the interlock board. 
 
-        For a blank pic (bootloader only), do not send a reboot command.
-        Normally, _do_ send a reboot.
+        Args
+        ----
+        path : `str` or `pathlib.Path`
+          The .hex file to burn
+        doWait : bool
+          Whether to wait for a "Bootloader" prompt.
+        sendReboot:
+          Whether to start by sending a "reboot" command.
+        straightToCode:
+          Whether to skip all preparation and immediately start sending the .hex lines.
+        charAtATime: bool
+          Whether to send the image one character at a time (checking the echo) instead
+          of one line at a time (also checking the echo.
+        cmd : `actorcore.Command`
+          The driving command, to which we can send reassuring messages of progress,
+
+        2020-02-17: 
+          - For blank FEEs, use straightToCode, which sets doWait=False and sendReboot=False.
+          - Otherwise power fee off, call with doWait=True and sendReboot=False, then power fee up.
+            The problem is that the FEE firmware hangs if 'reboot' is ever sent a second time after a power up.
+          - If you have power-cycled, then calling with sendReboot=True and doWait=False is also OK.
         """
 
         eol = chr(0x0a)
@@ -784,7 +804,10 @@ class FeeControl(object):
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
             t0 = time.time()
-            self.logger.info('sending image file %s, %d lines' % (path, len(lines)))
+            msg = 'sending image file %s, %d lines' % (path, len(lines))
+            self.logger.info(msg)
+            if cmd is not None:
+                cmd.inform(f'text="{msg}"')
             for l_i, rawl in enumerate(lines):
                 hexl = rawl.strip()
                 if hexl[0] == ';':
@@ -796,9 +819,13 @@ class FeeControl(object):
                                                                         retries))
                     fullLine = hexl+eol
                     if verbose and lineNumber%100 == 1:
-                        self.logger.info('sending line %d / %d', lineNumber, len(lines))
+                        msg = 'sending line %d / %d' % (lineNumber, len(lines))
+                        self.logger.info(msg)
+                        if cmd is not None:
+                            cmd.inform(f'text="{msg}"')
+                            
                     self.logger.debug("sending line %d: %r", lineNumber, fullLine)
-                    if True:
+                    if charAtATime:
                         retline = self.sendOneLinePerChar(fullLine)
                     else:
                         self.device.write(fullLine.encode('latin-1'))
