@@ -822,18 +822,19 @@ class FeeControl(object):
 
             t1 = time.time()
             
-        self.logger.info('sent image file %s in %0.2f seconds' % (path, t1-t0))
+        msg = 'sent image file %s in %0.2f seconds' % (path, t1-t0)
+        self.logger.info(msg)
+        if cmd is not None:
+            cmd.inform(f'text="{msg}"')
+            
         time.sleep(1)
         line = self.device.readline().decode('latin-1')
         self.logger.info('recv: %s', line)
-        if 'Bootloader' not in line:
-            self.logger.warn('did not get expected Booloader line after loading image (%s)' % line)
-        else:
-            time.sleep(2)
-            line = self.device.readline().decode('latin-1')
-            self.logger.info('recv: %s', line)
-            if 'FEE' not in line:
-                self.logger.warn('did not get expected FEE line after loading image (%s)' % line)
+        if 'FEE' not in line:
+            msg = 'did not get expected FEE line after loading image (%s)' % line
+            self.logger.warn(msg)
+            if cmd is not None:
+                cmd.warn(f'text="{msg}"')
 
         self.logger.setLevel(logLevel)
 
