@@ -188,12 +188,16 @@ class CCD(FPGA):
 
     def getReadClocks(self):
         """ Fetch the final read mode clocking routine. """
-        
-        import clocks.read
-        reload(clocks.read)
 
-        readClocks = partial(clocks.read.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
-        self.logger.info(f'clocks with holdon={self.holdOn}, holdOff={self.holdOff}')
+        if self.newAdc:
+            import clocks.read as readClocks
+            reload(readClocks)
+        else:
+            import clocks.oldAdcRead as readClocks
+            reload(readClocks)
+
+        readClocks = partial(readClocks.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
+        self.logger.info(f'clocks (new={self.newAdc}) with holdon={self.holdOn}, holdOff={self.holdOff}')
         
         return readClocks
     
