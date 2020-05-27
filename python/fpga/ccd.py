@@ -88,16 +88,18 @@ class CCD(FPGA):
         self.readDirection = 0b10101010 
         # self.logger.warn('ccd is: %s', str(self))
 
+        self.setAdcVersion()
         self.holdOn = set()
         self.holdOff = set()
 
         # self.logger.warn('ccd: %s', str(self))
         
     def __str__(self):
-        return "FPGA(readoutState=%d,ver=0x%08x,adc18=%s,correctSignBit=%s)" % (self.readoutState(),
-                                                                                self.peekWord(0),
-                                                                                self.adc18bit,
-                                                                                self.doCorrectSignBit)
+        return "FPGA(readoutState=%d,ver=0x%08x,newADC=%s,adc18=%s,correctSignBit=%s)" % (self.readoutState(),
+                                                                                          self.peekWord(0),
+                                                                                          self.newAdc,
+                                                                                          self.adc18bit,
+                                                                                          self.doCorrectSignBit)
     @property
     def nrows(self):
         """ Number of rows for the readout, derived from .ccdRows + .overRows. """
@@ -124,7 +126,15 @@ class CCD(FPGA):
 
     def fpgaVersion(self):
         return "0x%08x" % ((self.peekWord(0) & 0xffff) + 1)
-    
+
+    def setAdcVersion(self, isNew=True, cmd=None):
+        if not isinstance(isNew, bool):
+            raise ValueError("need boolean to .setAdcVersion()")
+        self.newAdc = isNew
+
+        if cmd is not None:
+            cmd.inform(f'text="{str(self)}"')
+
     def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
         """Set some clock lines on or off.
         
@@ -178,12 +188,16 @@ class CCD(FPGA):
 
     def getReadClocks(self):
         """ Fetch the final read mode clocking routine. """
-        
-        import clocks.read
-        reload(clocks.read)
 
-        readClocks = partial(clocks.read.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
-        self.logger.info(f'clocks with holdon={self.holdOn}, holdOff={self.holdOff}')
+        if self.newAdc:
+            import clocks.read as readClocks
+            reload(readClocks)
+        else:
+            import clocks.oldAdcRead as readClocks
+            reload(readClocks)
+
+        readClocks = partial(readClocks.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
+        self.logger.info(f'clocks (new={self.newAdc}) with holdon={self.holdOn}, holdOff={self.holdOff}')
         
         return readClocks
     
