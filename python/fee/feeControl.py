@@ -990,6 +990,8 @@ class FeeControl(object):
         return ret
     
     def setOffsets(self, amps, levels, leg='n', pause=0.0, doSave=True):
+        if np.isscalar(levels):
+            levels = np.zeros(len(amps),dtype='f4') + levels
         if len(amps) != len(levels):
             raise RuntimeError("require same number of amps (%r) and levels (%r)" % (amps, levels))
         for i, a in enumerate(amps):
