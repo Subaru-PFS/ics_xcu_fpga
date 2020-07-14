@@ -1119,10 +1119,12 @@ def calcOffsets1(levels, target=1000, atPercent=-100):
     return ([0]*8,
             (np.array(levels)-target)/IMscale + atPercent)
 
-def calcOffsets2(levels, target=1000):
-    """ Given correct I+ offsets and new data levels, return the I- offsets. """
+def calcOffsets2(levels, Iplus_0, target=1000):
+    """ Given correct I+ offsets and new data levels, return the I-,I+ offsets. """
 
-    return -(np.array(levels)-target)/106
+    Iplus_new = 5.95 + 2.58*Iplus_0
+    Iminus_new = 1.28*(Iplus_new - Iplus_0)
+    return Iminus_new, Iplus_new
 
 class OffsetTest(OneTest):
     testName = 'SetOffsets'
