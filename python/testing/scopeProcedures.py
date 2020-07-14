@@ -630,6 +630,19 @@ class OneTest(object):
         self.amp = m['amp']
         self.revision = m['revision']
 
+    def getPath(self, output):
+        for l in output:
+            m = re.search('.*filepath=(.*\.fits).*', l)
+            if m:
+                pathparts = m.group(1)
+                pp = pathparts.split(',')
+                pp.insert(2, 'sps')
+                fitspath = os.path.join(*pp)
+                print("got filepath: %s" % fitspath)
+
+                return fitspath
+        return None
+        
     @property
     def fullPath(self):
         dirName = self.rig.dirName
@@ -1032,14 +1045,7 @@ class ReadnoiseTest(OneTest):
         output = oneCmd(ccdName, 'read bias')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
-        self.fitspath = None
-        for l in output:
-            m = re.search('.*filepath=(.*\.fits).*', l)
-            if m:
-                pathparts = m.group(1)
-                self.fitspath = os.path.join(*pathparts.split(','))
-                print("set filepath to: %s" % self.fitspath)
-
+        self.fitspath = self.getPath(output)
         
     def fetchData(self):
         pass
@@ -1130,15 +1136,6 @@ class OffsetTest(OneTest):
     def setup(self, trigger=None):
         pass
 
-    def getPath(self, output):
-        for l in output:
-            m = re.search('.*filepath=(.*\.fits).*', l)
-            if m:
-                pathparts = m.group(1)
-                fitspath = os.path.join(*pathparts.split(','))
-                return fitspath
-        return None
-        
     def runTest(self, trigger=None,
                 nrows=None, ref=None, master=None,
                 walkOffsets=False, checkOffsets=False, **testArgs):
