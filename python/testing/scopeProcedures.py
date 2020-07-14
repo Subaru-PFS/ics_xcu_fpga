@@ -1373,7 +1373,7 @@ class S1Test(OneTest):
         
     def setup(self, trigger=None):
         self.scope.setAcqMode(numAvg=1)
-        self.delayTime = 13.920*1e-6 * 10
+        self.delayTime = 13.920*1e-6 * 1
         self.scope.setSampling(scale=200e-9, pos=50, triggerPos=20, delayMode='on', delayTime=self.delayTime)
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3',
@@ -1394,7 +1394,7 @@ class S1Test(OneTest):
         return sigplot(self.testData['waveforms'], xscale=1e-6,
                        noWide=False,
                        xlim=(-0.5,14), ylim=(-8,4), 
-                       showLimits=True, title=self.title)        
+                       showLimits=False, title=self.title)        
 
 class P0Test(OneTest):
     testName = 'P0'
