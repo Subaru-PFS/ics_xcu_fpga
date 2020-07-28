@@ -165,10 +165,20 @@ int armReadout(int nrows, int doTest, int adc18bit)
   // At this point the master must again get acknowledgement that
   // all units are ready.
   // Start clock
+
+  // WPU_18BIT and WPU_18BIT2, from the FPGA code:
+  // Old (0x7-series) ADC:
+  //   11 - drop two MSBs ('lsb"==3==0b11)
+  //   10 - NORMAL mode: drop LSB and MSB ("mid"==2==0b10)
+  //   0x - never use: configres for 16-bit readout.
+  // New (0x8-series):
+  //   11 - NORMAL mode: drop two LSB ("msb"==3==0b11)
+  //   10 - middle bits: drop LSB and MSB ("mid"==2==0b10)
+  //   0x - low bits: drop twp MSB (lsb"==1==0b01)
   fpga[R_WPU_CTRL] = EN_SYNCH |
     (doTest ? WPU_TEST : 0) | // Optionally enable test pattern
-    ((adc18bit & 0x1) ? WPU_18BIT2 : 0) | // Optionally configure for 18 bit ADC
-    ((adc18bit & 0x2) ? WPU_18BIT : 0); // Optionally configure for low-bits of 18 bit ADC
+    ((adc18bit & 0x2) ? WPU_18BIT : 0) |
+    ((adc18bit & 0x1) ? WPU_18BIT2 : 0);
   readoutState = ARMED;
   fprintf(stderr, "armed: nrows=%d doTest=%d adc18bit=%d\n",
           nrows, doTest, adc18bit);
