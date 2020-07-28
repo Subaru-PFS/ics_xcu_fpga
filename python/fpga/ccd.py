@@ -197,7 +197,7 @@ class CCD(FPGA):
                 raise ValueError("for old ADCs, adcType (%s) must be 'lsb', or 'mid'" % (adcType))
                 
         self.adc18bit = adcType
-        self.doCorrectSignBit = (adcType == 3) and doCorrectSignBit
+        self.doCorrectSignBit = self.newAdc and (adcType == 3) and doCorrectSignBit
         
 
     def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
