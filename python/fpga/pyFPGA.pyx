@@ -63,10 +63,8 @@ def printProgress(row_i, image, errorMsg="OK", everyNRows=100,
 cdef class FPGA:
     cdef dict __dict__
     
-    def __cinit__(self, spectroId, arm, splitDetectors=False,
-                  site=None, adc18bit=3, doCorrectSignBit=True):
+    def __cinit__(self):
         configureFpga(<const char *>0)
-        self.setAdcType(adc18bit, doCorrectSignBit=doCorrectSignBit)
 
     def __init__(self):
         """ Please use the CCD subclass instead of FPGA! """
@@ -75,23 +73,6 @@ cdef class FPGA:
     def __deallocate__(self):
         releaseFpga()
     
-    def __repr__(self):
-        return self.str()
-
-    def setAdcType(self, adcType, doCorrectSignBit=True):
-        if adcType == 'msb':
-            adcType = 3
-        elif adcType == 'mid':
-            adcType = 2
-        elif adcType == 'lsb':
-            adcType = 1
-
-        if not isinstance(adcType, int) or adcType < 1 or adcType > 3:
-            raise ValueError("adcType (%s) must be 1, 2, or 3, or 'lsb', 'mid', 'msb'" % (adcType))
-        
-        self.adc18bit = adcType
-        self.doCorrectSignBit = (adcType == 3) and doCorrectSignBit
-        
     def readoutState(self):
         return readoutState
 

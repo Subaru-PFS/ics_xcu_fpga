@@ -50,9 +50,10 @@ class CCD(FPGA):
                 'r':'red',
                 'b':'blue'}
 
-    def __init__(self, spectroId, arm,
+    def __init__(self, spectroId=None, arm=None,
                  rootDir='/data/pfs', site=None,
-                 splitDetectors=False, adc18bit=3,
+                 splitDetectors=False,
+                 adcVersion=None, adcBits='default',
                  doCorrectSignBit=True):
 
         if not isinstance(spectroId, int) and spectroId < 1 or spectroId > 9:
@@ -88,18 +89,20 @@ class CCD(FPGA):
         self.readDirection = 0b10101010 
         # self.logger.warn('ccd is: %s', str(self))
 
-        self.setAdcVersion()
+        self.setAdcVersion(adcVersion)
+        self.setAdcType(adcBits, doCorrectSignBit=doCorrectSignBit)
         self.holdOn = set()
         self.holdOff = set()
 
-        # self.logger.warn('ccd: %s', str(self))
-        
     def __str__(self):
-        return "FPGA(readoutState=%d,ver=0x%08x,newADC=%s,adc18=%s,correctSignBit=%s)" % (self.readoutState(),
-                                                                                          self.peekWord(0),
-                                                                                          self.newAdc,
-                                                                                          self.adc18bit,
-                                                                                          self.doCorrectSignBit)
+        return "FPGA(readoutState=%d,ver=%s,newADC=%s,adc18=%s,correctSignBit=%s)" % (self.readoutState(),
+                                                                                      self.fpgaVersion(),
+                                                                                      self.newAdc,
+                                                                                      self.adc18bit,
+                                                                                      self.doCorrectSignBit)
+    def __repr__(self):
+        return str(self)
+    
     @property
     def nrows(self):
         """ Number of rows for the readout, derived from .ccdRows + .overRows. """
@@ -125,15 +128,77 @@ class CCD(FPGA):
         return 2
 
     def fpgaVersion(self):
-        return "0x%08x" % ((self.peekWord(0) & 0xffff) + 1)
+        return "0x%04x" % ((self.peekWord(0) & 0xffff) + 1)
 
-    def setAdcVersion(self, isNew=True, cmd=None):
-        if not isinstance(isNew, bool):
-            raise ValueError("need boolean to .setAdcVersion()")
+    def setAdcVersion(self, adcVersion=None):
+        """Set whether we are using a new (full signed 18-bit) or old (18-bit, sign=0) ADC.
+
+        This is used in two places:
+         - to select the readout mode clocking file
+         - to translate from the logical readout names to the FPGA bitmask 
+        """
+        if adcVersion is None:
+            version = self.peekWord(0)
+            majorVersion = version & 0x00f0
+            if majorVersion == 0x70:
+                isNew = False
+            elif majorVersion == 0x80:
+                isNew = True
+            else:
+                raise ValueError(f"unknown FPGA major version: {majorVersion:0x02f} from {version:0x04x}")
+        elif adcVersion == 'old':
+            isNew = False
+        elif adcVersion == 'new':
+            isNew = True
+        else:
+            raise ValueError(f"ADC version is neither 'old', nor 'new': {adcVersion}")
+
         self.newAdc = isNew
 
-        if cmd is not None:
-            cmd.inform(f'text="{str(self)}"')
+    def setAdcType(self, adcType, doCorrectSignBit=True):
+        """Set the ADC 16-from-18 bit conversion mode. 
+
+        Args:
+        ----
+        adcType : `str`
+          'lsb' or 'mid' (default) for old ADCs.
+          'lsb', 'mid', or 'msb' (default) for new ADCs.
+        doCorrectSignBit : `bool`
+          Whether to convert signed to unsigned pixel values,
+          for 'msb' values on new ADCs.
+
+        Must match FPGA and C code:
+
+        WPU_18BIT and WPU_18BIT2:
+        Old (0x70-series) ADC:
+          11 - drop two MSBs ('lsb"==3==0b11)
+          10 - NORMAL mode: drop LSB and MSB ("mid"==2==0b10)
+          0x - never use: configures FPGA for 16-bit ADC boards.
+        New (0x80-series):
+          11 - NORMAL mode: drop two LSB ("msb"==3==0b11)
+          10 - middle bits: drop LSB and MSB ("mid"==2==0b10)
+          0x - low bits: drop twp MSB (lsb"==1==0b01)
+        """
+        if self.newAdc:
+            if adcType in {'msb', 'default'}:
+                adcType = 3
+            elif adcType == 'mid':
+                adcType = 2
+            elif adcType == 'lsb':
+                adcType = 1
+            else:
+                raise ValueError("for new ADCs, adcType (%s) must be 'lsb', or 'mid', or 'msb'" % (adcType))
+        else:
+            if adcType in {'mid', 'default'}:
+                adcType = 2
+            elif adcType == 'lsb':
+                adcType = 3
+            else:
+                raise ValueError("for old ADCs, adcType (%s) must be 'lsb', or 'mid'" % (adcType))
+                
+        self.adc18bit = adcType
+        self.doCorrectSignBit = (adcType == 3) and doCorrectSignBit
+        
 
     def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
         """Set some clock lines on or off.
