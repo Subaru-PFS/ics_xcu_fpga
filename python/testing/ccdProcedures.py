@@ -12,6 +12,8 @@ import fpga.geom as geom
 
 import fpga.ccdFuncs as ccdFuncs
 import fpga.opticslab as opticslab
+from testing.logbook import storeExposures
+
 
 reload(geom)
 reload(ccdFuncs)
@@ -71,38 +73,53 @@ def stdExposures_biases(ccd=None,
                         feeControl=None,
                         comment='biases'):
 
-    ccdFuncs.expSequence(ccd=ccd,
-                         nbias=nbias,
-                         feeControl=feeControl,
-                         comment=comment,
-                         title='%d biases' % (nbias))
+    files = ccdFuncs.expSequence(ccd=ccd,
+                                 nbias=nbias,
+                                 feeControl=feeControl,
+                                 comment=comment,
+                                 title='%d biases' % (nbias))
+    
+    storeExposures("std_exposures_biases", files)
+    return files
 
 def stdExposures_darks(ccd=None,
                        ndarks=21, darkTime=150,
                        feeControl=None,
                        comment='darks'):
 
-    ccdFuncs.expSequence(ccd=ccd,
-                         darks=[darkTime]*ndarks,
-                         feeControl=feeControl,
-                         comment=comment,
-                         title='%d %gs darks' % (ndarks, darkTime))
+    files = ccdFuncs.expSequence(ccd=ccd,
+                                 darks=[darkTime]*ndarks,
+                                 feeControl=feeControl,
+                                 comment=comment,
+                                 title='%d %gs darks' % (ndarks, darkTime))
+    
+    storeExposures("std_exposures_darks", files)
+    return files
 
 def stdExposures_base(ccd=None, feeControl=None, comment=None):
 
-    stdExposures_biases(ccd=ccd, feeControl=feeControl, comment=comment)
-    stdExposures_darks(ccd=ccd, feeControl=feeControl, comment=comment)
-
+    files = stdExposures_biases(ccd=ccd, feeControl=feeControl, comment=comment)
+    files += stdExposures_darks(ccd=ccd, feeControl=feeControl, comment=comment)
+    
+    storeExposures("std_exposures_base", files)
+    return files
+    
+    
 def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
     darkTime = 900
+    files = []
     for i in range(hours):
-        ccdFuncs.expSequence(ccd=ccd,
-                             biases=5,
-                             darks=[900]*4,
-                             feeControl=feeControl,
-                             comment=comment,
-                             title='1 hour %fs dark loop' % (darkTime))
-
+        files += ccdFuncs.expSequence(ccd=ccd,
+                                      biases=5,
+                                      darks=[900]*4,
+                                      feeControl=feeControl,
+                                      comment=comment,
+                                      title='1 hour %fs dark loop' % (darkTime))
+        
+    storeExposures("std_exposures_hours", files)
+    return files
+        
+    
 def calcOffsets(target, current):
     m = np.round((target - current)/30, 2)
     r = np.round(m * 40.0/57.0, 2)
@@ -155,13 +172,15 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
         
     opticslab.setup(ccd.arm, flux=1000)
 
-    ccdFuncs.expSequence(ccd=ccd,
-                         nrows=nrows, ncols=ncols,
-                         nbias=3, 
-                         feeControl=feeControl,
-                         comment=comment,
-                         title='pre-VOD/VOG tuning biases')
-
+    files = ccdFuncs.expSequence(ccd=ccd,
+                                 nrows=nrows, ncols=ncols,
+                                 nbias=3, 
+                                 feeControl=feeControl,
+                                 comment=comment,
+                                 title='pre-VOD/VOG tuning biases')
+    
+    storeExposures("std_exposures_biases", files, 'pre-VOD/VOG tuning biases')
+    
     files = []
     for vod in VOD:
         for vog in VOG:
@@ -176,7 +195,8 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
                                           comment=comment,
                                           title='VOD/VOG tuning (%0.1f, %0.1f)' % (vod, vog))
             files.extend(files1)
-
+            
+    storeExposures("std_exposures_vod_vog", files)
     return files
 
 def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
@@ -184,7 +204,7 @@ def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
 
     At 1000ADU/s, take flats running up past saturation.
     """
-    
+    files = []
     opticslab.setup(ccd.arm, flux=1000)
 
     explist = (('bias', 0),
@@ -316,10 +336,15 @@ def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
                ('bias', 0),
                ('dark', 100))
 
-    ccdFuncs.expList(explist, ccd=ccd,
-                     feeControl=feeControl,
-                     comment=comment,
-                     title='bright flats')
+    files = ccdFuncs.expList(explist, ccd=ccd,
+                             feeControl=feeControl,
+                             comment=comment,
+                             title='bright flats')
+    
+    storeExposures("std_exposures_bright_flats", files)
+    return files
+    
+    
 
 def stdExposures_lowFlats(ccd=None, feeControl=None,
                           comment='low flats'):
@@ -393,10 +418,14 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                ('bias', 0),
                ('dark', 100))
                
-    ccdFuncs.expList(explist, ccd=ccd,
-                     feeControl=feeControl,
-                     comment=comment,
-                     title='low flats')
+    files = ccdFuncs.expList(explist, ccd=ccd,
+                             feeControl=feeControl,
+                             comment=comment,
+                             title='low flats')
+    
+    storeExposures("std_exposures_low_flats", files)
+    return files
+    
 
 def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     """ Take standard set of Fe55 exposures.
@@ -406,7 +435,7 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
 
     In practice, the calling routine would run this many times.
     """
-    
+    files = []
     explist = []
     explist.append(('bias', 0),)
     for i in range(10):
@@ -419,10 +448,13 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     for pos in 35,45,55:
         opticslab.setFe55(pos)
         
-        ccdFuncs.expList(explist, ccd=ccd,
-                         feeControl=feeControl,
-                         comment='Fe55 dark %s'%str(pos),
-                         title='Fe55 darks')
+        files += ccdFuncs.expList(explist, ccd=ccd,
+                                  feeControl=feeControl,
+                                  comment='Fe55 dark %s'%str(pos),
+                                  title='Fe55 darks')
+    
+    storeExposures("std_exposures_fe55", files)
+    return files
 
 def stdExposures_QE(ccd=None, feeControl=None,
                     comment='QE ramp', flatTime=10.0, waves=None):
@@ -431,7 +463,7 @@ def stdExposures_QE(ccd=None, feeControl=None,
     Currently taking 50m steps across the detector bandpass, with 
     10s exposures at ~1000 ADU/s
     """
-    
+    files = []
     opticslab.setup(ccd.arm, flux=1000)
 
     if waves is None:
@@ -464,6 +496,10 @@ def stdExposures_QE(ccd=None, feeControl=None,
                                       feeControl=feeControl,
                                       extraCards=cards,
                                       comment=expComment)
+        files.append(imfile)
+        
+    storeExposures("std_exposures_qe", files)
+    return files
         
 def CTEStats(flist, bias, amps=None, useCols=None):
     '''
