@@ -55,8 +55,14 @@ class Exposure(object):
         
         try:
             vers = self.header['versions.FPGA']
+            if isinstance(vers, str):
+                vers = int(vers, base=16) 
+            
             if vers >= 0xa071:
                 return image
+        except KeyError:
+            self.logger.info('versions.FPGA missing from header, returning image')
+            return image
         except:
             pass
         
@@ -199,7 +205,7 @@ class Exposure(object):
             xr = slice(x1-1, x0-1, -1)
 
         yr = slice(self.leadinRows*(not leadingRows), self.ccdRows + overscan*self.overRows)
-
+        
         return yr, xr
 
     def finalAmpExtents(self, ampId, leadingRows=True):
