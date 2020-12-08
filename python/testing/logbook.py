@@ -6,7 +6,7 @@ import psycopg2
 from astropy.io import fits
 
 sequenceType = ['std_exposures_biases', 'std_exposures_darks', 'std_exposures_base', 'std_exposures_hours', 'std_exposures_vod_vog', 
-                'std_exposures_bright_flats', 'std_exposures_low_flats', 'std_exposures_fe55', 'std_exposures_qe', 'std_exposures_test']
+                'std_exposures_bright_flats', 'std_exposures_low_flats', 'std_exposures_master_flats', 'std_exposures_fe55', 'std_exposures_qe', 'std_exposures_test']
 
 def cleanStr(text):
     return text.replace("'", '').strip()
@@ -47,7 +47,7 @@ def retrieveExposures(sequence, ccd, experiment=None):
             raise ValueError(f'no {sequence} available with {ccd}')
         experiment = experiments.max()
     exposures = Logbook.fetchall(f'select * from exposure where experiment={experiment}')
-    return pd.DataFrame(exposures, columns=['visit', 'experiment', 'sequence', 'comments', 'date', 'ccd', 'exptype', 'exptime', 'filepath'])
+    return pd.DataFrame(exposures, columns=['visit', 'experiment', 'sequence', 'comments', 'date', 'ccd', 'exptype', 'exptime', 'filepath']).sort_values('visit').reset_index(drop=True)
 
 def describeExperiments(sequence, ccd):
     sequence = getSequence(sequence)
