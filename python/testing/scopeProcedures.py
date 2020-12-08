@@ -1193,8 +1193,11 @@ class OffsetTest(OneTest):
             nrows = 500
             output = oneCmd(ccdName, 'read bias nrows=%d' % (nrows))
             fitspath = self.getPath(output)
-            shutil.copy(fitspath, os.path.join(self.rig.dirName,
-                                               os.path.basename(fitspath)))
+            try:
+                shutil.copy(fitspath, os.path.join(self.rig.dirName, os.path.basename(fitspath)))
+            except Exception as e:
+                print(e)
+                
             im = pyfits.getdata(fitspath)
             fakeCcd = FakeCcd()
             means, _ = nbFuncs.ampStats(im, ccd=fakeCcd, rows=np.arange(10, nrows-20))

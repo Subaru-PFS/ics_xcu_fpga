@@ -801,6 +801,7 @@ class FeeControl(object):
         # self.logger.setLevel(logging.INFO)
         self.device.timeout = 1.0 # self.devConfig['timeout'] * 100
         strTrans = str.maketrans('', '', '\x11\x13')
+        self.logger.info(f'sending image file {path}')
         with open(path, 'rU') as hexfile:
             lines = hexfile.readlines()
             t0 = time.time()
