@@ -1150,17 +1150,6 @@ class AmpCheckTest(OneTest):
         ccdName = "ccd_%s" % (self.dewar)
         self.expectedLevels = self.rig.expectedLevels
 
-        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
-        time.sleep(1.1)
-        self.logger.info("calling for a wipe")
-        oneCmd(ccdName, 'wipe')
-        self.logger.info("done with wipe")
-        self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=100')
-
-        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
-        self.testFiles.append(self.getPath(output))
-
         oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=100,100,100,100,-100,-100,-100,-100', doPrint=True)
         time.sleep(1.1)
         self.logger.info("calling for a wipe")
@@ -1168,7 +1157,15 @@ class AmpCheckTest(OneTest):
         self.logger.info("done with wipe")
         self.logger.info("calling for a read")
         output = oneCmd(ccdName, 'read bias nrows=100')
+        self.testFiles.append(self.getPath(output))
 
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
+        time.sleep(1.1)
+        self.logger.info("calling for a wipe")
+        oneCmd(ccdName, 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd(ccdName, 'read bias nrows=100')
         self.testFiles.append(self.getPath(output))
 
     def fetchData(self):
@@ -1182,7 +1179,7 @@ class AmpCheckTest(OneTest):
         fakeCcd = FakeCcd()
 
         f, pl = plt.subplots()
-        testNames = ["all amps ", "ccd1 amps"]
+        testNames = ["ccd1 amps", "all amps "]
         for f_i, fname in enumerate(self.testFiles):
             im = pyfits.getdata(fname)
             ampWidth = im.shape[1]//8
@@ -1192,11 +1189,20 @@ class AmpCheckTest(OneTest):
             rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
             plotRow = height//2
             levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
+            self.logger.info(f"{testNames[f_i]} levels: {np.round(levels, 0)}")
 
-            print(f"{testNames[f_i]}: {levels}")
+            if f_i == 0:
+                if np.any(levels[:4] != 0):
+                    self.logger.warning("Some CCD0 level is not 0: look for amps swapped between CCD0 and CCD1!")
+            else:
+                diff = np.abs(levels - self.expectedLevels)
+                pctError = 100 * (diff / self.expectedLevels)
+                self.logger.info(f"{testNames[f_i]} errors: {np.round(pctError, 1)}")
+                if np.any(pctError > 10):
+                    self.logger.warning(f"Some amp level is >10% away from expected level: {np.round(pctError, 1)}")
 
-            pl.plot(np.clip(im[plotRow] - f_i*200, a_min=0, a_max=None),
-                    alpha=0.5, label=testNames[f_i])
+
+            pl.plot(im[plotRow] + f_i*200, alpha=0.5, label=testNames[f_i])
 
         pl.legend()
         f.suptitle('Per-CCD amp level stairstep')
