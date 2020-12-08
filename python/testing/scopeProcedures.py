@@ -169,7 +169,7 @@ class BenchRig(TestRig):
             dewar = 'b9'
         else:
             dewar = cam
-            self.logger.warn('testing cam %s', cam)
+            self.logger.warning('testing cam %s', cam)
         self.dewar = dewar
         if sequence is None:
             sequence = 'full'
@@ -294,7 +294,7 @@ class BenchRig(TestRig):
             
     def burnFee(self):
         feePath = "/home/pfs/fee/current.hex"
-        print("downloading fee firmware.....")
+        self.logger.info("downloading fee firmware.....")
         self.powerDown()
         subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
         time.sleep(1.1)
@@ -302,7 +302,7 @@ class BenchRig(TestRig):
         time.sleep(1.1)
         
         oneCmd('ccd_%s' % (self.dewar), 'fee download pathname="%s"' % (feePath))
-        print("done downloading fee firmware, we hope....")
+        self.logger.info("done downloading fee firmware, we hope....")
 
         self.powerDown()
         self.powerUp()
@@ -434,13 +434,13 @@ class BenchRig(TestRig):
             else:
                 ret = self.scope.runTest(test, trigger=trigger, **testArgs)
         except Exception as e:
-            print("test FAILED: %s" % (e))
+            self.logger.error("test FAILED: %s" % (e))
             if doRaise:
                 raise
             return False
 
         if ret is False:
-            print("test FAILED, stopping.")
+            self.logger.error("test FAILED, stopping.")
             return False
         
         test.save()
@@ -449,12 +449,12 @@ class BenchRig(TestRig):
         pdfPath = "%s.pdf" % (basePath)
 
         if isinstance(ret, str):
-            self.logger.warn('not yet formatting Markdown output')
+            self.logger.warning('not yet formatting Markdown output')
         elif ret is not None:
             fig, pl = ret
             if fig is not None:
                 fig.savefig(pdfPath)
-                print("PDF is at %s" % (pdfPath))
+                self.logger.info("PDF is at %s" % (pdfPath))
 
         return test, ret
 
@@ -508,10 +508,10 @@ class BenchRig(TestRig):
                                                                                pdfName, mdName), shell=True)
         subprocess.call('pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                                texName, mdName), shell=True)
-        print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
-                                                                         texName, mdName))
+        self.logger.info('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
+                                                                                    texName, mdName))
     def finishFullRig(self):
-        print("generating full report.... ")
+        self.logger.info("generating full report.... ")
         
         reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
         if self.sequenceType == 'full':
@@ -522,12 +522,12 @@ class BenchRig(TestRig):
         elif self.sequenceType == 'preship':
             filenames = 'frontpage.pdf AmpCheck*.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf'
         else:
-            print("unknown test type, not building report")
+            self.logger.warning("unknown test type, not building report")
             return
 
         cmd = '(cd %s; pdfjoin --outfile %s %s )' % (self.dirName, reportPath, filenames)
         subprocess.call(cmd, shell=True)
-        print("report is in %s" % (reportPath))
+        self.logger.info("report is in %s" % (reportPath))
          
     def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
         """ run tests until failure or the next MUX reconfiguration
@@ -642,7 +642,7 @@ class OneTest(object):
                 pp = pathparts.split(',')
                 pp.insert(2, 'sps')
                 fitspath = os.path.join(*pp)
-                print("got filepath: %s" % fitspath)
+                self.logger.debug("got filepath: %s" % fitspath)
 
                 return fitspath
         return None
@@ -1042,10 +1042,10 @@ class ReadnoiseTest(OneTest):
             oneCmd(ccdName, 'fee setMode offset')
             self.expectedLevels = [1000]*8
         time.sleep(1.1)
-        self.logger.info("calling for a wipe")
+        self.logger.debug("calling for a wipe")
         oneCmd(ccdName, 'wipe')
-        self.logger.info("done with wipe")
-        self.logger.info("calling for a read")
+        self.logger.debug("done with wipe")
+        self.logger.debug("calling for a read")
         output = oneCmd(ccdName, 'read bias')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
@@ -1253,12 +1253,12 @@ class OffsetTest(OneTest):
                 for i, v in enumerate(np.linspace(0.0, 100, 5)):
                     vlist = [v]*8
                     if leg == 'p':
-                        print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
+                        self.logger.info("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
                         oneCmd(ccdName,
                                'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseMaster]*8 + vlist))
                     else:
-                        print("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
+                        self.logger.info("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
                         oneCmd(ccdName,
                                'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseRef]*8 + vlist))
@@ -1278,8 +1278,8 @@ class OffsetTest(OneTest):
                     fakeCcd = FakeCcd()
                     means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
                     outputs[leg][v] = means
-                    self.logger.warn("%s=%s = %s", leg, v, means)
-                    self.logger.warn("  %s", outputs)
+                    self.logger.warning("%s=%s = %s", leg, v, means)
+                    self.logger.warning("  %s", outputs)
             return outputs
             
         else:
@@ -1293,7 +1293,7 @@ class OffsetTest(OneTest):
             try:
                 shutil.copy(fitspath, os.path.join(self.rig.dirName, os.path.basename(fitspath)))
             except Exception as e:
-                print(e)
+                self.logger.warning(e)
                 
             im = pyfits.getdata(fitspath)
             fakeCcd = FakeCcd()
@@ -1301,14 +1301,14 @@ class OffsetTest(OneTest):
             
         if ref is None and master is None:
             m, r = calcOffsets1(means, target=1000)
-            print("means: %s" % (means))
-            print("applying master: %s" % (m))
-            print("applying refs  : %s" % (r))
+            self.logger.info("means: %s" % (np.round(means, 1)))
+            self.logger.info("applying master: %s" % (np.round(m, 2)))
+            self.logger.info("applying refs  : %s" % (np.round(r, 2)))
 
             vlist = tuple(m) + tuple(r)
             oneCmd(ccdName,
-                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f \
-                                   p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
+                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f '
+                   ' p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
                    % vlist)
             time.sleep(1.1)
             oneCmd(ccdName, 'fee setMode offset')
@@ -1324,8 +1324,8 @@ class OffsetTest(OneTest):
                 im = pyfits.getdata(fitspath)
                 fakeCcd = FakeCcd()
                 means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-                print("file : %s" % (fitspath))
-                print("adjusted means: %s" % (np.round(means, 2)))
+                self.logger.info("file : %s" % (fitspath))
+                self.logger.info("adjusted means: %s" % (np.round(means, 2)))
         
     def fetchData(self):
         pass
@@ -1376,7 +1376,7 @@ class V0Test(OneTest):
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
         else:
-            self.logger.warn('overriding trigger with: %s', trigger)
+            self.logger.warning('overriding trigger with: %s', trigger)
             self.scope.setEdgeTrigger(**trigger)
 
         print("powering FEE down....")
