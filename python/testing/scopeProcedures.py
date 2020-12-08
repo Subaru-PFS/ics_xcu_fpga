@@ -227,8 +227,10 @@ class BenchRig(TestRig):
             self.connect()
         elif sequence in ('short', 'preship'):
             self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, AmpCheckTest, None],
                              [0, 0, OffsetTest, None],
                              [0, 0, ReadnoiseTest, None],
+                             [0, 0, ClearOffsetsTest, None],
                              [0, 0, None, None],
             ]
         elif sequence in ('video'):
@@ -448,7 +450,7 @@ class BenchRig(TestRig):
 
         if isinstance(ret, str):
             self.logger.warn('not yet formatting Markdown output')
-        else:
+        elif ret is not None:
             fig, pl = ret
             if fig is not None:
                 fig.savefig(pdfPath)
@@ -513,15 +515,17 @@ class BenchRig(TestRig):
         
         reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
         if self.sequenceType == 'full':
-            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf ' \
-                  ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
-        elif self.sequenceType in ('short', 'preship'):
-            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf)' % \
-                  (self.dirName, reportPath)
+            filenames = 'frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf' \
+                        ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf'
+        elif self.sequenceType == 'short':
+            filenames = 'frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf'
+        elif self.sequenceType == 'preship':
+            filenames = 'frontpage.pdf AmpCheck*.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf'
         else:
             print("unknown test type, not building report")
             return
-        
+
+        cmd = '(cd %s; pdfjoin --outfile %s %s )' % (self.dirName, reportPath, filenames)
         subprocess.call(cmd, shell=True)
         print("report is in %s" % (reportPath))
          
@@ -1104,6 +1108,99 @@ class ReadnoiseTest(OneTest):
         self.rig.finishFrontPage()
         
         return fig, gs
+
+class ClearOffsetsTest(OneTest):
+    testName = 'ClearOffsets'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None, **testArgs):
+        ccdName = "ccd_%s" % (self.dewar)
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0 save', doPrint=True)
+        time.sleep(1.1)
+
+    def save(self):
+        pass
+
+    def plot(self):
+        return None
+
+class AmpCheckTest(OneTest):
+    testName = 'AmpCheck'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None, **testArgs):
+        self.testFiles = []
+
+        ccdName = "ccd_%s" % (self.dewar)
+        self.expectedLevels = self.rig.expectedLevels
+
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
+        time.sleep(1.1)
+        self.logger.info("calling for a wipe")
+        oneCmd(ccdName, 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd(ccdName, 'read bias nrows=100')
+
+        # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
+        self.testFiles.append(self.getPath(output))
+
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=100,100,100,100,-100,-100,-100,-100', doPrint=True)
+        time.sleep(1.1)
+        self.logger.info("calling for a wipe")
+        oneCmd(ccdName, 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd(ccdName, 'read bias nrows=100')
+
+        self.testFiles.append(self.getPath(output))
+
+    def fetchData(self):
+        pass
+
+    def save(self, comment=''):
+        for fname in self.testFiles:
+            shutil.copy(fname, os.path.join(self.rig.dirName,
+                                            os.path.basename(fname)))
+    def plot(self):
+        fakeCcd = FakeCcd()
+
+        f, pl = plt.subplots()
+        testNames = ["all amps ", "ccd1 amps"]
+        for f_i, fname in enumerate(self.testFiles):
+            im = pyfits.getdata(fname)
+            ampWidth = im.shape[1]//8
+            height = im.shape[0]
+
+            statCols = np.arange(50, ampWidth-50)
+            rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
+            plotRow = height//2
+            levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
+
+            print(f"{testNames[f_i]}: {levels}")
+
+            pl.plot(np.clip(im[plotRow] - f_i*200, a_min=0, a_max=None),
+                    alpha=0.5, label=testNames[f_i])
+
+        pl.legend()
+        f.suptitle('Per-CCD amp level stairstep')
+        return f,pl
 
 def calcOffsetsV(target, current):
     m = np.round((target - current) / 30, 2)
