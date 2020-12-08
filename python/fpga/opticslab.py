@@ -188,8 +188,11 @@ def setup(arm, wavelength=None, flux=None, clearFe55=True, lamp=None):
         slitWidth = 1.0
         if wavelength == 550 and flux == 10:
             filter = 'ND3'
+            slitWidth = 1.17
         elif wavelength == 550 and flux == 1000:
-            filter = 'ND1'
+            filter = 'None'
+            slitWidth = 1.11
+            
         else:
             raise KeyError("unknown preset configuration, sorry.")
     elif arm == 'red':
@@ -344,7 +347,7 @@ def setFe55(pos):
     
     ret = opticsLabCommand('fe55 %s' % (pos))
 
-    if pos == 'home' and ret != 'fe55  0':
+    if pos == 0 and ret != 'fe55  0':
         raise RuntimeError('failed to home Fe55 source: %r' % (ret))
     elif (ret != 'fe55 %2d' % (pos)):
         raise RuntimeError('failed to move Fe55 source: %r' % (ret))
