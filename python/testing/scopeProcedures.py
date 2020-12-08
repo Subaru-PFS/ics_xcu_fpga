@@ -148,9 +148,9 @@ class BenchRig(TestRig):
     # per-amp bias levels measured with the bench fake CCD, which
     # should always be the same, well within 1%.
     #
-    expectedLevels = (6200, 5050, 3725, 2570,
-                      6140, 5010, 4000, 2630)
-    
+    expectedLevels = (3700, 5020, 7440, 10200,
+                      3700, 5020, 7350, 10800)
+
     def __init__(self, cam=None, sequence=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
 
