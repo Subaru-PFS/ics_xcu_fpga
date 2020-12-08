@@ -13,7 +13,7 @@ import fpga.geom as geom
 import fpga.ccdFuncs as ccdFuncs
 import fpga.opticslab as opticslab
 from testing.logbook import storeExposures
-
+from testing.scopeProcedures import calcOffsets1
 
 reload(geom)
 reload(ccdFuncs)
@@ -79,21 +79,22 @@ def stdExposures_biases(ccd=None,
                                  comment=comment,
                                  title='%d biases' % (nbias))
     
-    storeExposures("std_exposures_biases", files)
+    storeExposures("std_exposures_biases", files, comments=comment)
     return files
 
 def stdExposures_darks(ccd=None,
-                       ndarks=21, darkTime=150,
+                       nbias=2, ndarks=21, darkTime=150,
                        feeControl=None,
                        comment='darks'):
 
     files = ccdFuncs.expSequence(ccd=ccd,
+                                 nbias=nbias,
                                  darks=[darkTime]*ndarks,
                                  feeControl=feeControl,
                                  comment=comment,
                                  title='%d %gs darks' % (ndarks, darkTime))
     
-    storeExposures("std_exposures_darks", files)
+    storeExposures("std_exposures_darks", files, comments=comment)
     return files
 
 def stdExposures_base(ccd=None, feeControl=None, comment=None):
@@ -101,7 +102,7 @@ def stdExposures_base(ccd=None, feeControl=None, comment=None):
     files = stdExposures_biases(ccd=ccd, feeControl=feeControl, comment=comment)
     files += stdExposures_darks(ccd=ccd, feeControl=feeControl, comment=comment)
     
-    storeExposures("std_exposures_base", files)
+    storeExposures("std_exposures_base", files, comments=comment)
     return files
     
     
@@ -116,7 +117,7 @@ def stdExposures_hours(ccd=None, feeControl=None, hours=4, comment=None):
                                       comment=comment,
                                       title='1 hour %fs dark loop' % (darkTime))
         
-    storeExposures("std_exposures_hours", files)
+    storeExposures("std_exposures_hours", files, comments=comment)
     return files
         
     
@@ -126,6 +127,8 @@ def calcOffsets(target, current):
 
     return m, r
 
+                
+                
 def tuneOffsets(ccd=None, feeControl=None):
     amps = list(range(8))
     feeControl.zeroOffsets(amps)
@@ -341,7 +344,7 @@ def stdExposures_brightFlats(ccd=None, feeControl=None, comment='bright flats'):
                              comment=comment,
                              title='bright flats')
     
-    storeExposures("std_exposures_bright_flats", files)
+    storeExposures("std_exposures_bright_flats", files, comments=comment)
     return files
     
     
@@ -423,9 +426,28 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
                              comment=comment,
                              title='low flats')
     
-    storeExposures("std_exposures_low_flats", files)
+    storeExposures("std_exposures_low_flats", files, comments=comment)
     return files
     
+    
+def stdExposures_masterFlats(ccd=None, feeControl=None, nflats=21, exptime=10, comment='master flats'):
+    """ Canonical bright flats sequence. 
+
+    At 1000ADU/s, take flats running up past saturation.
+    """
+    files = []
+    opticslab.setup(ccd.arm, flux=1000)
+    flatlist = nflats * [('flat', exptime)]
+    head = tail = 5 * [('bias', 0)] + [('dark', 100)]
+    explist = head + flatlist + tail
+
+    files = ccdFuncs.expList(explist, ccd=ccd,
+                             feeControl=feeControl,
+                             comment=comment,
+                             title='master flats')
+    
+    storeExposures("std_exposures_master_flats", files, comments=comment)
+    return files
 
 def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
     """ Take standard set of Fe55 exposures.
@@ -453,11 +475,11 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
                                   comment='Fe55 dark %s'%str(pos),
                                   title='Fe55 darks')
     
-    storeExposures("std_exposures_fe55", files)
+    storeExposures("std_exposures_fe55", files, comments=comment)
     return files
 
 def stdExposures_QE(ccd=None, feeControl=None,
-                    comment='QE ramp', flatTime=10.0, waves=None):
+                    comment='QE ramp', waves=None, duplicate=1, flatTime=10, exptimes=None):
     """ Take standard QE test exposures.
 
     Currently taking 50m steps across the detector bandpass, with 
@@ -473,34 +495,38 @@ def stdExposures_QE(ccd=None, feeControl=None,
             waves = np.arange(350,701,50)
         else:
             raise RuntimeError('QE test only knows about red and blue detectors.')
-        
-    for wave in waves:
+            
+    exptimes = [flatTime for wave in waves] if exptimes is None else exptimes
+    
+    for wave,flatTime in zip(waves, exptimes):
+        wave = int(round(wave))
         opticslab.setWavelength(wave)
-
-        time.sleep(1.0)
-        ccdFuncs.wipe(ccd)
-
-        ret = opticslab.pulseShutter(flatTime)
-        print(ret)
-        stime, flux, current, wave, slitWidth = ret
         
-        cards = []
-        cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
-        cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
-        cards.append(('HIERARCH QE.flux', flux, 'calibrated flux, W'),)
-        cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
+        for i in range(duplicate):
+            time.sleep(2.0)
+            ccdFuncs.wipe(ccd)
 
-        expComment = "%s wave: %s" % (comment, wave)
-        im, imfile = ccdFuncs.readout('flat', ccd=ccd,
-                                      expTime=flatTime,
-                                      feeControl=feeControl,
-                                      extraCards=cards,
-                                      comment=expComment)
-        files.append(imfile)
+            ret = opticslab.pulseShutter(flatTime)
+            stime, flux, current, wave, slitWidth = ret
+
+            cards = []
+            cards.append(('HIERARCH QE.slitwidth', slitWidth, 'monochrometer slit width, mm'),)
+            cards.append(('HIERARCH QE.wave', wave, 'monochrometer wavelength, nm'),)
+            cards.append(('HIERARCH QE.flux', flux, 'calibrated flux, W'),)
+            cards.append(('HIERARCH QE.current', current, 'Keithley current, A'),)
+
+            expComment = "%s wave: %s" % (comment, wave)
+            im, imfile = ccdFuncs.readout('flat', ccd=ccd,
+                                          expTime=flatTime,
+                                          feeControl=feeControl,
+                                          extraCards=cards,
+                                          comment=expComment)
+            files.append(imfile)
         
-    storeExposures("std_exposures_qe", files)
+    storeExposures("std_exposures_qe", files, comments=comment)
     return files
-        
+    
+    
 def CTEStats(flist, bias, amps=None, useCols=None):
     '''
     The algorithm is
