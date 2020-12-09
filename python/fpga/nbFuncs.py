@@ -229,7 +229,7 @@ def rawAmpGrid(im, ccd, amps=None,
                title=None,
                cols=None, rows=None, 
                noiseLim=0.85,
-               expectedLevels=None,
+               expectedLevels=None, levelTolerance=0.2,
                fig=None, figSize=None):
     
     if amps is None:
@@ -328,7 +328,7 @@ def rawAmpGrid(im, ccd, amps=None,
                   transform=im_p.transAxes)
 
         if expectedLevels is not None:
-            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= 0.1*expectedLevels[a_i]
+            inspec = np.abs(ai_med1 - expectedLevels[a_i]) <= levelTolerance*expectedLevels[a_i]
             color = 'black' if inspec else 'red'
             levelText = "med=%d (%d)" % (ai_med1, expectedLevels[a_i])
         else:

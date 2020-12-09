@@ -1,10 +1,5 @@
-from __future__ import print_function
-from __future__ import division
+from importlib import reload
 
-from past.builtins import reload
-from builtins import str
-from builtins import range
-from builtins import object
 import numpy as np
 import time
 
@@ -18,55 +13,6 @@ from testing.scopeProcedures import calcOffsets1
 reload(geom)
 reload(ccdFuncs)
 reload(opticslab)
-
-class FeeTweaks(object):
-    """ Interpose into fee.setMode() to override bias voltages after mode has been loaded from PROM.
-
-    Also prints out overrides.
-    """
-    
-    def __init__(self, fee=None):
-        if fee is None:
-            from fee import feeControl as feeMod
-            reload(feeMod)
-            fee = feeMod.fee
-            
-        self.fee = fee
-        self.modes = dict()
-
-    def getMode(self):
-        return self.fee.getMode()
-
-    def statusAsCards(self):
-        return self.fee.statusAsCards()
-
-    def setMode(self, mode):
-        print("setting mode: ", mode)
-        self.fee.setMode(mode)
-        if mode in self.modes:
-            for vname, val in self.modes[mode].items():
-                self.setVoltage(None, vname, val)
-        time.sleep(0.25)
-
-    def setVoltage(self, mode, vname, val):
-
-        if mode is not None:
-            raise RuntimeError("tweaked modes can only set runtime voltages")
-        
-        fee = self.fee
-    
-        oldVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
-        [fee.doSet('bias', vname, val, ch) for ch in (0,1)]
-        time.sleep(0.25)
-        newVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
-        print("%s %0.1f,%0.1f -> %0.1f,%0.1f (%0.1f)" %
-              (vname, oldVals[0], oldVals[1], newVals[0], newVals[1], val))
-
-    def tweakMode(self, mode, doClear=True, **kws):
-        if doClear:
-            self.modes[mode] = dict()
-        for k, v in kws.items():
-            self.modes[mode][k] = v
 
 def stdExposures_biases(ccd=None,
                         nbias=21,
@@ -172,33 +118,33 @@ def stdExposures_VOD_VOG(ccd=None, feeControl=None,
         VOD = np.arange(-18.0, -22.01, -0.5)
     if VOG is None:
         VOG = np.arange(-3.0, -5.01, -0.25)
-        
+
     opticslab.setup(ccd.arm, flux=1000)
 
     files = ccdFuncs.expSequence(ccd=ccd,
                                  nrows=nrows, ncols=ncols,
-                                 nbias=3, 
+                                 nbias=3,
                                  feeControl=feeControl,
                                  comment=comment,
                                  title='pre-VOD/VOG tuning biases')
-    
+
     storeExposures("std_exposures_biases", files, 'pre-VOD/VOG tuning biases')
-    
+
     files = []
     for vod in VOD:
         for vog in VOG:
-            tweaks = FeeTweaks(feeControl)
+            tweaks = ccdFuncs.FeeTweaks(feeControl)
             tweaks.tweakMode('read', OD=vod, OG=vog)
 
             files1 = ccdFuncs.expSequence(ccd=ccd,
                                           nrows=nrows, ncols=ncols,
-                                          nbias=1, 
-                                          flats=[4], 
+                                          nbias=1,
+                                          flats=[4],
                                           feeControl=tweaks,
                                           comment=comment,
                                           title='VOD/VOG tuning (%0.1f, %0.1f)' % (vod, vog))
             files.extend(files1)
-            
+
     storeExposures("std_exposures_vod_vog", files)
     return files
 

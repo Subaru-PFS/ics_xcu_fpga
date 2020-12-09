@@ -148,9 +148,9 @@ class BenchRig(TestRig):
     # per-amp bias levels measured with the bench fake CCD, which
     # should always be the same, well within 1%.
     #
-    expectedLevels = (6200, 5050, 3725, 2570,
-                      6140, 5010, 4000, 2630)
-    
+    expectedLevels = (3700, 5020, 7440, 10200,
+                      3700, 5020, 7350, 10800)
+
     def __init__(self, cam=None, sequence=None, **argd):
         """ a collection of tests to qualify PFS CCD ADCs
 
@@ -169,7 +169,7 @@ class BenchRig(TestRig):
             dewar = 'b9'
         else:
             dewar = cam
-            self.logger.warn('testing cam %s', cam)
+            self.logger.warning('testing cam %s', cam)
         self.dewar = dewar
         if sequence is None:
             sequence = 'full'
@@ -227,8 +227,11 @@ class BenchRig(TestRig):
             self.connect()
         elif sequence in ('short', 'preship'):
             self.sequence = [[0, 0, SanityTest, None],
+                             [0, 0, AmpCheckTest, None],
+                             [0, 0, None, "check stairsteps...."],
                              [0, 0, OffsetTest, None],
                              [0, 0, ReadnoiseTest, None],
+                             [0, 0, ClearOffsetsTest, None],
                              [0, 0, None, None],
             ]
         elif sequence in ('video'):
@@ -292,7 +295,7 @@ class BenchRig(TestRig):
             
     def burnFee(self):
         feePath = "/home/pfs/fee/current.hex"
-        print("downloading fee firmware.....")
+        self.logger.info("downloading fee firmware.....")
         self.powerDown()
         subprocess.call('oneCmd.py ccd_%s connect controller=fee' % (self.dewar), shell=True)
         time.sleep(1.1)
@@ -300,7 +303,7 @@ class BenchRig(TestRig):
         time.sleep(1.1)
         
         oneCmd('ccd_%s' % (self.dewar), 'fee download pathname="%s"' % (feePath))
-        print("done downloading fee firmware, we hope....")
+        self.logger.info("done downloading fee firmware, we hope....")
 
         self.powerDown()
         self.powerUp()
@@ -432,13 +435,13 @@ class BenchRig(TestRig):
             else:
                 ret = self.scope.runTest(test, trigger=trigger, **testArgs)
         except Exception as e:
-            print("test FAILED: %s" % (e))
+            self.logger.error("test FAILED: %s" % (e))
             if doRaise:
                 raise
             return False
 
         if ret is False:
-            print("test FAILED, stopping.")
+            self.logger.error("test FAILED, stopping.")
             return False
         
         test.save()
@@ -447,12 +450,12 @@ class BenchRig(TestRig):
         pdfPath = "%s.pdf" % (basePath)
 
         if isinstance(ret, str):
-            self.logger.warn('not yet formatting Markdown output')
-        else:
+            self.logger.warning('not yet formatting Markdown output')
+        elif ret is not None:
             fig, pl = ret
             if fig is not None:
                 fig.savefig(pdfPath)
-                print("PDF is at %s" % (pdfPath))
+                self.logger.info("PDF is at %s" % (pdfPath))
 
         return test, ret
 
@@ -506,24 +509,26 @@ class BenchRig(TestRig):
                                                                                pdfName, mdName), shell=True)
         subprocess.call('pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
                                                                                texName, mdName), shell=True)
-        print('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
-                                                                         texName, mdName))
+        self.logger.info('RAN pandoc -V geometry:margin=0.2in -B %s -s -o %s %s' % (os.path.join(self.ourPath, 'leftTables.tex'),
+                                                                                    texName, mdName))
     def finishFullRig(self):
-        print("generating full report.... ")
+        self.logger.info("generating full report.... ")
         
         reportPath = os.path.join(self.dirName, 'report-%06d.pdf' % (self.seqno))
         if self.sequenceType == 'full':
-            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf ' \
-                  ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf)' % (self.dirName, reportPath)
-        elif self.sequenceType in ('short', 'preship'):
-            cmd = '(cd %s; pdfjoin --outfile %s frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf)' % \
-                  (self.dirName, reportPath)
+            filenames = 'frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf' \
+                        ' S0*.pdf P0*.pdf V0*.pdf S1*.pdf P1*.pdf P2*.pdf'
+        elif self.sequenceType == 'short':
+            filenames = 'frontpage.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf'
+        elif self.sequenceType == 'preship':
+            filenames = 'frontpage.pdf AmpCheck*.pdf Readnoise-*.pdf levels.pdf rowcuts.pdf starts.pdf'
         else:
-            print("unknown test type, not building report")
+            self.logger.warning("unknown test type, not building report")
             return
-        
+
+        cmd = '(cd %s; pdfjoin --outfile %s %s )' % (self.dirName, reportPath, filenames)
         subprocess.call(cmd, shell=True)
-        print("report is in %s" % (reportPath))
+        self.logger.info("report is in %s" % (reportPath))
          
     def runBlock(self, test=None, noRun=False, muxOK=True, **testArgs):
         """ run tests until failure or the next MUX reconfiguration
@@ -638,7 +643,7 @@ class OneTest(object):
                 pp = pathparts.split(',')
                 pp.insert(2, 'sps')
                 fitspath = os.path.join(*pp)
-                print("got filepath: %s" % fitspath)
+                self.logger.debug("got filepath: %s" % fitspath)
 
                 return fitspath
         return None
@@ -1038,10 +1043,10 @@ class ReadnoiseTest(OneTest):
             oneCmd(ccdName, 'fee setMode offset')
             self.expectedLevels = [1000]*8
         time.sleep(1.1)
-        self.logger.info("calling for a wipe")
+        self.logger.debug("calling for a wipe")
         oneCmd(ccdName, 'wipe')
-        self.logger.info("done with wipe")
-        self.logger.info("calling for a read")
+        self.logger.debug("done with wipe")
+        self.logger.debug("calling for a read")
         output = oneCmd(ccdName, 'read bias')
 
         # 2017-04-07T15:12:36.223 ccd_b9 i filepath=/data/pfs,2017-04-07,PFJA00775691.fits
@@ -1105,6 +1110,110 @@ class ReadnoiseTest(OneTest):
         
         return fig, gs
 
+class ClearOffsetsTest(OneTest):
+    testName = 'ClearOffsets'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None, **testArgs):
+        ccdName = "ccd_%s" % (self.dewar)
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=0,0,0,0,0,0,0,0 save', doPrint=True)
+        time.sleep(1.1)
+
+    def save(self):
+        pass
+
+    def plot(self):
+        return None
+
+class AmpCheckTest(OneTest):
+    testName = 'AmpCheck'
+    label = "terminated readout"
+    leads = 'terminators only'
+    timeout = 30
+
+    def initTest(self):
+        pass
+
+    def setup(self, trigger=None):
+        pass
+
+    def runTest(self, trigger=None, **testArgs):
+        self.testFiles = []
+
+        ccdName = "ccd_%s" % (self.dewar)
+        self.expectedLevels = self.rig.expectedLevels
+
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
+        time.sleep(1.1)
+        self.logger.info("calling for a wipe")
+        oneCmd(ccdName, 'wipe')
+        self.logger.info("done with wipe")
+
+        self.logger.warn("calling for a read with SW disabled on CCD0")
+        output = oneCmd(ccdName, 'read bias nrows=100 swoff')
+        self.testFiles.append(self.getPath(output))
+
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
+        time.sleep(1.1)
+        self.logger.info("calling for a wipe")
+        oneCmd(ccdName, 'wipe')
+        self.logger.info("done with wipe")
+        self.logger.info("calling for a read")
+        output = oneCmd(ccdName, 'read bias nrows=100')
+        self.testFiles.append(self.getPath(output))
+
+    def fetchData(self):
+        pass
+
+    def save(self, comment=''):
+        for fname in self.testFiles:
+            shutil.copy(fname, os.path.join(self.rig.dirName,
+                                            os.path.basename(fname)))
+    def plot(self):
+        fakeCcd = FakeCcd()
+
+        f, pl = plt.subplots()
+        testNames = ["ccd1 amps", "all amps "]
+        for f_i, fname in enumerate(self.testFiles):
+            im = pyfits.getdata(fname)
+            ampWidth = im.shape[1]//8
+            height = im.shape[0]
+
+            statCols = np.arange(50, ampWidth-50)
+            rows = slice(height//2 - ampWidth//2,height//2 + ampWidth//2)
+            plotRow = height//2
+            levels, devs = nbFuncs.ampStats(im, cols=statCols, rows=rows, ccd=fakeCcd)
+            self.logger.info(f"{testNames[f_i]} levels: {np.round(levels, 0)}")
+
+            if f_i == 0:
+                if np.any(levels[:4] != 0):
+                    self.logger.warning("Some CCD0 level is not 0: look for amps swapped between CCD0 and CCD1!")
+            else:
+                diff = np.abs(levels - self.expectedLevels)
+                pctError = 100 * (diff / self.expectedLevels)
+                self.logger.info(f"{testNames[f_i]} errors: {np.round(pctError, 1)}")
+                if np.any(pctError > 10):
+                    self.logger.warning(f"Some amp level is >10% away from expected level: {np.round(pctError, 1)}")
+
+
+            pl.plot(im[plotRow] + f_i*200, alpha=0.5, label=testNames[f_i])
+
+        pl.legend()
+        f.suptitle('Per-CCD amp level stairstep')
+
+        plt.ioff()
+        f.show()
+
+        return f,pl
+
 def calcOffsetsV(target, current):
     m = np.round((target - current) / 30, 2)
     r = np.round(m * 40.0/57.0, 2)
@@ -1156,12 +1265,12 @@ class OffsetTest(OneTest):
                 for i, v in enumerate(np.linspace(0.0, 100, 5)):
                     vlist = [v]*8
                     if leg == 'p':
-                        print("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
+                        self.logger.info("====== offset test, ref=%0.2f master=%0.2f" % (v, baseMaster))
                         oneCmd(ccdName,
                                'fee setOffsets n=%d,%d,%d,%d,%d,%d,%d,%d p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseMaster]*8 + vlist))
                     else:
-                        print("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
+                        self.logger.info("====== offset test, ref=%0.2f master=%0.2f" % (baseRef, v))
                         oneCmd(ccdName,
                                'fee setOffsets p=%d,%d,%d,%d,%d,%d,%d,%d n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f'
                                % tuple([baseRef]*8 + vlist))
@@ -1181,8 +1290,8 @@ class OffsetTest(OneTest):
                     fakeCcd = FakeCcd()
                     means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
                     outputs[leg][v] = means
-                    self.logger.warn("%s=%s = %s", leg, v, means)
-                    self.logger.warn("  %s", outputs)
+                    self.logger.warning("%s=%s = %s", leg, v, means)
+                    self.logger.warning("  %s", outputs)
             return outputs
             
         else:
@@ -1196,7 +1305,7 @@ class OffsetTest(OneTest):
             try:
                 shutil.copy(fitspath, os.path.join(self.rig.dirName, os.path.basename(fitspath)))
             except Exception as e:
-                print(e)
+                self.logger.warning(e)
                 
             im = pyfits.getdata(fitspath)
             fakeCcd = FakeCcd()
@@ -1204,14 +1313,14 @@ class OffsetTest(OneTest):
             
         if ref is None and master is None:
             m, r = calcOffsets1(means, target=1000)
-            print("means: %s" % (means))
-            print("applying master: %s" % (m))
-            print("applying refs  : %s" % (r))
+            self.logger.info("means: %s" % (np.round(means, 1)))
+            self.logger.info("applying master: %s" % (np.round(m, 2)))
+            self.logger.info("applying refs  : %s" % (np.round(r, 2)))
 
             vlist = tuple(m) + tuple(r)
             oneCmd(ccdName,
-                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f \
-                                   p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
+                   'fee setOffsets n=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f '
+                   ' p=%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f save'
                    % vlist)
             time.sleep(1.1)
             oneCmd(ccdName, 'fee setMode offset')
@@ -1227,8 +1336,8 @@ class OffsetTest(OneTest):
                 im = pyfits.getdata(fitspath)
                 fakeCcd = FakeCcd()
                 means, _ = nbFuncs.ampStats(im, ccd=fakeCcd)
-                print("file : %s" % (fitspath))
-                print("adjusted means: %s" % (np.round(means, 2)))
+                self.logger.info("file : %s" % (fitspath))
+                self.logger.info("adjusted means: %s" % (np.round(means, 2)))
         
     def fetchData(self):
         pass
@@ -1279,7 +1388,7 @@ class V0Test(OneTest):
         if trigger is None:
             self.scope.setEdgeTrigger(source='ch3', level=-2.0, slope='fall', holdoff='1e-9')
         else:
-            self.logger.warn('overriding trigger with: %s', trigger)
+            self.logger.warning('overriding trigger with: %s', trigger)
             self.scope.setEdgeTrigger(**trigger)
 
         print("powering FEE down....")
