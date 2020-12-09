@@ -1150,13 +1150,14 @@ class AmpCheckTest(OneTest):
         ccdName = "ccd_%s" % (self.dewar)
         self.expectedLevels = self.rig.expectedLevels
 
-        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=100,100,100,100,-100,-100,-100,-100', doPrint=True)
+        oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
         time.sleep(1.1)
         self.logger.info("calling for a wipe")
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
-        self.logger.info("calling for a read")
-        output = oneCmd(ccdName, 'read bias nrows=100')
+
+        self.logger.warn("calling for a read with SW disabled on CCD1")
+        output = oneCmd(ccdName, 'read bias nrows=100 swoff')
         self.testFiles.append(self.getPath(output))
 
         oneCmd(ccdName, 'fee setOffsets n=0,0,0,0,0,0,0,0 p=-100,-100,-100,-100,-100,-100,-100,-100', doPrint=True)
