@@ -18,6 +18,85 @@ reload(opticslab)
 
 reload(ccdMod)
 
+class FeeTweaks(object):
+    """ Interpose into fee.setMode() to override bias voltages after mode has been loaded from PROM.
+
+    Also prints out overrides.
+    """
+
+    def __init__(self, fee=None):
+        if fee is None:
+            from fee import feeControl as feeMod
+            reload(feeMod)
+            fee = feeMod.fee
+
+        self.fee = fee
+        self.modes = dict()
+
+    def getMode(self):
+        return self.fee.getMode()
+
+    def statusAsCards(self):
+        return self.fee.statusAsCards()
+
+    def setMode(self, mode):
+        print("setting mode: ", mode)
+        self.fee.setMode(mode)
+        if mode in self.modes:
+            for vname, val in self.modes[mode].items():
+                try:
+                    val, ccd = val
+                    ccds = [ccd]
+                except TypeError:
+                    ccds = None
+                self.setVoltage(None, vname, val, ccds)
+        time.sleep(0.25)
+
+    def setVoltage(self, mode, vname, val, ccds=None):
+
+        if mode is not None:
+            raise RuntimeError("tweaked modes can only set runtime voltages")
+
+        fee = self.fee
+        if ccds is None:
+            ccds = (0,1)
+
+        oldVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
+        [fee.doSet('bias', vname, val, ch) for ch in ccds]
+        time.sleep(0.25)
+        newVals = [fee.doGet('bias', vname, ch) for ch in (0,1)]
+        print("%s %0.1f,%0.1f -> %0.1f,%0.1f (%0.1f)" %
+              (vname, oldVals[0], oldVals[1], newVals[0], newVals[1], val))
+
+    def tweakMode(self, mode, doClear=True, **kws):
+        """Override FEE configuration after a setMode.
+
+        Args
+        ----
+        mode : str
+          A mode name. 'read', 'erase', etc.
+        doClear : bool
+          If True, remove all existing overrides for a mode.
+
+        Keywords
+        --------
+        VoltageName=voltage
+        VoltageName=(voltage, ccdNum)
+
+        e.g. (OG=22.0) or (SW_on=5.0,1)
+        """
+        if doClear:
+            self.modes[mode] = dict()
+        for k, v in kws.items():
+            self.modes[mode][k] = v
+
+def disableSWOnCcdTweak(feeControl, ccd=0):
+    """Arrange for SW to be idle on a CCD during read. """
+    tweakedFee = FeeTweaks(feeControl)
+    tweakedFee.tweakMode('read', SW_on=(5.0, ccd))
+
+    return tweakedFee
+
 def rowProgress(row_i, image, errorMsg="OK", 
                 everyNRows=100, 
                 **kwargs):
