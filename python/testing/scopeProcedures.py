@@ -228,6 +228,7 @@ class BenchRig(TestRig):
         elif sequence in ('short', 'preship'):
             self.sequence = [[0, 0, SanityTest, None],
                              [0, 0, AmpCheckTest, None],
+                             [0, 0, None, "check stairsteps...."],
                              [0, 0, OffsetTest, None],
                              [0, 0, ReadnoiseTest, None],
                              [0, 0, ClearOffsetsTest, None],
@@ -1207,6 +1208,10 @@ class AmpCheckTest(OneTest):
 
         pl.legend()
         f.suptitle('Per-CCD amp level stairstep')
+
+        plt.ioff()
+        f.show()
+
         return f,pl
 
 def calcOffsetsV(target, current):
