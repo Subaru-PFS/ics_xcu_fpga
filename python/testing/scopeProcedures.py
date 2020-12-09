@@ -1157,7 +1157,7 @@ class AmpCheckTest(OneTest):
         oneCmd(ccdName, 'wipe')
         self.logger.info("done with wipe")
 
-        self.logger.warn("calling for a read with SW disabled on CCD1")
+        self.logger.warn("calling for a read with SW disabled on CCD0")
         output = oneCmd(ccdName, 'read bias nrows=100 swoff')
         self.testFiles.append(self.getPath(output))
 
