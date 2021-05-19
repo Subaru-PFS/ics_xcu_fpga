@@ -1400,6 +1400,77 @@ class V0Test(OneTest):
                        xlim=(-1,10), ylim=(-20,20), 
                        showLimits=True, title=self.title)        
 
+class ReadoutTest(OneTest):
+    testName = 'Readout'
+    label = "wipe, read, both 1 row."
+    leads = ('OG', 'RD', 'OD', 'BB')
+    timeout = 30
+
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test readout' % (self.dewar), shell=True)
+
+    def initTest(self):
+        self.delayTime = 0 # 13.920*1e-6 * 10
+
+    def setup(self, trigger=None):
+        self.scope.reset()
+        self.scope.setWaveform(1, 'OG', scale=5)
+        self.scope.setWaveform(2, 'RD', scale=5)
+        self.scope.setWaveform(3, 'OD', scale=5)
+        self.scope.setWaveform(4, 'BB', scale=5)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=2.0, pos=0, triggerPos=0, delayMode='off', delayTime=0)
+        if trigger is None:
+            self.scope.setManualTrigger(after=0)
+            # self.scope.setEdgeTrigger(source='ch4', level=9.0, slope='fall', holdoff='10')
+        else:
+            self.logger.warning('overriding trigger with: %s', trigger)
+            self.scope.setEdgeTrigger(**trigger)
+
+    def plot(self):
+        return sigplot(self.testData['waveforms'], xscale=1.0,
+                       xlim=(-9,0), ylim=(-20,20),
+                       showLimits=True, title=self.title)
+
+class Readout2Test(OneTest):
+    testName = 'Readout'
+    label = "full wipe, 100-row read."
+    leads = ('OG', 'RD', 'OD', 'BB')
+    timeout = 30
+
+    def triggerCB(self):
+        print("trigger set, call for read...")
+        subprocess.call('oneCmd.py ccd_%s test readout2' % (self.dewar), shell=True)
+
+    def initTest(self):
+        self.delayTime = 0 # 13.920*1e-6 * 10
+
+    def setup(self, trigger=None):
+        self.scope.reset()
+        self.scope.setWaveform(1, 'OG', scale=5)
+        self.scope.setWaveform(2, 'RD', scale=5)
+        self.scope.setWaveform(3, 'OD', scale=5)
+        self.scope.setWaveform(4, 'BB', scale=5)
+
+        self.scope.setAcqMode(numAvg=0)
+        self.scope.setSampling(scale=2.0, pos=0, triggerPos=0, delayMode='off', delayTime=0)
+        if trigger is None:
+            self.scope.setManualTrigger(after=0)
+            # self.scope.setEdgeTrigger(source='ch4', level=9.0, slope='fall', holdoff='10')
+        else:
+            self.logger.warning('overriding trigger with: %s', trigger)
+            self.scope.setEdgeTrigger(**trigger)
+
+    def plot(self):
+        fig, plots = sigplot(self.testData['waveforms'], xscale=1.0,
+                             xlim=(-9,6), ylim=(-20,20),
+                             showLimits=True, title=self.title)
+        plots[0].grid(True, which='major', axis='both', alpha=0.8)
+        plots[0].grid(True, which='minor', axis='x', alpha=0.5)
+        plots[0].minorticks_on()
+
 class VideoTest(OneTest):
     testName = 'Integrator'
     label = "Look at the output of the integrator"
