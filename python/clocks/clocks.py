@@ -6,7 +6,6 @@ import numpy as np
 import re
 
 logger = logging.getLogger('clocks')
-logger.setLevel(logging.DEBUG)
 
 from . import clockIDs
 from functools import reduce
@@ -43,7 +42,6 @@ class Clocks(object):
             self.holdOn = initFrom.holdOn
 
             if holdOn or holdOff:
-                import pdb; pdb.set_trace()
                 raise RuntimeError('confused by overriding inherited held clocks. Will not.')
             
     def clear(self):
@@ -55,7 +53,7 @@ class Clocks(object):
         return sorted([sig.label for sig in m])
 
     def stateMask(self, m):
-        if len(m) is 0:
+        if len(m) == 0:
             return 0
         sm = reduce(int.__or__, [s.mask for s in m])
         return sm
@@ -514,7 +512,7 @@ def genRowClocks(ncols, clocksFunc, rowBinning=1):
     preTicks, opcodes = pre.genClocks()
     ticksList.extend(preTicks)
     opcodesList.extend(opcodes)
-    logger.info(f'generating clocks with {pix.holdOff} {pix.holdOn}')
+    logger.debug(f'generating clocks with {pix.holdOff} {pix.holdOn}')
     
     pixTicks, opcodes = pix.genClocks()
     for i in range(len(pixTicks)):
