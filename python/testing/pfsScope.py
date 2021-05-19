@@ -100,6 +100,19 @@ class PfsCpo(object):
                          
         self.flush()
 
+    def reconnect(self):
+        if self.scope is not None:
+            self.scope.close()
+            del self.scope
+            self.scope = None
+        self.connect()
+
+    def reset(self):
+        self.write('*RST')
+        self.logger.info('Scope is: %s', self.scope.query('*IDN?'))
+
+        self.flush()
+
     def flush(self):
         self.settings = None
 
