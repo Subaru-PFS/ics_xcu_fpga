@@ -347,7 +347,7 @@ class CCD(FPGA):
         self.addHeaderCards(hdr, self.geomCards())
             
         if comment is not None:
-            self.addHeaderCards(hdr, [comment])
+            hdr['comment'] = comment
         if addCards is not None:
             self.addHeaderCards(hdr, addCards)
                     
