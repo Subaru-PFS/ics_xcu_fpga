@@ -63,9 +63,13 @@ logger = logging.getLogger('opticsLab')
 logger.setLevel(logging.DEBUG)
 
 
-def opticsLabCommand(cmdStr, timeout=60.0):
+
+def opticsLabCommand(cmdStr, timeout=60.0, dumbFix=False):
     host = 'tron.pfs'
     port = 50000
+
+    if dumbFix:
+        fixConnection()
 
     try:
         s = socket.create_connection((host, port), 3.0)
@@ -76,6 +80,7 @@ def opticsLabCommand(cmdStr, timeout=60.0):
     try:
         s.settimeout(timeout)
         s.send(('%s\n' % (cmdStr)).encode('latin-1'))
+        time.sleep(0.1)
         data = s.recv(1024)
         data = data.strip().decode('latin-1')
     finally:
@@ -87,12 +92,22 @@ def opticsLabCommand(cmdStr, timeout=60.0):
     return data
 
 def query(system, valType):
-    ret = opticsLabCommand('%s ?' % (system), timeout=1.0)
+    ret = opticsLabCommand('%s ?' % (system), timeout=1.0, dumbFix=False)
     _, val = ret.split(None, 2)
     if _ != system:
         raise RuntimeError("unexpected response to %s query: %s" % (system, ret))
     return valType(val)
-    
+
+
+def fixConnection(nAttempt=0, maxAttempt=5, timeBetweenAttempt=2):
+    try:
+        query('wave', float)
+    except:
+        if nAttempt<maxAttempt:
+            time.sleep(timeBetweenAttempt)
+            return fixConnection(nAttempt+1)
+        raise
+
 def pulseShutter(stime):
     """ Open the shutter for a given time.
 
