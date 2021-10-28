@@ -45,7 +45,7 @@ def insertIdlePixels(clks, cnt):
         clks.changeFor(duration=12,
                        turnOff= [RG])
 
-def readClocks(holdOn=None, holdOff=None):
+def readClocks(holdOn=None, holdOff=None, insertSerials=True):
     pre = clocks.Clocks(holdOn=holdOn, holdOff=holdOff)
     pre.changeFor(duration=120,
                   turnOn= [P1,P3,S1,CNV,IR])
@@ -108,27 +108,33 @@ def readClocks(holdOn=None, holdOff=None):
     par = clocks.Clocks(initFrom=pix, logLevel=20)
     par.changeAt(at=0,
                  turnOff=[P1])
-    insertIdlePixels(par, parPhasePixCnt)
+    if insertSerials:
+        insertIdlePixels(par, parPhasePixCnt)
     
     par.changeAt(at=1*parPhaseTicks,
                  turnOn= [P2,TG,CRC])
-    insertIdlePixels(par, parPhasePixCnt)
+    if insertSerials:
+        insertIdlePixels(par, parPhasePixCnt)
 
     par.changeAt(at=2*parPhaseTicks,
                  turnOff=[P3,CRC])
-    insertIdlePixels(par, parPhasePixCnt)
+    if insertSerials:
+        insertIdlePixels(par, parPhasePixCnt)
 
     par.changeAt(at=3*parPhaseTicks,
                  turnOn=[P1])
-    insertIdlePixels(par, parPhasePixCnt)
+    if insertSerials:
+        insertIdlePixels(par, parPhasePixCnt)
 
     par.changeAt(at=4*parPhaseTicks,
                  turnOff=[P2,TG])
-    insertIdlePixels(par, parPhasePixCnt)
+    if insertSerials:
+        insertIdlePixels(par, parPhasePixCnt)
 
     par.changeAt(at=5*parPhaseTicks,
                  turnOn=[P3])
-    insertIdlePixels(par, 1)
+    if insertSerials:
+        insertIdlePixels(par, 1)
 
     return pre, pix, par
 
