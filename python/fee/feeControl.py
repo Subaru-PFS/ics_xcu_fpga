@@ -200,7 +200,7 @@ class FeeControl(object):
         global fee
         
         if port is None:
-            port = '/dev/ttyS1'
+            port = '/dev/ttyS2'
         self.logger = logging.getLogger()
         self.logger.setLevel(logLevel)
         self.device = None
@@ -223,7 +223,7 @@ class FeeControl(object):
         self.setDevice(port)
 
         if sendImage is not None:
-            self.sendImage(sendImage)
+            self.sendImage(sendImage, straightToCode=True)
         else:
             if not noPowerup:
                 self._powerUp(fpga=fpga)
@@ -724,9 +724,9 @@ class FeeControl(object):
     def raw(self, cmdStr):
         return self.sendCommandStr(cmdStr)
 
-    def sendImage(self, path, verbose=True, doWait=False, sendReboot=False, straightToCode=False,
+    def sendImage(self, path, verbose=True, doWait=True, sendReboot=False,
                   charAtATime=False, cmd=None):
-        """ Download an image file to the interlock board. 
+        """Download an image file to the interlock board.
 
         Args
         ----
@@ -736,19 +736,21 @@ class FeeControl(object):
           Whether to wait for a "Bootloader" prompt.
         sendReboot:
           Whether to start by sending a "reboot" command.
-        straightToCode:
-          Whether to skip all preparation and immediately start sending the .hex lines.
         charAtATime: bool
           Whether to send the image one character at a time (checking the echo) instead
           of one line at a time (also checking the echo.
         cmd : `actorcore.Command`
           The driving command, to which we can send reassuring messages of progress,
 
-        2020-02-17: 
-          - For blank FEEs, use straightToCode, which sets doWait=False and sendReboot=False.
-          - Otherwise power fee off, call with doWait=True and sendReboot=False, then power fee up.
-            The problem is that the FEE firmware hangs if 'reboot' is ever sent a second time after a power up.
-          - If you have power-cycled, then calling with sendReboot=True and doWait=False is also OK.
+        The standard way to run this is to power-cycle the fee, then
+        immediately call this. If no image has been loaded then there
+        is no rush. If an image has been loaded this routine needs to
+        be called within 4-5 econds of the power cycle.
+
+        Alternately, if an image is running, add reboot=True, which
+        will effectively power-cycle it from this routine. The gotcha
+        there is that as of 2021-09-20, a running FEE will hang if
+        sent reboot twice.
         """
 
         eol = chr(0x0a)
@@ -757,16 +759,16 @@ class FeeControl(object):
         lineNumber = 1
         maxRetries = 5
 
-        if straightToCode:
-            sendReboot = False
-            doWait = False
-            
+        # We are doing something violent: always make a new connection.
+        self.connectToDevice()
+        self.logger.info(f'connected to {self.device}')
+
         if sendReboot:
             try:
                 ret = self.sendCommandStr('reboot')
             except:
                 pass
-        time.sleep(0.5)
+            time.sleep(0.5)
         
         if doWait:
             self.device.timeout = 5
@@ -776,26 +778,20 @@ class FeeControl(object):
             isBootLoader = 'Bootloader' in retline
             if not isBootLoader:
                 raise RuntimeError("not at bootloader prompt (%s)" % (retline))
-            isBlank = retline[-1] == 'B'
-            self.logger.info('at bootloader: %s (blank=%s), from %r' % (isBootLoader, isBlank, ret))
-            if not isBlank:
-                self.logger.info('at bootloader, sending *')
-                self.device.write(b'*')
-        else:
-            if not straightToCode:
-                self.logger.info('at bootloader, sending *')
-                self.device.write(b'*')
 
-        if not straightToCode:
-            ret = self.device.readline()
-            ret = ret.decode('latin-1').strip()
-            self.logger.debug('after * got :%r:', ret)
+        # At the Bootloader prompt, tell it to start the loader.
+        self.logger.info('at bootloader, sending *')
+        self.device.write(b'*')
+
+        ret = self.device.readline()
+        ret = ret.decode('latin-1').strip()
+        self.logger.debug('after * got :%r:', ret)
+        if not ret.startswith('*Waiting for Data...'):
+            self.logger.info('at bootloader *, got %r' % (ret))
+            ret = self.device.readline().decode('latin-1')
+            self.logger.debug('after * retry got %r', ret)
             if not ret.startswith('*Waiting for Data...'):
-                self.logger.info('at bootloader *, got %r' % (ret))
-                ret = self.device.readline().decode('latin-1')
-                self.logger.debug('after * retry got %r', ret)
-                if not ret.startswith('*Waiting for Data...'):
-                    raise RuntimeError('could not get *Waiting for Data')
+                raise RuntimeError('could not get *Waiting for Data')
 
         logLevel = self.logger.level
         # self.logger.setLevel(logging.INFO)
@@ -866,19 +862,29 @@ class FeeControl(object):
 
         self.logger.setLevel(logLevel)
 
-    def sendOneLinePerChar(self, strline):
+    def sendOneLinePerChar(self, strline, debug=False):
+        """Send a line to the bootloader one character at a time.
+
+        Not currently necessary, but keep handy.
+        """
         line = strline.encode('latin-1')
         ret = bytearray(len(line) + 1)
         for c_i in range(len(line)):
             c = line[c_i:c_i+1]
             self.device.write(c)
-            # time.sleep(0.001)
+            time.sleep(0.001)
             retc = self.device.read(1)
             if c != retc:
-                raise RuntimeError('boom: mismatch at %d: sent %r but recv %r' % (c_i,c,retc))
+                raise RuntimeError('boom: mismatch at %d: sent %r but recv %r after delay' % (c_i,c,retc))
+            elif debug:
+                self.logger.info(f' sent {c} rcvd {retc}')
             ret[c_i] = retc[0]
+
         ackNak = self.device.read(1)
-        ret[-1] = ackNak[0]
+        try:
+            ret[-1] = ackNak[0]
+        except IndexError:
+            raise RuntimeError(f'no ACK/NAK received after sending {line.decode("latin-1")}')
 
         return ret.decode('latin-1')
     
