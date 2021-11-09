@@ -365,6 +365,7 @@ void pciReset(void)
   ret = write(f, "1", 1);
   if (ret < 0) {
     fprintf(stderr, "cannot write to FPGA reset file %s (%s)\n", PFS_FPGA_RESET_FILE, strerror(errno));
+    close(f);
     return;
   }
   close(f);
