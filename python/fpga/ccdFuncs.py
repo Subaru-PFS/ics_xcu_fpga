@@ -224,8 +224,10 @@ def purge(feeControl):
     setBias(feeControl, 'P_on', oldOn)
     time.sleep(0.25)
 
-doPurgedWipe = False
-purgedWipeVoltage = 10.0
+doPurgedWipe = True
+purgedWipeVoltage = 7.5
+purgedWipeNsteps = 5
+purgedWipeResetThreshold = 15.0
 def purgedWipe(feeControl):
     """Perform something like the LBNL Erase procedure:
 
@@ -240,29 +242,23 @@ def purgedWipe(feeControl):
 
     """
 
-    if False and doPurgedWipe:
-        # 1st scheme tried.
-        setBias(feeControl, 'P_off', purgedWipeVoltage)
-        setBias(feeControl, 'P_on', purgedWipeVoltage)
-        print(f'purgedWipe set P to {purgedWipeVoltage}')
-        feeControl.setMode('erase')
-        time.sleep(1.0)
-
-    if True and doPurgedWipe:
+    if doPurgedWipe:
+        # This *replaces* the erase mode, which simply drops VBB for ~1s. We do that but also
+        # raise P_{on,off} at the same time.
         t0 = time.time()
         [feeControl.doSet('bias', 'P_off', purgedWipeVoltage, ch) for ch in (0,1)]
         [feeControl.doSet('bias', 'P_on', purgedWipeVoltage, ch) for ch in (0,1)]
-        for v in np.linspace(30, 0, 5):
+        for v in np.linspace(30, 0, purgedWipeNsteps):
             [feeControl.doSet('bias', 'BB', v, ch) for ch in (0,1)]
         time.sleep(0.5)
-        for v in np.linspace(0, 30, 5):
+        for v in np.linspace(0, 30, purgedWipeNsteps):
             [feeControl.doSet('bias', 'BB', v, ch) for ch in (0,1)]
-            if v == 15.0:
+            if v >= purgedWipeResetThreshold:
                 [feeControl.doSet('bias', 'P_off', 6.0, ch) for ch in (0,1)]
                 [feeControl.doSet('bias', 'P_on', 6.0, ch) for ch in (0,1)]
 
         t1 = time.time()
-        print(f'total={t1-t0:0.2f}')
+        print(f'purgedWipe total={t1-t0:0.2f}')
 
     else:
         feeControl.setMode('wipe')
@@ -286,6 +282,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
      Later: read.
 
     Adding LBNL-style purge step, where P- is set to low (+V) rail just before wiping.
+    Adding LBNL-style erase step, where P are inverted w.r.t. VBB.
 
     """
 
@@ -305,8 +302,13 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
             feeControl.setMode('idle')
             time.sleep(1.0)
 
+        # The LBNL Erase procedure, where the Parallel clocks are raised while
+        # VBB is dropped. Ameliorates tearing.
+        #
         purgedWipe(feeControl)
 
+        # The LBNL "E-purge" procedure, which is *intended* to fix the tearing, but does not seem to.
+        #
         purge(feeControl)
 
     for i in range(nwipes):
