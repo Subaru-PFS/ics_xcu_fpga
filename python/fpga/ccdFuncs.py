@@ -262,11 +262,10 @@ def purgedWipe(feeControl, blockPurgedWipe=False):
 
         t1 = time.time()
         print(f'purgedWipe total={t1-t0:0.2f}')
-
     else:
-        feeControl.setMode('wipe')
-        time.sleep(0.5)
-
+        feeControl.setMode('erase')
+        time.sleep(1)
+                
 def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
@@ -315,15 +314,19 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         #
         purge(feeControl)
 
-    for i in range(nwipes):
+        feeControl.setMode('wipe')
+        time.sleep(0.5)
+        
         logger.info("resetting....")
         ccd.pciReset()
-        logger.info("wiping....")
-        readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
-                                        clockFunc=getWipeClocks(),
-                                        rowBinning=rowBinning)
-        time.sleep(readTime+0.1)
-        logger.info("wiped %d %d %g s" % (nrows, ncols, readTime))
+
+        for i in range(nwipes):
+            logger.info("wiping....")
+            readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
+                                            clockFunc=getWipeClocks(),
+                                            rowBinning=rowBinning)
+            time.sleep(readTime+0.1)
+            logger.info("wiped %d %d %g s" % (nrows, ncols, readTime))
 
     if toExposeMode:
         feeControl.setMode('expose')
