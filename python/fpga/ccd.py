@@ -359,6 +359,9 @@ class CCD(FPGA):
         
         return fname
 
+    def makeEmptyImage(self):
+        return np.zeros(shape=(self.nrows, self.namps*self.ncols), dtype='u2')
+
     def readImage(self, nrows=None, ncols=None,
                   rowBinning=1,
                   doTest=False, debugLevel=1, 

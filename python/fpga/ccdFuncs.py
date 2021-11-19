@@ -18,6 +18,9 @@ reload(opticslab)
 
 reload(ccdMod)
 
+logger = logging.getLogger('ccdFuncs')
+logger.setLevel(logging.INFO)
+
 class FeeTweaks(object):
     """ Interpose into fee.setMode() to override bias voltages after mode has been loaded from PROM.
 
@@ -228,7 +231,7 @@ doPurgedWipe = True
 purgedWipeVoltage = 7.5
 purgedWipeNsteps = 5
 purgedWipeResetThreshold = 15.0
-def purgedWipe(feeControl):
+def purgedWipe(feeControl, blockPurgedWipe=False):
     """Perform something like the LBNL Erase procedure:
 
     ramp Vsub to 0 V in a controlled, linear manner and increase all
@@ -242,7 +245,7 @@ def purgedWipe(feeControl):
 
     """
 
-    if doPurgedWipe:
+    if doPurgedWipe and not blockPurgedWipe:
         # This *replaces* the erase mode, which simply drops VBB for ~1s. We do that but also
         # raise P_{on,off} at the same time.
         t0 = time.time()
@@ -260,13 +263,10 @@ def purgedWipe(feeControl):
         t1 = time.time()
         print(f'purgedWipe total={t1-t0:0.2f}')
 
-    else:
-        feeControl.setMode('wipe')
-        time.sleep(1.0)
-
 def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
+         blockPurgedWipe=False,
          toExposeMode=True):
     """ Run nwipes full-detector wipes. Leave CCD in expose mode. 
 
@@ -298,31 +298,32 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         nrows = ccd.ccdRows//rowBinning + 5
         
     if nwipes > 0:
-        if feeControl.getMode != 'idle':
-            feeControl.setMode('idle')
-            time.sleep(1.0)
-
         # The LBNL Erase procedure, where the Parallel clocks are raised while
         # VBB is dropped. Ameliorates tearing.
         #
-        purgedWipe(feeControl)
+        purgedWipe(feeControl, blockPurgedWipe=blockPurgedWipe)
 
         # The LBNL "E-purge" procedure, which is *intended* to fix the tearing, but does not seem to.
         #
         purge(feeControl)
 
-    for i in range(nwipes):
-        print("wiping....")
+        feeControl.setMode('wipe')
+        time.sleep(0.5)
+        
+        logger.info("resetting....")
         ccd.pciReset()
-        readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
-                                        clockFunc=getWipeClocks(),
-                                        rowBinning=rowBinning)
-        time.sleep(readTime+0.1)
-        print("wiped %d %d %g s" % (nrows, ncols, readTime))
+
+        for i in range(nwipes):
+            logger.info("wiping....")
+            readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
+                                            clockFunc=getWipeClocks(),
+                                            rowBinning=rowBinning)
+            time.sleep(readTime+0.1)
+            logger.info("wiped %d %d %g s" % (nrows, ncols, readTime))
 
     if toExposeMode:
         feeControl.setMode('expose')
-        time.sleep(0.25)
+        logger.info("setMode=expose")
 
 def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
     """ Configure and start the clocks for nrows of ncols. """
