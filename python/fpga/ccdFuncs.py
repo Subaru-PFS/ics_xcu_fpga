@@ -301,10 +301,6 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         nrows = ccd.ccdRows//rowBinning + 5
         
     if nwipes > 0:
-        if feeControl.getMode() != 'idle':
-            feeControl.setMode('idle')
-            time.sleep(1.0)
-
         # The LBNL Erase procedure, where the Parallel clocks are raised while
         # VBB is dropped. Ameliorates tearing.
         #
