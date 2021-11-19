@@ -262,10 +262,7 @@ def purgedWipe(feeControl, blockPurgedWipe=False):
 
         t1 = time.time()
         print(f'purgedWipe total={t1-t0:0.2f}')
-    else:
-        feeControl.setMode('erase')
-        time.sleep(1)
-                
+
 def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
