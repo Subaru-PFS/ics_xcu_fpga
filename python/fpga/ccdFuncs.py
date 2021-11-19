@@ -36,6 +36,15 @@ class FeeTweaks(object):
     def getMode(self):
         return self.fee.getMode()
 
+    def doGet(self, mode, name, chan):
+        return self.fee.doGet(mode, name, chan)
+
+    def doSet(self, mode, name, val, chan):
+        return self.fee.doSet(mode, name, val, chan)
+
+    def raw(self, cmdStr):
+        return self.fee.raw(cmdStr)
+
     def statusAsCards(self):
         return self.fee.statusAsCards()
 
@@ -182,6 +191,79 @@ def fetchCards(exptype=None, feeControl=None, expTime=0.0, darkTime=None, getCar
         feeCards.insert(0, ('DATE-OBS', ts(), 'Crude Lab Time'))
     return feeCards
 
+def setBias(fee, biasName, biasValue):
+    oldVals = [fee.doGet('bias', biasName, ch) for ch in (0,1)]
+    [fee.doSet('bias', biasName, biasValue, ch) for ch in (0,1)]
+
+    return oldVals[0]
+
+doPurge = False
+purgeVoltage = -10.0
+def purge(feeControl):
+    """LBNL-style purge step, where the parallels are set to low rail just before wiping.
+
+    This is to ameliorate "tearing".
+    """
+
+    if not doPurge:
+        print("no purge!")
+        return
+
+    print(f"purge +/- to {purgeVoltage}!")
+
+    # LBNL purge tweak.
+    oldOff = setBias(feeControl, 'P_off', purgeVoltage)
+    oldOn = setBias(feeControl, 'P_on', purgeVoltage)
+    onMeas = [feeControl.raw(f'~rb,P_on,ch{channel}') for channel in [0,1]]
+    offMeas = [feeControl.raw(f'~rb,P_off,ch{channel}') for channel in [0,1]]
+
+    print(f'purge set P_off={offMeas} P_on={onMeas}')
+    time.sleep(1)
+
+    setBias(feeControl, 'P_off', oldOff)
+    setBias(feeControl, 'P_on', oldOn)
+    time.sleep(0.25)
+
+doPurgedWipe = True
+purgedWipeVoltage = 7.5
+purgedWipeNsteps = 5
+purgedWipeResetThreshold = 15.0
+def purgedWipe(feeControl):
+    """Perform something like the LBNL Erase procedure:
+
+    ramp Vsub to 0 V in a controlled, linear manner and increase all
+    parallel clocks to 9 V; this causes inversion and floods the
+    surface with electrons. We use a linear ramp rate of about 75 V/s
+    but a faster ramp is possible.
+
+    After a brief delay (fraction of a second) ramp Vsub back to
+    normal operating voltage. When Vsub > ~10 V restore the parallel
+    clocks to normal values.
+
+    """
+
+    if doPurgedWipe:
+        # This *replaces* the erase mode, which simply drops VBB for ~1s. We do that but also
+        # raise P_{on,off} at the same time.
+        t0 = time.time()
+        [feeControl.doSet('bias', 'P_off', purgedWipeVoltage, ch) for ch in (0,1)]
+        [feeControl.doSet('bias', 'P_on', purgedWipeVoltage, ch) for ch in (0,1)]
+        for v in np.linspace(30, 0, purgedWipeNsteps):
+            [feeControl.doSet('bias', 'BB', v, ch) for ch in (0,1)]
+        time.sleep(0.5)
+        for v in np.linspace(0, 30, purgedWipeNsteps):
+            [feeControl.doSet('bias', 'BB', v, ch) for ch in (0,1)]
+            if v >= purgedWipeResetThreshold:
+                [feeControl.doSet('bias', 'P_off', 6.0, ch) for ch in (0,1)]
+                [feeControl.doSet('bias', 'P_on', 6.0, ch) for ch in (0,1)]
+
+        t1 = time.time()
+        print(f'purgedWipe total={t1-t0:0.2f}')
+
+    else:
+        feeControl.setMode('wipe')
+        time.sleep(1.0)
+
 def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
@@ -198,6 +280,9 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
      Set expose mode 
 
      Later: read.
+
+    Adding LBNL-style purge step, where P- is set to low (+V) rail just before wiping.
+    Adding LBNL-style erase step, where P are inverted w.r.t. VBB.
 
     """
 
@@ -216,10 +301,16 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         if feeControl.getMode != 'idle':
             feeControl.setMode('idle')
             time.sleep(1.0)
-        feeControl.setMode('erase')
-        time.sleep(1.0)
-        feeControl.setMode('wipe')
-        time.sleep(1.0)
+
+        # The LBNL Erase procedure, where the Parallel clocks are raised while
+        # VBB is dropped. Ameliorates tearing.
+        #
+        purgedWipe(feeControl)
+
+        # The LBNL "E-purge" procedure, which is *intended* to fix the tearing, but does not seem to.
+        #
+        purge(feeControl)
+
     for i in range(nwipes):
         print("wiping....")
         ccd.pciReset()

@@ -321,13 +321,15 @@ def setPower(onOff):
     Args:
        onOff : bool
     """
+
     if onOff == 'on':
-        command = 'pon'
-    else:
-        command = 'poff'
+        onOff = True
+    if onOff == 'off':
+        onOff = False
+
+    command = 'pon' if onOff else 'poff'
     opticsLabCommand(command, timeout=2.0)
     
-    #opticsLabCommand('pon' if onOff else 'poff', timeout=2.0)
     return getPower()
 
 def setLamp(lamp):

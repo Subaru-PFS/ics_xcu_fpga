@@ -467,6 +467,7 @@ class FeeControl(object):
 
         self.presets['erase'] = m = ModePreset('erase')
         m.define(preload=self.presets['idle'], 
+                 P_off=10.0, P_on=10.0,  # LBNL erase
                  BB=0.2)
         if False:               # Not used yet, plus I'm not sure about the name.
             self.presets['fastRev'] = m = ModePreset('fastRev')
