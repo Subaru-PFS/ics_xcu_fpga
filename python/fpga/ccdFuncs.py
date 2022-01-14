@@ -109,8 +109,8 @@ def disableSWOnCcdTweak(feeControl, ccd=0):
 
     return tweakedFee
 
-def rowProgress(row_i, image, errorMsg="OK", 
-                everyNRows=100, 
+def rowProgress(row_i, image, errorMsg="OK",
+                everyNRows=100,
                 **kwargs):
     """ A sample end-of-row callback. """
 
@@ -124,15 +124,15 @@ def getReadClocks():
 
     import clocks.read
     reload(clocks.read)
-    
+
     return clocks.read.readClocks
 
 def getFastRevReadClocks():
     """ Dynamically load reverse read clock pattern. """
-    
+
     import clocks.fastrevread
     reload(clocks.fastrevread)
-    
+
     return clocks.fastrevread.readClocks
 
 def getWipeClocks():
@@ -140,12 +140,12 @@ def getWipeClocks():
 
     import clocks.wipe
     reload(clocks.wipe)
-    
+
     return clocks.wipe.wipeClocks
 
 def lastNight():
     """ Convenience for getting the latest night's directory. """
-    
+
     ddirs = glob.glob('/data/pfs/201[0-9]-[0-9][0-9]-[0-9][0-9]')
     return sorted(ddirs)[-1]
 
@@ -154,10 +154,10 @@ def ts(t=None):
         t = time.time()
         return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t))
 
-                    
+
 def note(text, tick=None):
     """ Append a single line to our night's LOG file. """
-    
+
     ddir = lastNight()
     bellFile = open(os.path.join(ddir, 'LOG.txt'), 'a+', buffering=1)
     bellFile.write("%s %s\n" % (ts(), text))
@@ -167,7 +167,7 @@ def note(text, tick=None):
 def fnote(fname, ftype='', notes=''):
     if fname is None:
         return
-    
+
     hdr = fitsio.read_header(fname)
     hdrNotes = "ccd=%s,%s pa=%s %s %s" % (hdr.get('temp.ccd0'),
                                           hdr.get('temp.ccd1'),
@@ -176,7 +176,7 @@ def fnote(fname, ftype='', notes=''):
                                           hdr.get('EXPTIME', ''))
 
     note("%s %s %s %s" % (fname, ftype, hdrNotes, notes))
-    
+
 def fetchCards(exptype=None, feeControl=None, expTime=0.0, darkTime=None, getCards=True):
     """ Generate all FEE exposure cards, included times and IMAGETYP. """
 
@@ -268,7 +268,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          feeControl=None,
          blockPurgedWipe=False,
          toExposeMode=True):
-    """ Run nwipes full-detector wipes. Leave CCD in expose mode. 
+    """ Run nwipes full-detector wipes. Leave CCD in expose mode.
 
     Per JEG, 2015-12-01:
      Before each exposure, you should do the following sequence:
@@ -277,7 +277,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
      Vbb to zero, wait ~ 1s
      Vbb to read voltage, wait ~ 1s
      Fast wipe
-     Set expose mode 
+     Set expose mode
 
      Later: read.
 
@@ -296,7 +296,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         ncols = ccd.ampCols
     if nrows is None:
         nrows = ccd.ccdRows//rowBinning + 5
-        
+
     if nwipes > 0:
         # The LBNL Erase procedure, where the Parallel clocks are raised while
         # VBB is dropped. Ameliorates tearing.
@@ -309,7 +309,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
 
         feeControl.setMode('wipe')
         time.sleep(0.5)
-        
+
         logger.info("resetting....")
         ccd.pciReset()
 
@@ -330,7 +330,7 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
 
     if nrows is None:
         nrows = 2*1024*1024*1024 - 1
-        
+
     if ccd is None:
         ccd = ccdMod.ccd
 
@@ -342,8 +342,8 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
                                     clockFunc=getReadClocks())
     if cmd is not None:
         cmd.inform('text="started clocking %d rows of %d columns: %0.2fs or so"' % (nrows, ncols, readTime))
-    
-    
+
+
 def readout(imtype, ccd=None,
             expTime=0, darkTime=None,
             nrows=None, ncols=None,
@@ -356,10 +356,10 @@ def readout(imtype, ccd=None,
             doModes=True):
 
     """ Wrap a complete detector readout: no wipe, but with a log note, FITS cards and left in idle mode.  """
-    
+
     if ccd is None:
         ccd = ccdMod.ccd
-    
+
     argDict = dict(everyNRows=(nrows//5 if nrows else 500), ccd=ccd, cols=slice(50,-40))
 
     if feeControl is None:
@@ -376,7 +376,7 @@ def readout(imtype, ccd=None,
                           getCards=doFeeCards)
 
     feeCards.extend(extraCards)
-    im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, 
+    im, imfile = ccd.readImage(nrows=nrows, ncols=ncols,
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
                                clockFunc=clockFunc,
                                doSave=doSave,
@@ -386,31 +386,31 @@ def readout(imtype, ccd=None,
         feeControl.setMode('idle')
         time.sleep(0.5)
     t3 = time.time()
-    
+
     print("file : %s" % (imfile))
     print("times: %0.2f, %0.2f, %0.2f"
           % (t1-t0,t2-t1,t3-t2))
-    
+
     fnote(imfile, comment)
-    
+
     return im, imfile
 
 
-def fullExposure(imtype, ccd=None, expTime=0.0, 
+def fullExposure(imtype, ccd=None, expTime=0.0,
                  nrows=None, ncols=None,
                  clockFunc=None, doWipe=True,
                  doSave=True, comment='',
                  extraCards=(), doFeeCards=True,
                  feeControl=None, cmd=None):
 
-    """ Wrap a complete exposure, including wipe, sleep, and readout. 
+    """ Wrap a complete exposure, including wipe, sleep, and readout.
 
     Because of the sleep, this is only useful for biases and short darks.
     """
-    
+
     if ccd is None:
         ccd = ccdMod.ccd
-    
+
     if clockFunc is None:
         clockFunc = getReadClocks()
 
@@ -429,7 +429,7 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
         cmd.inform('exposureState="integrating",%0.2f' % (expTime))
     time.sleep(expTime)
     t2 = time.time()
-    
+
     if cmd is not None:
         cmd.inform('exposureState="reading",%0.2f' % (45.0))
     im, imfile = readout(imtype, ccd=ccd, expTime=expTime,
@@ -447,9 +447,9 @@ def fullExposure(imtype, ccd=None, expTime=0.0,
     print("file : %s" % (imfile))
     print("times: wipe: %0.2f, exposure: %0.2f, readout: %0.2f, total=%0.2f"
           % (t1-t0,t2-t1,t3-t2,t3-t0))
-    
+
     fnote(imfile, comment)
-    
+
     return im, imfile
 
 def fastRevRead(ccd=None, rowBinning=10,
@@ -460,7 +460,7 @@ def fastRevRead(ccd=None, rowBinning=10,
 
     if ccd is None:
         ccd = ccdMod.ccd
-    
+
     argDict = dict(everyNRows=500//rowBinning, ccd=ccd, cols=slice(50,-40))
 
     if clockFunc is None:
@@ -472,7 +472,7 @@ def fastRevRead(ccd=None, rowBinning=10,
         feeControl.setFast()
         feeControl.setMode('revRead')
         time.sleep(1)               # Per JEG
-    
+
         feeCards = fetchCards('revread', expTime=0)
         im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, rowBinning=rowBinning,
                                    rowFunc=rowStats, rowFuncArgs=argDict,
@@ -483,13 +483,13 @@ def fastRevRead(ccd=None, rowBinning=10,
         feeControl.setSlow()
         feeControl.setMode('idle')
         time.sleep(1)               # Per JEG
-        
-    
+
+
     return im, imfile
 
 def expSequence(ccd=None,
                 nrows=None, ncols=None, nwipes=0, nbias=2, nendbias=0,
-                darks=(), flats=(), 
+                darks=(), flats=(),
                 feeControl=None,
                 clockFunc=None,
                 comment='',
@@ -506,12 +506,12 @@ def expSequence(ccd=None,
         explist.append(('flat', flatTime),)
     for i in range(nendbias):
         explist.append(('bias', 0),)
-        
+
     return expList(explist, ccd=ccd,
                    nrows=nrows, ncols=ncols,
                    feeControl=feeControl, clockFunc=clockFunc,
                    comment=comment, title=title)
-    
+
 def expList(explist, ccd=None,
             nrows=None, ncols=None,
             feeControl=None,
@@ -519,7 +519,7 @@ def expList(explist, ccd=None,
             comment='',
             title='Running exposure list'):
 
-    """ Currently the main entry-point for taking multiple exposures. 
+    """ Currently the main entry-point for taking multiple exposures.
 
     Takes a list of exposure tuples:
       (bias 0)
@@ -553,7 +553,7 @@ def expList(explist, ccd=None,
             if exptype == 'bias':
                 im, imfile = readout('bias', ccd=ccd,
                                      nrows=nrows, ncols=ncols,
-                                     clockFunc=clockFunc, 
+                                     clockFunc=clockFunc,
                                      feeControl=feeControl,
                                      comment=expComment)
             elif exptype == 'dark':
@@ -562,7 +562,7 @@ def expList(explist, ccd=None,
                 im, imfile = readout('dark', ccd=ccd,
                                      expTime=darkTime,
                                      nrows=nrows, ncols=ncols,
-                                     clockFunc=clockFunc, 
+                                     clockFunc=clockFunc,
                                      feeControl=feeControl,
                                      comment=expComment)
             elif exptype == 'flat':
@@ -581,7 +581,7 @@ def expList(explist, ccd=None,
                 im, imfile = readout('flat', ccd=ccd,
                                      expTime=flatTime,
                                      nrows=nrows, ncols=ncols,
-                                     clockFunc=clockFunc, 
+                                     clockFunc=clockFunc,
                                      feeControl=feeControl,
                                      extraCards=cards,
                                      comment=expComment)
@@ -604,7 +604,7 @@ def expList(explist, ccd=None,
                 im, imfile = readout('flash', ccd=ccd,
                                      expTime=flatTime,
                                      nrows=nrows, ncols=ncols,
-                                     clockFunc=clockFunc, 
+                                     clockFunc=clockFunc,
                                      feeControl=feeControl,
                                      extraCards=cards,
                                      comment=expComment)
@@ -613,15 +613,15 @@ def expList(explist, ccd=None,
 
             files.append(imfile)
 
-            print(imfile)    
+            print(imfile)
     finally:
         feeControl.setMode('idle')
-        
+
     note('Done with exposure list.')
     return files
 
-def rowStats(line, image, errorMsg="OK", everyNRows=100, 
-             ampList=list(range(8)), cols=None, 
+def rowStats(line, image, errorMsg="OK", everyNRows=100,
+             ampList=list(range(8)), cols=None,
              lineDetail=False, **kwargs):
 
     """ Per-row callback to print basic per-amp stats.
@@ -632,7 +632,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     Parameters
     ----------
     line : int
-       The row index, into the image arg. 
+       The row index, into the image arg.
     image : 2d array of pixels.
        The full image, with valid data up to this line. So this
        row is image[line,:]
@@ -651,7 +651,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
     Examples
     --------
 
-    # Take a 10000 row exposure, where we get stats every 50 rows. We do not save the image 
+    # Take a 10000 row exposure, where we get stats every 50 rows. We do not save the image
     # to disk.
     >>> argDict = dict(ccd=ccd, everyNRows=50, ampList=(1,6))
     >>> im = readImage(nrows=10000, rowFunc=ccdFuncs.rowStats, rowFuncArgs=argDict, doSave=False)
@@ -682,7 +682,7 @@ def rowStats(line, image, errorMsg="OK", everyNRows=100,
         parts.append(errorMsg)
 
         print(' '.join(parts))
-    
+
 def main(argv=None):
     import argparse
     import pyFPGA
@@ -717,10 +717,10 @@ def main(argv=None):
     exec(execStr)
 
     fee = pyFPGA.FPGA()
-    im = fee.readImage(doTest=args.sim, 
+    im = fee.readImage(doTest=args.sim,
                        debugLevel=logLevel,
-                       nrows=args.rows, 
-                       rowFunc=args.rowFunc, 
+                       nrows=args.rows,
+                       rowFunc=args.rowFunc,
                        rowFuncArgs=args.rowFuncArgs)
 
     return im
