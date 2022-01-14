@@ -990,7 +990,14 @@ class FeeControl(object):
         return "%d%s" % (ampNum%4, leg), channel
 
     def setMode(self, newMode):
-        ret = self.sendCommandStr('lp,%s' % (newMode))
+        # Setting modes fails every now any then. But I do not think
+        # it is a real and significant failure, so just try again.
+        try:
+            ret = self.sendCommandStr('lp,%s' % (newMode))
+        except RuntimeError:
+            self.logger.warn('setMode failed; retrying....')
+            ret = self.sendCommandStr('lp,%s' % (newMode))
+
         return ret
 
     def getMode(self):
