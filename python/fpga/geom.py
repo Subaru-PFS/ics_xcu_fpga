@@ -26,8 +26,8 @@ class Exposure(object):
                 self.header = self.header.copy()
         elif isinstance(obj, (str, pathlib.Path)):
             ffile = pyfits.open(obj)
-            self.image = ffile[0].data
-            self.header = ffile[0].header
+            self.image = ffile[-1].data
+            self.header = ffile[-1].header
             self.deduceGeometry(simpleGeometry)
             self.image = self.fixEdgeColsBug(self.image)
 
