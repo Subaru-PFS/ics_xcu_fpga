@@ -7,6 +7,7 @@ from astropy.io import fits
 
 sequenceType = ['std_exposures_biases', 'std_exposures_darks', 'std_exposures_base', 'std_exposures_hours', 'std_exposures_vod_vog', 
                 'std_exposures_bright_flats', 'std_exposures_low_flats', 'std_exposures_master_flats', 'std_exposures_fe55', 'std_exposures_qe', 'std_exposures_test']
+oneOff = ['test_fe55_arm']
 
 def cleanStr(text):
     return text.replace("'", '').strip()
@@ -33,6 +34,9 @@ def exposureInfo(filepath):
     return date, visit, ccd, exptype, exptime
 
 def getSequence(sequence):
+    if sequence in oneOff:
+        return sequence
+
     sequence = f'std_exposures_{sequence}' if 'std_exposures_' not in sequence else sequence
     if sequence not in sequenceType:
         raise KeyError(f'unknown sequence type {sequence}')

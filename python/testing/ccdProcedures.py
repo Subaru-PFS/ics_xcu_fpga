@@ -391,13 +391,14 @@ def stdExposures_lowFlats(ccd=None, feeControl=None,
     return files
     
     
-def stdExposures_masterFlats(ccd=None, feeControl=None, nflats=21, exptime=10, comment='master flats'):
+def stdExposures_masterFlats(ccd=None, feeControl=None, nflats=21, exptime=10, flux=1000, comment='master flats'):
     """ Canonical bright flats sequence. 
 
     At 1000ADU/s, take flats running up past saturation.
     """
-    files = []
-    opticslab.setup(ccd.arm, flux=1000)
+    if flux is not None:
+        opticslab.setup(ccd.arm, flux=flux)
+
     flatlist = nflats * [('flat', exptime)]
     head = tail = 5 * [('bias', 0)] + [('dark', 100)]
     explist = head + flatlist + tail
@@ -428,7 +429,7 @@ def stdExposures_Fe55(ccd=None, feeControl=None, comment='Fe55 sequence'):
 
     opticslab.setPower('off')
     
-    for pos in 35,45,55:
+    for pos in 45,53,61,69:
         opticslab.setFe55(pos)
         
         files += ccdFuncs.expList(explist, ccd=ccd,

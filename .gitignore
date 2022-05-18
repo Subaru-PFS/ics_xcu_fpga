@@ -56,3 +56,6 @@ xst/
 .nblink.pid
 .link.pid
 nohup.out
+
+.idea/
+.vscode/
