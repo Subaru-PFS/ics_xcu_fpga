@@ -231,7 +231,7 @@ doPurgedWipe = True
 purgedWipeVoltage = 7.5
 purgedWipeNsteps = 5
 purgedWipeResetThreshold = 15.0
-def purgedWipe(feeControl, blockPurgedWipe=False):
+def purgedWipeExternal(feeControl, blockPurgedWipe=False):
     """Perform something like the LBNL Erase procedure:
 
     ramp Vsub to 0 V in a controlled, linear manner and increase all
@@ -260,6 +260,52 @@ def purgedWipe(feeControl, blockPurgedWipe=False):
                 [feeControl.doSet('bias', 'P_off', 6.0, ch) for ch in (0,1)]
                 [feeControl.doSet('bias', 'P_on', 6.0, ch) for ch in (0,1)]
 
+        t1 = time.time()
+        print(f'purgedWipe total={t1-t0:0.2f}')
+
+def purgedWipe(feeControl, blockPurgedWipe=False):
+    """Run the LBNL purged wipe procedure in place of the VBB erase step.
+
+    Parameters
+    ----------
+    feeControl : `FeeControl`
+        The FEE object we can command
+    blockPurgedWipe : bool, optional
+        whether to skip the entire process, by default False
+
+    Command notes from Steve Hope:
+        rSeq,[new parallel voltage],[Vthreshold to revert Parallels],[number of ~5ms steps to ramp Vbb],[Vbb dwell time in ms at 0V]\n
+
+        Example:
+
+            rSeq,8,8,100,1000\n
+        rSeq: Run Sequence
+        8: Set Parallels to 8V (this is an ascii float value)
+        8: Set the Vbb positive Ramp threshold for reverting parallels to 8V (this is an ascii float)
+        100: Set the number of ramp steps to 100, which approximates to 500ms (this is an ascii int)
+        1000: Set the Dwell time to 1000, which approximates to 1000ms (this is an ascii int)
+        \n: Execute the command.
+
+        The voltage limits for new parallel value and Vbb threshold are checked against Pin/Poff limits and Vbb limits respectively. If you specify a value outside the limits it will return and error message. These are ascii float values.
+
+        The number of steps must be >=1 and <=1000, and the dwell time most be >= 0 and <=5000. If you specify a value outside the limits, it will return an error message. These are ascii unsigned integer values.
+
+        The functionality is as follows:
+        Set parallels to specified voltage
+        Wait 1ms
+        Ramp Vbb to 0V in specified number of steps
+        Wait for specified dwell time
+        Ramp Vbb to its original voltage in specified number of steps
+        When Vbb exceeds the specified threshold voltgage, restore the parallels to their original voltage
+        On completion, restore parallels again, just in case Vthreshold < Vbb restored
+
+    """
+    if doPurgedWipe and not blockPurgedWipe:
+        V_P = purgedWipeVoltage
+        rampSteps = 100
+        dwellTime = 500
+        t0 = time.time()
+        feeControl.sendCommandStr(f'rSeq,{V_P},{V_P},{rampSteps},{dwellTime}')
         t1 = time.time()
         print(f'purgedWipe total={t1-t0:0.2f}')
 
