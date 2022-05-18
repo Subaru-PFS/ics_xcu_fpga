@@ -341,7 +341,7 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
     if ncols is None:
         ncols = ccd.ampCols
     if nrows is None:
-        nrows = ccd.ccdRows//rowBinning + 5
+        nrows = ccd.ccdRows//rowBinning
 
     if nwipes > 0:
         # The LBNL Erase procedure, where the Parallel clocks are raised while
