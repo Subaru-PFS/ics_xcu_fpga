@@ -193,12 +193,30 @@ class FeeChannelSet(FeeSet):
 
         return self._getVal(subName, channel, self.readLetter)
 
+class FeeFeatures:
+    knownFeatures = {'rampedErase'}
+    defaultFeatures = knownFeatures
+
+    def __init__(self, features=None):
+        if features is None:
+            self.features = self.defaultFeatures
+        else:
+            self.features = set()
+            for f in features:
+                if f not in self.knownFeatures:
+                    raise ValueError(f'unknown FEE feature {f}')
+                self.features.add(f)
+
+    def __contains__(self, feature):
+        return feature in self.features
+     
 class FeeControl(object):
     def __init__(self, port=None, logLevel=logging.DEBUG, sendImage=None,
-                 noConnect=False, noPowerup=False, fpga=None):
+                 noConnect=False, noPowerup=False, fpga=None, 
+                 features=None):
 
         global fee
-        
+
         if port is None:
             port = '/dev/ttyS2'
         self.logger = logging.getLogger()
@@ -213,6 +231,8 @@ class FeeControl(object):
         self.EOL = '\n'
         self.ignoredEOL = '\r'
 
+        self.features = FeeFeatures(features)
+        
         self.lockConfig()
         self.defineCommands()
 
@@ -223,7 +243,7 @@ class FeeControl(object):
         self.setDevice(port)
 
         if sendImage is not None:
-            self.sendImage(sendImage, straightToCode=True)
+            self.sendImage(sendImage, doWait=False)
         else:
             if not noPowerup:
                 self._powerUp(fpga=fpga)
@@ -234,6 +254,9 @@ class FeeControl(object):
         return ("FeeControl(port=%s, device=%s)" %
                 (self.devConfig['port'],
                  self.device))
+
+    def hasFeature(self, feature):
+        return feature in self.features
     
     def setDevice(self, devName):
         """ """

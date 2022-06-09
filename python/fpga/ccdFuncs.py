@@ -347,7 +347,10 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
         # The LBNL Erase procedure, where the Parallel clocks are raised while
         # VBB is dropped. Ameliorates tearing.
         #
-        purgedWipe(feeControl, blockPurgedWipe=blockPurgedWipe)
+        if feeControl.hasFeature('rampedErase'):
+            purgedWipe(feeControl, blockPurgedWipe=blockPurgedWipe)
+        else:
+            purgedWipeExternal(feeControl, blockPurgedWipe=blockPurgedWipe)
 
         # The LBNL "E-purge" procedure, which is *intended* to fix the tearing, but does not seem to.
         #
