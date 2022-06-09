@@ -795,7 +795,7 @@ class FeeControl(object):
             time.sleep(0.5)
         
         if doWait:
-            self.device.timeout = 5
+            self.device.timeout = 10
             ret = self.device.readline()
             retline = ret.decode('latin-1').strip()
             self.logger.info('at wait, recv: %r', retline)
