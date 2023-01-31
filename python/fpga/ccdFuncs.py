@@ -11,6 +11,7 @@ import numpy as np
 
 import fitsio
 
+from clocks import clockIDs, clocks
 from fpga import ccd as ccdMod
 from fee import feeControl as feeMod
 from fpga import opticslab
@@ -309,6 +310,49 @@ def purgedWipe(feeControl, blockPurgedWipe=False):
         t1 = time.time()
         print(f'purgedWipe total={t1-t0:0.2f}')
 
+def _loadShimConfig(ccd):
+    cfg = dict()
+    try:
+        pars = ccd.pars
+        cfg['pars'] = ccd.pars
+    except AttributeError:
+        return None
+    
+    logging.warn(f'loaded shim tweaks: {cfg}')
+    return cfg
+
+def _calcTweakedWipeClocks(ccd, feeControl, pars):
+    # Should get this from wipeClocks, say.
+    baseOn = {clockIDs.S1, clockIDs.IR, clockIDs.CNV}
+
+    setOn = baseOn | pars
+    logger.warning(f'SETting on clocks from {pars} to {setOn}, with readoutState={ccd.readoutState()}')
+
+    opcodes, ticks, _ = clocks.genSetClocks(turnOn=setOn)
+    return opcodes, ticks
+
+def _tweakWipeClocks(ccd, feeControl, pars):
+    # Should get this from wipeClocks, say.
+    baseOn = {clockIDs.S1, clockIDs.IR, clockIDs.CNV}
+
+    setOn = baseOn | pars
+    logger.warning(f'SETting on clocks from {pars} to {setOn}, with readoutState={ccd.readoutState()}')
+    ccd.setClockLevels(turnOn=setOn)
+
+def _tryRunningReadShim(ccd, feeControl):
+    cfg =  _loadShimConfig(ccd)
+    if cfg is None or not 'pars' in cfg:
+        return
+    pars = set([s for s in {clockIDs.P1, clockIDs.P2, clockIDs.P3} if s not in cfg['pars']])
+    _tweakWipeClocks(ccd, feeControl, pars)
+
+def _tryRunningExposeShim(ccd, feeControl):
+    cfg =  _loadShimConfig(ccd)
+    if cfg is None or 'pars' not in cfg:
+        return
+    pars = set(cfg['pars'])
+    _tweakWipeClocks(ccd, feeControl, pars)
+    
 def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
          rowBinning=1,
          feeControl=None,
@@ -364,14 +408,19 @@ def wipe(ccd=None, nwipes=1, ncols=None, nrows=None,
 
         for i in range(nwipes):
             logger.info("wiping....")
+            clockFunc=getWipeClocks()
+            
             readTime = ccd.configureReadout(nrows=nrows, ncols=ncols,
-                                            clockFunc=getWipeClocks(),
+                                            clockFunc=clockFunc,
                                             rowBinning=rowBinning)
             time.sleep(readTime+0.1)
             logger.info("wiped %d %d %g s" % (nrows, ncols, readTime))
 
+        ccd.finishReadout()
+        
     if toExposeMode:
         feeControl.setMode('expose')
+        _tryRunningExposeShim(ccd, feeControl)
         logger.info("setMode=expose")
 
 def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
@@ -417,6 +466,7 @@ def readout(imtype, ccd=None,
     t0 = time.time()
     if doModes:
         feeControl.setMode('read')
+        _tryRunningReadShim(ccd, feeControl)
         time.sleep(0.5)               # 1s per JEG
     t1 = time.time()
 

@@ -123,6 +123,12 @@ class CCD(FPGA):
                            self.dewarNumbers[self.arm])
 
     @property
+    def camName(self):
+        """ The 2-letter name for this device, e.g. 'b3' """
+        
+        return "%1s%1d" % (self.arm, self.spectroId)
+
+    @property
     def detectorNum(self):
         assert not self.splitDetectors, "do not yet know how to split detector reads. "
         return 2
@@ -200,7 +206,7 @@ class CCD(FPGA):
         self.doCorrectSignBit = self.newAdc and (adcType == 3) and doCorrectSignBit
         
 
-    def setClockLevels(self, turnOn=None, turnOff=None, cmd=None):
+    def setClockLevels(self, turnOn=None, turnOff=None, cmd=None, initFrom=None):
         """Set some clock lines on or off.
         
         Args
@@ -208,6 +214,7 @@ class CCD(FPGA):
         turnOn : list of Clocks to set on
         tunOff : list of Clocks to set off
         cmd : optional Command to report to
+        initFrom : clock set to start from.
 
         In order to set clocks we need to fire up the FPGA's clocking
         routine. This was mostly designed to readout the detector,
@@ -221,12 +228,15 @@ class CCD(FPGA):
         from clocks import clocks
         reload(clocks)
         ticks, opcodes, readTime = clocks.genSetClocks(turnOn=turnOn,
-                                                       turnOff=turnOff)
+                                                       turnOff=turnOff,
+                                                       initFrom=initFrom)
         self.resetReadout()     # Clear FPGA waveform array.
+
+        self.logger.info("pre-setting clocks from %s" % (self))
         for i in range(len(ticks)):
             if cmd is not None:
                 cmd.inform('text="setting clocks: 0x%08x %d"' % (opcodes[i], ticks[i]))
-            sys.stderr.write("setting clocks: 0x%08x %d\n" % (opcodes[i], ticks[i]))
+            self.logger.info("setting clocks: 0x%08x %d\n" % (opcodes[i], ticks[i]))
             ret = self.sendOneOpcode(opcodes[i], ticks[i])
             if not ret:
                 raise RuntimeError("failed to send opcode %d" % (i))
