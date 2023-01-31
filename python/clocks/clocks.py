@@ -488,9 +488,25 @@ class Clocks(object):
                           self.stateMask(turnOff),
                           self.setNames(self.enabled[-1]))
 
-def genSetClocks(turnOn=None, turnOff=None):
-    initClocks = Clocks()
-    initClocks.changeFor(duration=2,
+def genSetClocks(turnOn=None, turnOff=None, initFrom=None):
+    """Return the (opcode, ticks) program to set all FPGA clocks to a given state
+
+    Parameters
+    ----------
+    turnOn : `Clocks`, optional
+        Clocks to turn on, by default None
+    turnOff : `Clocks`, optional
+        Clocks to turn off, by default None
+    initFrom : `Clocks`, optional
+        Clocks to start from, by default None
+
+    Returns
+    -------
+    opcodes
+        (ticks, opcodes) to run
+    """
+    initClocks = Clocks(initFrom=initFrom)
+    initClocks.changeFor(duration=8,
                          turnOn=turnOn,
                          turnOff=turnOff)
 
@@ -498,7 +514,7 @@ def genSetClocks(turnOn=None, turnOff=None):
 
     return (np.array(ticks, dtype='u2'), 
             np.array(opcodes, dtype='u4'),
-            0)
+            0.1)
 
 def genRowClocks(ncols, clocksFunc, rowBinning=1):
     """ Instantiate a complete row of clock times and opcodes. 
