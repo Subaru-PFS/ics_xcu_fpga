@@ -284,16 +284,22 @@ class PfsCpo(object):
 
     def busyWait(self, timeout=30.0, loopTime=0.25, debug=False):
         t1 = t0 = time.time()
-        
-        while (t1-t0 < timeout):
-            busy = self.query('busy?')
-            t1 = time.time()
-            if debug:
-                self.logger.warn("busy after %0.4fs %s" % (t1-t0, busy))
-            if int(busy) == 0:
-                return
-            if t1-t0 > timeout:
-                raise RuntimeError('timeout waiting for operation end')
+
+        ll = self.logger.level
+        try:
+            self.logger.setLevel(logging.INFO)
+            while (t1-t0 < timeout):
+                busy = self.query('busy?')
+                t1 = time.time()
+                if debug:
+                    self.logger.warn("busy after %0.4fs %s" % (t1-t0, busy))
+                if int(busy) == 0:
+                    return
+                if t1-t0 > timeout:
+                    raise RuntimeError('timeout waiting for operation end')
+                time.sleep(loopTime)
+        finally:
+            self.logger.setLevel(ll)
 
     def runTest(self, test, debug=False, trigger=None, **testArgs):
         self.logger.info('running test %s', test.testName)
