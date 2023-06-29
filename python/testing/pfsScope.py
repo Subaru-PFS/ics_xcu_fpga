@@ -203,10 +203,13 @@ class PfsCpo(object):
 
     def setSampling(self, scale='1e-6', pos=50, triggerPos=20, 
                     delayMode='on', delayTime=0, delayUnits='s',
-                    recordLength=100000):
+                    recordLength=100000, npoints=None):
         if delayMode not in {'on', 'off'}:
             raise ValueError('delayMode must be on or off')
-        
+
+        if npoints is None:
+            npoints = recordLength
+
         self.write('horiz:delay:mode %s' % (delayMode))
         if delayUnits == 'us':
             delayTime /= 1e6
@@ -221,6 +224,8 @@ class PfsCpo(object):
         self.write('horiz:pos %s' % (pos))
         self.write('horiz:trigger:pos %s' % (triggerPos))
         self.write('horiz:record %s' % (recordLength))
+        self.write('data:start 0')
+        self.write('data:stop %s' % (npoints))
 
     def setWaveform(self, channel, label, 
                     scale=1.0, pos=0, offset=0,

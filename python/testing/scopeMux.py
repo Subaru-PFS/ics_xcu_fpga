@@ -29,7 +29,7 @@ class ScopeMux(object):
     probe0s = (101, 111, 201, 211)
     
     def __init__(self, logLevel=logging.INFO,
-                 address='socket://scope-mux.pfs:4001'):
+                 address='socket://scope-mux.pfs:4002'):
 
         self.logger = logging.getLogger('scopeMux')
         self.logger.setLevel(logLevel)
