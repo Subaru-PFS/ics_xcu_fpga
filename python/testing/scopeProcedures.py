@@ -1397,7 +1397,7 @@ class V0Test(OneTest):
 
     def plot(self):
         return sigplot(self.testData['waveforms'], xscale=1.0, 
-                       xlim=(-1,10), ylim=(-20,20), 
+                       xlim=(-1,12), ylim=(-20,20),
                        showLimits=True, title=self.title)        
 
 class ReadoutTest(OneTest):
