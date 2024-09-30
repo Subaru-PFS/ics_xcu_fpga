@@ -51,7 +51,7 @@ class CCD(FPGA):
                 'b':'blue'}
 
     def __init__(self, spectroId=None, arm=None,
-                 rootDir='/data/pfs', site=None,
+                 rootDir='/data/raw', site=None,
                  splitDetectors=False,
                  adcVersion=None, adcBits='default',
                  doCorrectSignBit=True):
