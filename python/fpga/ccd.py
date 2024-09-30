@@ -323,7 +323,7 @@ class CCD(FPGA):
 
         nrows, ncols = image.shape
 
-        if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg is not "OK":
+        if row_i%everyNRows == 0 or row_i == nrows-1 or errorMsg != "OK":
             sys.stderr.write("line %05d %s\n" % (row_i, errorMsg))
 
     def addHeaderCards(self, hdr, cards):
