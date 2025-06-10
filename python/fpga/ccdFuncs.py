@@ -396,6 +396,7 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
 def readout(imtype, ccd=None,
             expTime=0, darkTime=None,
             nrows=None, ncols=None,
+            rowBinning=1,
             doSave=True, comment='',
             extraCards=(),
             doFeeCards=True,
@@ -420,12 +421,15 @@ def readout(imtype, ccd=None,
         time.sleep(0.5)               # 1s per JEG
     t1 = time.time()
 
-    feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
-                          darkTime=darkTime,
-                          getCards=doFeeCards)
-
+    if doFeeCards:
+        feeCards = fetchCards(imtype, feeControl=feeControl, expTime=expTime,
+                              darkTime=darkTime,
+                              getCards=doFeeCards)
+    else:
+        feeCards = []
     feeCards.extend(extraCards)
-    im, imfile = ccd.readImage(nrows=nrows, ncols=ncols,
+
+    im, imfile = ccd.readImage(nrows=nrows, ncols=ncols, rowBinning=rowBinning,
                                rowFunc=rowStatsFunc, rowFuncArgs=argDict,
                                clockFunc=clockFunc,
                                doSave=doSave,
