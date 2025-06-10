@@ -341,14 +341,14 @@ def _tweakWipeClocks(ccd, feeControl, pars):
 
 def _tryRunningReadShim(ccd, feeControl):
     cfg =  _loadShimConfig(ccd)
-    if cfg is None or not 'pars' in cfg:
+    if cfg is None or not 'pars' in cfg or cfg['pars'] is None:
         return
     pars = set([s for s in {clockIDs.P1, clockIDs.P2, clockIDs.P3} if s not in cfg['pars']])
     _tweakWipeClocks(ccd, feeControl, pars)
 
 def _tryRunningExposeShim(ccd, feeControl):
     cfg =  _loadShimConfig(ccd)
-    if cfg is None or 'pars' not in cfg:
+    if cfg is None or 'pars' not in cfg or cfg['pars'] is None:
         return
     pars = set(cfg['pars'])
     _tweakWipeClocks(ccd, feeControl, pars)
@@ -440,7 +440,6 @@ def clock(ncols, nrows=None, ccd=None, feeControl=None, cmd=None):
                                     clockFunc=getReadClocks())
     if cmd is not None:
         cmd.inform('text="started clocking %d rows of %d columns: %0.2fs or so"' % (nrows, ncols, readTime))
-
 
 def readout(imtype, ccd=None,
             expTime=0, darkTime=None,
