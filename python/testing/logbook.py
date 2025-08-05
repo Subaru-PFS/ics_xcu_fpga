@@ -70,7 +70,7 @@ def describeExperiments(sequence, ccd):
 class Logbook:
     @staticmethod
     def connect():
-        prop = "dbname='exposureLog' user='pfs' password='2394f4s3d' host='tron' port='5432'"
+        prop = "dbname='exposureLog' user='pfs' host='tron' port='5432'"
         return psycopg2.connect(prop)
 
     @staticmethod
