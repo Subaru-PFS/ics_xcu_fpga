@@ -738,8 +738,8 @@ def main(argv=None):
 
     if argv is None:
         argv = sys.argv[1:]
-    if isinstance(argv, basestring):
-        argv = argv.split()
+    if isinstance(argv, str):
+        argv = argparse.split()
 
     parser = argparse.ArgumentParser(description="Send one or more commands to the FEE controller.",
                                      epilog="At least one command must be specified.\n")
