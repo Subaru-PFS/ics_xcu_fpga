@@ -133,8 +133,9 @@ def readClocks(holdOn=None, holdOff=None, insertSerials=True):
 
     par.changeAt(at=5*parPhaseTicks,
                  turnOn=[P3])
-    if insertSerials:
-        insertIdlePixels(par, 1)
+    if True or insertSerials:
+        par.changeFor(duration=2, turnOn=[P3])
+        # insertIdlePixels(par, 1)
 
     return pre, pix, par
 
