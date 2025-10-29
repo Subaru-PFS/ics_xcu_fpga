@@ -251,7 +251,7 @@ class CCD(FPGA):
         
         cmd.debug(f'text="set read clock holdOn={holdOn} and holdOff={holdOff}"')
 
-    def getReadClocks(self):
+    def getReadClocks(self, rowBinned=False):
         """ Fetch the final read mode clocking routine. """
 
         if self.newAdc:
@@ -261,7 +261,8 @@ class CCD(FPGA):
             import clocks.oldAdcRead as readClocks
             reload(readClocks)
 
-        readClocks = partial(readClocks.readClocks, holdOn=self.holdOn, holdOff=self.holdOff)
+        readClocks = partial(readClocks.readClocks, holdOn=self.holdOn, holdOff=self.holdOff,
+                             insertSerials=(not rowBinned))
         self.logger.info(f'clocks (new={self.newAdc}) with holdon={self.holdOn}, holdOff={self.holdOff}')
         
         return readClocks
@@ -392,14 +393,14 @@ class CCD(FPGA):
         self.logger.warn('ccd is: %s', str(self))
 
         if clockFunc is None:
-            clockFunc = self.getReadClocks()
+            clockFunc = self.getReadClocks(rowBinned=(rowBinning != 1))
         
         if nrows is None:
             nrows = self.nrows
         if ncols is None:
             ncols = self.ncols
 
-        readRows = nrows/rowBinning
+        readRows = nrows//rowBinning
         if readRows * rowBinning != nrows:
             self.logger.warn("warning: rowBinning (%d) does not divide nrows (%d) integrally." % (rowBinning,
                                                                                                   nrows))
@@ -416,6 +417,9 @@ class CCD(FPGA):
                              doTest=doTest, debugLevel=debugLevel,
                              doAmpMap=doAmpMap,
                              rowFunc=rowFunc, rowFuncArgs=rowFuncArgs)
+        if rowBinning > 1:
+            im = np.repeat(im, rowBinning, axis=0)
+            
         t1 = time.time()
         elapsedTime = t1-t0
         

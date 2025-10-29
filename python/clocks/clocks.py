@@ -509,9 +509,10 @@ def genRowClocks(ncols, clocksFunc, rowBinning=1):
 
     pre, pix, par = clocksFunc()
 
-    preTicks, opcodes = pre.genClocks()
-    ticksList.extend(preTicks)
-    opcodesList.extend(opcodes)
+    if rowBinning == 1:
+        preTicks, opcodes = pre.genClocks()
+        ticksList.extend(preTicks)
+        opcodesList.extend(opcodes)
     logger.debug(f'generating clocks with {pix.holdOff} {pix.holdOn}')
     
     pixTicks, opcodes = pix.genClocks()
